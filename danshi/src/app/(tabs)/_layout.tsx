@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 import { HapticTab } from '@/src/components/haptic_tab';
 
 export default function TabsLayout() {

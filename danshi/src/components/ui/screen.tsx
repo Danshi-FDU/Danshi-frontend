@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, ViewProps, ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Spacing } from '@/src/constants/theme';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 import Container from '@/src/components/ui/container';
 import { H2 } from '@/src/components/ui/typography';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ViewProps, StyleSheet } from 'react-native';
 import { ThemedView } from '@/src/components/themed_view';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 
 export type CardProps = ViewProps & {
   padded?: boolean;

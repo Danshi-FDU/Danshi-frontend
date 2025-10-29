@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, StyleSheet, Pressable, Animated, Easing } from 'react-native';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 
 export type BottomSheetProps = {
   visible: boolean;

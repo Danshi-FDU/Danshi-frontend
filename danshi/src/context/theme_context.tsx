@@ -2,14 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { View, StyleSheet } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useColorScheme as useRNColorScheme } from 'react-native'
-import { Colors } from '../constants/theme'
+import { Colors } from '@/src/constants/theme'
 
 // Types
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ThemeColors = typeof Colors.light
 
 type ThemeContextValue = {
-  // current persisted mode and helpers
   mode: ThemeMode
   effective: 'light' | 'dark'
   setMode: (m: ThemeMode) => Promise<void>
@@ -21,14 +20,12 @@ const KEY = 'appThemeMode'
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
 function useSystemColorScheme() {
-  // Provide a simple hydration-safe wrapper similar to the old web-specific helper.
   const [hasHydrated, setHasHydrated] = useState(false)
   useEffect(() => setHasHydrated(true), [])
   const cs = useRNColorScheme()
   if (hasHydrated) return cs
   return 'light'
 }
-
 
 export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const system = useSystemColorScheme() ?? 'light'
@@ -80,16 +77,13 @@ export function useTheme() {
   const colors: ThemeColors = Colors[effective]
 
   return {
-    // theme palette
     colors,
-    // common shortcuts
     text: colors.text,
     tint: colors.tint,
     card: colors.card,
     danger: colors.danger,
     icon: colors.icon,
     background: colors.background,
-    // mode control
     mode: ctx.mode,
     effective: ctx.effective,
     setMode: ctx.setMode,

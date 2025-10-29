@@ -6,7 +6,7 @@ import Card from '@/src/components/ui/card';
 import Input from '@/src/components/ui/input';
 import Button from '@/src/components/ui/button';
 import { H2, Body } from '@/src/components/ui/typography';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 import { postsService } from '@/src/services/posts_service';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';

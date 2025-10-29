@@ -2,7 +2,7 @@ import React from 'react';
 import { Slot, Redirect, usePathname } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { ThemeModeProvider } from '@/src/hooks/use_theme';
+import { ThemeModeProvider } from '@/src/context/theme_context';
 import { AuthProvider, useAuth } from '@/src/context/auth_context';
 import { WaterfallSettingsProvider } from '@/src/context/waterfall_context';
 

@@ -62,4 +62,3 @@ coverage/
 # Env files
 .env
 .env.*
-!.env.example

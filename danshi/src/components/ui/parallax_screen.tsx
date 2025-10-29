@@ -3,7 +3,7 @@ import ParallaxScrollView from '@/src/components/parallax_scroll_view';
 import Container from '@/src/components/ui/container';
 import { H2 } from '@/src/components/ui/typography';
 import { Spacing } from '@/src/constants/theme';
-import { ThemeColors } from '@/src/hooks/use_theme';
+import { ThemeColors } from '@/src/context/theme_context';
 
 export type ParallaxScreenProps = PropsWithChildren<{
   title?: string;

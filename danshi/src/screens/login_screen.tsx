@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 import Container from '@/src/components/ui/container';
 import { useAuth } from '@/src/context/auth_context';
 import { router } from 'expo-router';

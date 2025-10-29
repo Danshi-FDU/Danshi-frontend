@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Body, H3 } from '@/src/components/ui/typography';
-import { useTheme } from '@/src/hooks/use_theme';
+import { useTheme } from '@/src/context/theme_context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Card from '@/src/components/ui/card';
 
