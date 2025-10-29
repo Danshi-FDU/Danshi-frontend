@@ -18,7 +18,7 @@ export default function LoginScreen() {
   const bp = useBreakpoint();
   const pad = pickByBreakpoint(bp, { base: 16, sm: 20, md: 24, lg: 32, xl: 40 });
   const maxWidth = pickByBreakpoint(bp, { base: 440, sm: 480, md: 560, lg: 640, xl: 720 });
-  const [identifier, setIdentifier] = useState(''); // 邮箱或用户名
+  const [identifier, setIdentifier] = useState(''); // mail or name
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

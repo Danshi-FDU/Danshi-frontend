@@ -76,12 +76,15 @@
 
   - 使用 AsyncStorage 管理认证 token（get/set/clear）
   - Key 来自 `STORAGE_KEYS.AUTH_TOKEN`
-- `src/lib/errors/app_errors`
+- `src/lib/errors/app_error.ts`
   - 统一错误格式
 - `src/lib/auth/auth_storage.ts`
   - 负责本地 `token` 的持久化，给出 `getToken()`、`setToken()`、`clearToken()` 方法并聚合到 `AuthStorage()` 中
 - `src/lib/auth/roles.ts`
   - 负责判断权限，提供 `hasRoleAtLeast()`、`isAdmin()`、`isSuperAdmin()` 方法
+- `src/lib/auth/jwt.ts`
+  - 轻量 JWT Payload 解码（Base64url 解码，不校验证签，仅解析 payload）
+  - 用途：在登录后立即从 Token 中提取 `name/nickname`、`avatarUrl/avatar` 用于“预览显示”（昵称与头像）
 
 ### 2.4 repositories/
 
@@ -107,7 +110,10 @@
 
 ### 2.6 context/
 - `src/context/auth_context.tsx`
-  - 提供全局认证上下文与 `useAuth` Hook：提供 `signIn/signOut/register/me` 
+  - 提供全局认证上下文与 `useAuth` Hook：
+    - 状态：`userToken`（字符串）、`preview`（从 JWT 提取的 `name/avatarUrl`）、`user`（`/auth/me` 返回的完整用户信息）、`isLoading`。
+    - 方法：`signIn(token)`（保存 token → 立即解析并设置 `preview` → 后台请求 `/auth/me` 回填 `user`）、`signOut()`、`refreshUser()`（手动刷新 `/auth/me`）。
+  - 体验：登录后昵称与头像即刻显示，完整资料在后台获取成功后自动覆盖。
 - `src/context/waterfall_context.tsx`
   - 提供瀑布流布局参数（最小/最大高度等）与修改方法，供 Explore/瀑布流相关页面共享
 - `src/context/theme_context.tsx`
@@ -285,6 +291,11 @@
 - 仓储切换：
   - 由 `USE_MOCK` 控制选择 `MockAuthRepository` 或 `ApiAuthRepository`。
   - 配置来源：`.env` 中 `EXPO_PUBLIC_USE_MOCK=true/false`。
+
+- 登录后体验优化：
+  - 立即显示：从 JWT Payload 中解析 `nickname/name` 与 `avatarUrl/avatar`，立刻用于 UI 预览（无需等待网络）。
+  - 完整信息：上下文会在后台调用 `/auth/me` 获取完整 `User` 并回填到 `user`，覆盖预览信息。
+  - 字段兼容性：昵称兼容 `nickname`/`name`，头像兼容 `avatarUrl`/`avatar`。
 
 ---
 
