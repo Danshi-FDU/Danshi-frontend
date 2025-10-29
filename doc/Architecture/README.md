@@ -16,7 +16,6 @@
   - Services（领域服务层）：业务校验与编排，面向用例而非数据表
   - Presentation（表现层）：Hook、Context、组件、屏幕、导航与主题系统
 
-
 ---
 
 ## 2. 目录结构（按功能与分层说明）
@@ -84,17 +83,9 @@
   - 角色与权限：
   - 与 `ROLES/ROLE_ORDER` 常量对齐，确保比较一致性。
 
-### 2.4 api/
+### 2.4 data sources（已合并至 repositories 内部）
 
-- `src/api/auth.ts`
-  - 早期示例/备用实现（基于 AsyncStorage 的本地逻辑）。
-  - 现阶段认证流程优先经由 `repositories/auth_repository.ts` 中的 `MockAuthRepository` 或 `ApiAuthRepository`；表现层不直接依赖该文件。
-
-- `src/api/posts.ts`
-  - 以 AsyncStorage 作为数据源的 posts 存取实现（示例）。
-  - Key 来自 `STORAGE_KEYS.POSTS`。
-
-> 说明：api/ 目录中的文件是“数据源实现”，可以是真实后端、Mock、本地数据库或第三方 SDK。不要在表现层直接用 api，统一由 Repository 暴露给上层。
+- 说明：原先的 `src/api/*` 已移除/合并，数据源实现（Mock/本地/服务端）统一放在 Repositories 内部或并列的 `data-sources` 目录中，由仓储对外暴露统一接口。表现层不直接依赖具体数据源。
 ### 2.5 repositories/
 
 - `src/repositories/auth_repository.ts`
