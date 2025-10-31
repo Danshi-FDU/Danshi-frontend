@@ -139,25 +139,75 @@
 - `src/hooks/use_responsive.ts`
   - 补充响应式工具（如组合常用场景）
 ### 2.8 components/
-
 - `src/components/themed_text.tsx`、`src/components/themed_view.tsx`
+
+- `src/constants/selects.ts`
+  - 下拉常量与类型：
+    - `DEFAULT_HOMETOWN`（默认“保密”）
+    - `HOMETOWN_OPTIONS` 家乡选项列表
+    - `findOptionLabel()` 辅助查询
+  - 供通用下拉与个人信息编辑中的“家乡”选择使用
   - 与主题系统耦合的文本/容器组件，自动应用配色
-- `src/components/parallax_scroll_view.tsx`
   - 视差滚动容器，支持自定义 header 背景色（按 `useTheme()`）
+
+- `src/repositories/users_repository.ts`
+  - `UsersRepository` 接口 + `ApiUsersRepository`/`MockUsersRepository` 实现，受 `USE_MOCK` 控制切换
+  - 能力：
+    - `getUser(userId): Promise<UserProfile>`（含 stats、isFollowing、createdAt、bio）
+    - `updateUser(userId, input): Promise<{ user: UserProfile }>`（支持 name、bio、gender、hometown、avatarUrl）
+  - Mock 行为：
+    - 稳定头像：若未设置 `avatarUrl`，按 email/用户名生成 DiceBear identicon
+    - 注册/更新会落库到 Mock store，便于后续读取
 - `src/components/overlays/bottom_sheet.tsx`
-  - 底部弹窗容器
 - `src/components/haptic_tab.tsx`
 - `src/components/external_link.tsx`
+
+- `src/services/users_service.ts`
+  - 输入校验与仓储编排：
+    - `getUser(userId)`：用户 ID 必填
+    - `updateUser(userId, input)`：
+      - `name` 非空校验
+      - `avatarUrl` 校验：
+        - Mock 模式（`USE_MOCK=true`）：允许 `http(s)` 与本地预览 `blob:/data:/file:`/`data:`
+        - 接口模式（`USE_MOCK=false`）：仅允许 `http(s)`；提示应上传文件后使用服务端返回 URL
   - 外链跳转组件（Web/原生统一处理）
-#### 2.8.1 components/ui/
 
-通用 UI 组件库（可复用、响应式友好）：
+- `select.tsx`：通用下拉选择（Modal 弹层选择）
+  - 主题适配：卡片背景、选中高亮与分割线随明/暗色切换
+- `editable.tsx`：通用可编辑行组件集（文本/下拉/头像）
+  - `EditableTextRow`、`EditableSelectRow`（“标题 + 铅笔 + 编辑态（取消/保存）”模式）
+  - 支持“受控编辑态”（`editing`）以便页面层强制“任意时刻只打开一个编辑”
+- `avatar_dropzone.tsx`：头像拖拽上传（Web 表现层）预览框
+  - Web 支持拖拽 `File` 生成 `blob:` 预览地址；移动端显示提示
+  - 主题适配：边框/底色取自 `useTheme()`
 
-- `container.tsx`：包裹型容器（控制水平边距与最大宽度）
+  - 资料编辑：采用与“个人简介”一致的可编辑卡片风格（通用组件 `editable.tsx`）
+  - 可编辑项：昵称（文本）、家乡（下拉，默认“保密”）、头像、个人简介（多行）
+  - 头像编辑：点击头像开启 BottomSheet
+    - Web：拖拽图片到 `AvatarDropzone` 预览；Mock 模式可保存本地 `blob:` 预览
+    - 移动端：输入 URL（留空回退为自动头像）
+    - 服务端模式：头像 URL 需为 http(s)；建议先走上传接口取正式 URL
+  - 单一编辑：通过受控 `editing`，保证同一时间仅一个编辑项处于打开状态；切换项时自动关闭前一个
+  - 头像铅笔角标：仅 Web 悬停时显示，移动端不显示
+
+
+### Users（用户信息）
+
+- API：
+  - `GET /api/v1/users/:userId` → `UserProfile`（含统计与简介）
+  - `PUT /api/v1/users/:userId` → `{ user: UserProfile }`
+- Mock 对齐：
+  - 登录/注册：严格校验与持久化；头像按 email/用户名生成稳定 URL
+  - `getUser/updateUser`：存取本地 Mock store，自动补齐头像
+- 前端约束：
+  - 服务端模式下，`avatarUrl` 仅支持 http(s)；拖拽得到的 `blob:` 地址仅用于本地预览，不会上送
 - `grid.tsx`：网格容器（结合断点切换列数/间距）
-- `icon_symbol(.ios).tsx`：平台图标适配
 - `parallax_screen.tsx`：带视差头部的 Screen 变体
 - `responsive_image.tsx`：按父容器/断点自适应的图片组件
+  - 新增组件的主题接入：
+    - `select.tsx`：选中态/分割线随主题变更
+    - `editable.tsx`：头像预览卡与文本颜色走主题
+    - `myself_screen.tsx`：头像编辑角标随主题调整透明度
 - `screen.tsx`：页面级容器（Scroll/常规两种 variant），处理安全区与背景
 - `settings.tsx`：设置列表与项（`SettingsList`、`SettingsItem`）
 - `stack.tsx`：纵向/横向栈布局（gap/align/justify）
@@ -397,75 +447,64 @@
   - `assets/images/*`：图标与图片资源。
 
 - `src/config/index.ts`：运行时配置。
-- `src/constants/app.ts`：存储键、接口路径、角色、正则。
-- `src/constants/breakpoints.ts`：断点与选择器。
-- `src/constants/layout.ts`：布局相关常量。
-- `src/constants/theme.ts`：主题系统（颜色/间距/字体/字阶）。
 
-- `src/lib/errors/app_error.ts`：统一错误类型与归一工具。
-- `src/lib/http/client.ts`：未鉴权 HTTP 客户端。
-- `src/lib/http/http_auth.ts`：鉴权 HTTP 客户端。
-- `src/lib/http/response.ts`：响应类型与解包器。
-- `src/lib/auth/auth_storage.ts`：token 存取。
-- `src/lib/auth/roles.ts`：角色与权限工具。
+- constants（常量与主题）
+  - `src/constants/app.ts`：存储键、接口路径、角色、正则、运行时开关（`USE_MOCK`）。
+  - `src/constants/breakpoints.ts`：断点与选择器。
+  - `src/constants/layout.ts`：布局相关常量（Spacing/Fonts/TypeScale）。
+  - `src/constants/theme.ts`：主题系统（颜色/间距/字体/字阶）。
+  - `src/constants/selects.ts`：下拉常量（`DEFAULT_HOMETOWN`、`HOMETOWN_OPTIONS`、`findOptionLabel`）。
 
-- `src/repositories/auth_repository.ts`：认证仓储（接口 + 多实现）。
-- `src/repositories/posts_repository.ts`：Posts 仓储（对接 api/posts）。
+- lib（基础设施）
+  - `src/lib/errors/app_error.ts`：统一错误类型与归一工具。
+  - `src/lib/http/client.ts`：未鉴权 HTTP 客户端。
+  - `src/lib/http/http_auth.ts`：鉴权 HTTP 客户端（自动注入 Authorization）。
+  - `src/lib/http/response.ts`：响应类型与解包器。
+  - `src/lib/auth/auth_storage.ts`：token/refreshToken 存取。
+  - `src/lib/auth/roles.ts`：角色与权限工具。
 
-- `src/services/auth_service.ts`：认证服务（校验+编排+存储）。
-- `src/services/posts_service.ts`：Posts 服务（校验+创建）。
+- repositories（数据访问）
+  - `src/repositories/auth_repository.ts`：认证仓储（Mock/Api）。
+  - `src/repositories/posts_repository.ts`：Posts 仓储（本地/可扩展服务端）。
+  - `src/repositories/users_repository.ts`：Users 仓储（Mock/Api；支持 GET/PUT）。
 
-- `src/context/auth_context.tsx`：认证上下文与 Hook。
-- `src/context/waterfall_context.tsx`：瀑布流设置上下文。
-- `src/context/theme_context.tsx`：主题 Provider 与 Hook。
+- services（领域服务）
+  - `src/services/auth_service.ts`：认证服务（登录/注册/刷新/登出）。
+  - `src/services/posts_service.ts`：Posts 服务（校验+创建）。
+  - `src/services/users_service.ts`：Users 服务（校验与编排；avatarUrl 在 Mock/Server 下不同校验）。
 
-- `src/hooks/use_media_query.ts`：响应式 Hook。
-- `src/hooks/use_responsive.ts`：响应式辅助。
+- context（上下文）
+  - `src/context/auth_context.tsx`：认证上下文与 Hook。
+  - `src/context/waterfall_context.tsx`：瀑布流设置上下文。
+  - `src/context/theme_context.tsx`：主题 Provider 与 Hook。
 
-- `src/components/external_link.tsx`：外链组件。
-- `src/components/haptic_tab.tsx`：触觉反馈包装。
-- `src/components/parallax_scroll_view.tsx`：视差滚动容器。
-- `src/components/themed_text.tsx`：主题文本。
-- `src/components/themed_view.tsx`：主题容器。
-- `src/components/overlays/bottom-sheet.tsx`：底部弹窗。
+- hooks（响应式与工具）
+  - `src/hooks/use_media_query.ts`、`src/hooks/use_responsive.ts`：响应式辅助。
 
-- `src/components/ui/button.tsx`：按钮。
-- `src/components/ui/card.tsx`：卡片容器。
-- `src/components/ui/collapsible.tsx`：折叠区。
-- `src/components/ui/container.tsx`：容器。
-- `src/components/ui/grid.tsx`：网格。
-- `src/components/ui/icon_symbol.tsx` / `.ios.tsx`：平台图标。
-- `src/components/ui/input.tsx`：输入框。
-- `src/components/ui/masonry.tsx`：瀑布流布局。
-- `src/components/ui/parallax_screen.tsx`：视差页面容器。
-- `src/components/ui/responsive_image.tsx`：响应式图片。
-- `src/components/ui/screen.tsx`：页面容器。
-- `src/components/ui/settings.tsx`：设置列表与项。
-- `src/components/ui/stack.tsx`：栈容器。
-- `src/components/ui/typography.tsx`：排版。
+- components（通用组件）
+  - overlay：
+    - `src/components/overlays/bottom_sheet.tsx`：底部弹窗（主题适配）。
+  - ui：
+    - `src/components/ui/button.tsx`、`card.tsx`、`collapsible.tsx`、`container.tsx`、`grid.tsx`、`icon_symbol(.ios).tsx`、`input.tsx`、`masonry.tsx`、`parallax_screen.tsx`、`responsive_image.tsx`、`screen.tsx`、`settings.tsx`、`stack.tsx`、`typography.tsx`。
+    - 新增：`src/components/ui/select.tsx`（下拉选择，主题适配）。
+    - 新增：`src/components/ui/editable.tsx`（可编辑行集合：文本/下拉，受控 editing）。
+    - 新增：`src/components/ui/avatar_dropzone.tsx`（Web 拖拽头像预览，主题适配）。
+  - 其他：
+    - `src/components/parallax_scroll_view.tsx`、`src/components/themed_text.tsx`、`src/components/themed_view.tsx`、`src/components/haptic_tab.tsx`、`src/components/external_link.tsx`。
 
-- `src/app/_layout.tsx`：根布局。
-- `src/app/index.tsx`：首页。
-- `src/app/(auth)/_layout.tsx`：认证分组布局。
-- `src/app/(auth)/login.tsx`：登录路由入口。
-- `src/app/(auth)/register.tsx`：注册路由入口。
-- `src/app/(tabs)/_layout.tsx`：Tab 分组布局。
-- `src/app/(tabs)/explore.tsx`：Explore 路由入口。
-- `src/app/(tabs)/post.tsx`：Post 路由入口。
-- `src/app/(tabs)/myself/_layout.tsx`：“我的”分组的 Stack 布局；`settings` 页头部透明仅显示返回箭头。
-- `src/app/(tabs)/myself/index.tsx`：“我的”首页路由入口（渲染个人中心）。
-- `src/app/(tabs)/myself/settings.tsx`：设置页路由入口（通过“我的”进入）。
-- `src/app/(tabs)/settings.tsx`：兼容保留为 Redirect 到 `/myself/settings`（不在 Tab 上展示）。
+- app（路由入口）
+  - `src/app/_layout.tsx`（根布局）与 `src/app/(tabs)/_layout.tsx`（Tab 分组）等。
+  - `src/app/(tabs)/myself/_layout.tsx`：“我的”分组 Stack；设置页头部透明仅返回箭头。
+  - `src/app/(tabs)/myself/index.tsx` / `settings.tsx`。
 
-- `src/screens/explore_screen.tsx`：探索页。
-- `src/screens/login_screen.tsx`：登录页。
-- `src/screens/register_screen.tsx`：注册页。
-- `src/screens/post_screen.tsx`：发帖页。
-- `src/screens/myself_screen.tsx`：个人中心页（顶部标题 + 右上角进入设置）。
-- `src/screens/settings_screen.tsx`：设置页（头部透明仅显示返回箭头）。
+- screens（页面）
+  - `src/screens/explore_screen.tsx`、`login_screen.tsx`、`register_screen.tsx`、`post_screen.tsx`。
+  - `src/screens/myself_screen.tsx`：个人中心（点击头像编辑、单一编辑受控）。
+  - `src/screens/settings_screen.tsx`：设置页（主题切换/瀑布流参数；头部透明）。
 
-- `src/models/User.ts`：用户模型。
-- `src/utils/index.ts`：工具方法聚合。
+- models & utils
+  - `src/models/User.ts`：用户模型。
+  - `src/utils/index.ts`：工具方法聚合。
 
 ---
 

@@ -21,6 +21,9 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/v1/auth/logout',  //POST
     REFRESH: '/api/v1/auth/refresh', // POST
   },
+  USERS: {
+    ROOT: '/api/v1/users', // GET /:userId, PUT /:userId
+  },
 } as const;
 
 // Role literals and their order (low -> high privilege)
