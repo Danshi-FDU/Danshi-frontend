@@ -1,6 +1,6 @@
 # 项目架构说明（DanShi）
 
-> 最新修改日期：2025-10-29
+> 最新修改日期：2025-10-31
 >
 
 ---
@@ -36,10 +36,11 @@
   - 集中式常量与运行时开关：
     - `USE_MOCK`（切换 Mock/Server）
     - `API_BASE_URL`（服务端 URL）、`REQUEST_TIMEOUT_MS`（请求超时）。
-    - `STORAGE_KEYS`（`AUTH_TOKEN`、`POSTS` 等）存储键
+  - `STORAGE_KEYS`（`AUTH_TOKEN`、`REFRESH_TOKEN`、`POSTS` 等）存储键
     - `API_ENDPOINTS`（`/auth/login`、`/auth/register`、`/auth/me`、`/auth/logout` 等，仅 path，base 由 `API_BASE_URL` 提供）接口路径
     - `ROLES`、`ROLE_ORDER` 角色常量
-    - `REGEX`（如 email 校验）正则
+    - `REGEX`（如 email 与 username 校验）正则
+      - `REGEX.EMAIL`、`REGEX.USERNAME`（支持邮箱或 3-30 位用户名：字母/数字/下划线/点/短横线）
   - 环境变量：`EXPO_PUBLIC_USE_MOCK`、`EXPO_PUBLIC_API_URL`、`EXPO_PUBLIC_REQUEST_TIMEOUT_MS`
 
 - `src/constants/breakpoints.ts`
@@ -74,8 +75,9 @@
     - `ApiResponse<T>` 为后端返回 `{ code, message, data }`
     - `unwrapApiResponse` 用于抽取 data 与处理非 0 code
 
-  - 使用 AsyncStorage 管理认证 token（get/set/clear）
-  - Key 来自 `STORAGE_KEYS.AUTH_TOKEN`
+  - 使用 AsyncStorage 管理认证令牌：
+    - Access Token：`getToken()` / `setToken()` / `clearToken()`，Key 来自 `STORAGE_KEYS.AUTH_TOKEN`
+    - Refresh Token：`getRefreshToken()` / `setRefreshToken()` / `clearRefreshToken()`，Key 来自 `STORAGE_KEYS.REFRESH_TOKEN`
 - `src/lib/errors/app_error.ts`
   - 统一错误格式
 - `src/lib/auth/auth_storage.ts`
@@ -93,6 +95,14 @@
     - `MockAuthRepository`（默认在开发阶段启用）
     - `ApiAuthRepository`（直连服务端，通过 `http/http_auth`）
   - 切换：读取 `constants/app.ts` 的 `USE_MOCK` 一键切换
+  - 能力：
+    - 登录：接受 `{ email?; username?; password }`，返回 `{ token, user, refreshToken? }`
+    - 注册：`RegisterInput` 强制 `name` 必填；返回 `{ token, user, refreshToken? }`
+    - 刷新：`refresh(refreshToken)` 对接 `POST /api/v1/auth/refresh`，返回 `{ token, refreshToken? }`
+  - Mock 行为：
+    - 登录严格校验：identifier 必须匹配当前 Mock 用户（邮箱或用户名其一），密码必须匹配保存的 Mock 密码；否则返回“账号或密码错误”。
+    - 注册会更新 Mock 用户的 `email/name` 与 Mock 密码，便于随后用新账号直接登录。
+    - 头像模拟：按邮箱（优先）或用户名生成稳定的头像 URL（DiceBear identicon），确保 `avatarUrl` 始终可用。
 
 - `src/repositories/posts_repository.ts`
   - 作为 `posts` 资源的统一对外仓储接口，默认内置 AsyncStorage Mock 数据源，可按需切换至服务端实现。
@@ -101,8 +111,10 @@
 ### 2.5 services/
 
   - `src/services/auth_service.ts`
-    - 登录/注册前进行 email/password 格式校验（用 `REGEX`）
-    - 处理返回的 token，调用 `AuthStorage` 持久化
+    - 登录：支持“邮箱或用户名 + 密码”，自动识别 `identifier` 是邮箱或用户名（使用 `REGEX.EMAIL/USERNAME`）；持久化 `token`，若返回 `refreshToken` 也一并持久化
+    - 注册：强制 `name` 必填；校验邮箱与密码长度；持久化 `token`，若返回 `refreshToken` 也一并持久化
+    - 刷新：`refresh()` 从本地读取 `refreshToken` 调用仓储刷新，成功后更新本地 `token`，若返回新的 `refreshToken` 也更新
+    - 登出：同时清理本地 `token` 与 `refreshToken`
 
 - `src/services/posts_service.ts`
 
@@ -178,7 +190,12 @@
 - `src/app/index.tsx`：首页路由
 - `src/app/(auth)/_layout.tsx`：认证分组布局
 - `src/app/(tabs)/_layout.tsx`：底部标签页布局
-- `src/app/(tabs)/explore.tsx`、`post.tsx`、`settings.tsx`：Tab 页入口。
+- `src/app/(tabs)/explore.tsx`、`post.tsx`：Tab 页入口
+- `src/app/(tabs)/myself/_layout.tsx`：”我的“分组的嵌套路由栈布局（Stack）
+  - `settings` 页面使用 `headerTransparent: true` + 空标题，仅显示返回箭头，避免顶部白条
+- `src/app/(tabs)/myself/index.tsx`：”我的“首页（路由入口，渲染个人界面 Screen）
+- `src/app/(tabs)/myself/settings.tsx`：设置页（通过“我的”右上角进入）
+- `src/app/(tabs)/settings.tsx`：兼容保留为 Redirect 到 `/myself/settings`（不在 Tab 上展示）
 
 > 说明：app/ 目录的文件是“路由入口”，通常只做路由与 Screen 绑定，尽量保持薄。
 ### 2.9 screens/
@@ -189,7 +206,8 @@
 - `login_screen.tsx`：登录页（表单校验与调用 `auth_service`）
 - `register_screen.tsx`：注册页（同上）
 - `post_screen.tsx`：发帖页（输入校验 + `posts_service`，并已响应式调整文本框高度、间距）
-- `settings_screen.tsx`：设置页（主题切换、瀑布流高度参数；已去除黑线，并使用柔和卡片背景分隔）
+- `myself_screen.tsx`：个人中心页（顶部标题 + 右上角设置入口）
+- `settings_screen.tsx`：设置页（主题切换、瀑布流高度参数；通过“我的”页进入；头部透明仅显示返回箭头）
 
 ### 2.10 models/
 
@@ -286,7 +304,7 @@
 ## 5. 认证与权限（Auth + Roles）
 
 - Token：
-  - 存储于 `AuthStorage`，Key 为 `STORAGE_KEYS.AUTH_TOKEN`。
+  - Access Token 存储于 `AuthStorage`（`STORAGE_KEYS.AUTH_TOKEN`）；Refresh Token 存储于 `AuthStorage`（`STORAGE_KEYS.REFRESH_TOKEN`）。
   - 鉴权客户端自动注入 Authorization 头。
 - 仓储切换：
   - 由 `USE_MOCK` 控制选择 `MockAuthRepository` 或 `ApiAuthRepository`。
@@ -296,6 +314,10 @@
   - 立即显示：从 JWT Payload 中解析 `nickname/name` 与 `avatarUrl/avatar`，立刻用于 UI 预览（无需等待网络）。
   - 完整信息：上下文会在后台调用 `/auth/me` 获取完整 `User` 并回填到 `user`，覆盖预览信息。
   - 字段兼容性：昵称兼容 `nickname`/`name`，头像兼容 `avatarUrl`/`avatar`。
+
+- 刷新策略（当前实现）：
+  - 提供 `authService.refresh()` 方法；上层可在需要时触发刷新并更新本地令牌。
+  - 可选增强：在 `http_auth` 中加入 401 拦截 → 尝试 `refresh()` → 成功后重试原请求（未默认开启，待后端契约确认后再接入）。
 
 ---
 
@@ -430,13 +452,17 @@
 - `src/app/(tabs)/_layout.tsx`：Tab 分组布局。
 - `src/app/(tabs)/explore.tsx`：Explore 路由入口。
 - `src/app/(tabs)/post.tsx`：Post 路由入口。
-- `src/app/(tabs)/settings.tsx`：Settings 路由入口。
+- `src/app/(tabs)/myself/_layout.tsx`：“我的”分组的 Stack 布局；`settings` 页头部透明仅显示返回箭头。
+- `src/app/(tabs)/myself/index.tsx`：“我的”首页路由入口（渲染个人中心）。
+- `src/app/(tabs)/myself/settings.tsx`：设置页路由入口（通过“我的”进入）。
+- `src/app/(tabs)/settings.tsx`：兼容保留为 Redirect 到 `/myself/settings`（不在 Tab 上展示）。
 
 - `src/screens/explore_screen.tsx`：探索页。
 - `src/screens/login_screen.tsx`：登录页。
 - `src/screens/register_screen.tsx`：注册页。
 - `src/screens/post_screen.tsx`：发帖页。
-- `src/screens/settings_screen.tsx`：设置页。
+- `src/screens/myself_screen.tsx`：个人中心页（顶部标题 + 右上角进入设置）。
+- `src/screens/settings_screen.tsx`：设置页（头部透明仅显示返回箭头）。
 
 - `src/models/User.ts`：用户模型。
 - `src/utils/index.ts`：工具方法聚合。

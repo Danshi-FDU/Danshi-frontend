@@ -83,7 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setIsLoading(true);
     try {
-      await AuthStorage.clearToken();
+      // Call API to logout (best-effort), then clear local state
+      await authService.logout();
       setUserToken(null);
       setUser(null);
       setPreview(null);

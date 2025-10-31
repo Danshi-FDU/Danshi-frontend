@@ -45,14 +45,12 @@ export default function TabsLayout() {
           ),
         }}
       />
-
-
       <Tabs.Screen
-        name="settings"
+        name="myself"
         options={{
-          title: '设置',
+          title: '我的',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
         }}
       />

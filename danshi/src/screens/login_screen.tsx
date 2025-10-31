@@ -18,17 +18,16 @@ export default function LoginScreen() {
   const bp = useBreakpoint();
   const pad = pickByBreakpoint(bp, { base: 16, sm: 20, md: 24, lg: 32, xl: 40 });
   const maxWidth = pickByBreakpoint(bp, { base: 440, sm: 480, md: 560, lg: 640, xl: 720 });
-  const [identifier, setIdentifier] = useState(''); // mail or name
+  const [identifier, setIdentifier] = useState(''); // email or username
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const validate = () => {
-    if (!identifier) return '请输入邮箱';
-    const emailRegex = REGEX.EMAIL;
-    if (!emailRegex.test(identifier)) return '请输入有效的邮箱地址';
+    if (!identifier) return '请输入邮箱或用户名';
+    const ok = REGEX.EMAIL.test(identifier) || REGEX.USERNAME.test(identifier);
+    if (!ok) return '请输入有效的邮箱或用户名';
     if (!password) return '请输入密码';
-    if (password.length < 8) return '密码长度至少 8 位';
     return '';
   };
 
@@ -44,10 +43,10 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-  const { token } = await authService.login({ email: identifier, password });
-  await signIn(token);
-  // jump to tabs root (index in tabs group resolves to "/")
-  router.replace('/');
+      const { token } = await authService.login({ identifier, password });
+      await signIn(token);
+      // jump to tabs root (index in tabs group resolves to "/")
+      router.replace('/');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || '登录失败，请重试');

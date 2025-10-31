@@ -3,6 +3,7 @@ import type { User } from '@/src/models/User';
 // Storage keys used across the app
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth_token',
+  REFRESH_TOKEN: 'refresh_token',
   POSTS: 'posts:v1',
 } as const;
 
@@ -18,6 +19,7 @@ export const API_ENDPOINTS = {
     REGISTER: '/api/v1/auth/register',  // POST
     ME: '/api/v1/auth/me',  // GET
     LOGOUT: '/api/v1/auth/logout',  //POST
+    REFRESH: '/api/v1/auth/refresh', // POST
   },
 } as const;
 
@@ -33,7 +35,10 @@ export const ROLE_ORDER: RoleLiteral[] = [ROLES.USER, ROLES.ADMIN, ROLES.SUPER_A
 
 // Common regex patterns
 export const REGEX = {
+  // email: simple email validation
   EMAIL: /.+@.+\..+/,
+  // username: 3-30 chars, letters, numbers, underscore, dot, hyphen
+  USERNAME: /^[a-zA-Z0-9_.-]{3,30}$/,
 } as const;
 
 // Convenience type to align with domain type if needed
