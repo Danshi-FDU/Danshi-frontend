@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import Screen from '@/src/components/ui/screen';
 import Container from '@/src/components/ui/container';
 import Card from '@/src/components/ui/card';

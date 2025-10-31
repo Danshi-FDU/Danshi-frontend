@@ -1,20 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/src/context/theme_context';
-import { useAuth } from '@/src/context/auth_context';
 import { Body } from '@/src/components/ui/typography';
-import Input from '@/src/components/ui/input';
 import Button from '@/src/components/ui/button';
+import Input from '@/src/components/ui/input';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { SettingsList, SettingsItem } from '@/src/components/ui/settings';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Screen from '@/src/components/ui/screen';
+import { H2 } from '@/src/components/ui/typography';
+import { router } from 'expo-router';
 
 
 export default function SettingsScreen() {
   const { mode, effective, setMode, background, danger, text, icon, card } = useTheme();
-  const { signOut } = useAuth();
+  
   const { minHeight, maxHeight, setMinHeight, setMaxHeight } = useWaterfallSettings();
 
   const [sheet, setSheet] = useState<null | 'theme' | 'min' | 'max'>(null);
@@ -28,8 +29,25 @@ export default function SettingsScreen() {
   const minOptions = [60, 80, 100, 120, 140];
   const maxOptions = [180, 200, 220, 260, 300];
 
+  const goBack = () => {
+    // 优先返回上一个页面；若没有历史记录则直接回到“我的”
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.replace('/myself');
+    }
+  };
+
   return (
-    <Screen variant="scroll" title="设置">
+    <Screen variant="scroll" withContainer>
+        {/* 自定义头部：返回 + 标题 */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={goBack} style={styles.backBtn} accessibilityLabel="返回">
+            <Ionicons name="chevron-back" size={20} color={text as string} />
+          </TouchableOpacity>
+          <H2>设置</H2>
+          <View style={{ width: 48 }} />
+        </View>
         <SettingsList title="主题">
           <SettingsItem title="当前主题" value={themeLabel} onPress={() => setSheet('theme')} />
         </SettingsList>
@@ -41,9 +59,7 @@ export default function SettingsScreen() {
           <SettingsItem title="最大高度" value={`${maxHeight} px`} onPress={() => setSheet('max')} />
         </SettingsList>
 
-        <View style={{ height: 16 }} />
-
-        <Button variant="danger" onPress={() => signOut()} title="登出"></Button>
+        
   
         {/* 选择面板 */}
         <BottomSheet visible={sheet === 'theme'} onClose={() => setSheet(null)}>
@@ -172,12 +188,23 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  backBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 36,
+  },
   option: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    // borderColor 在主题色中，不在这里静态设置
   },
 });
