@@ -1,0 +1,106 @@
+import type { User } from '@/src/models/User';
+
+export type PostType = 'share' | 'seeking' | 'companion';
+export type ShareType = 'recommend' | 'warning';
+
+export type Category = 'food' | 'recipe';
+
+export type PostAuthor = Pick<User, 'id' | 'name' | 'avatarUrl'>;
+
+export interface PostStats {
+  likeCount?: number;
+  favoriteCount?: number;
+  commentCount?: number;
+  viewCount?: number;
+}
+
+export interface PostBase {
+  id: string;
+  postType: PostType;
+  title: string;
+  content: string;
+  category: Category;
+  canteen?: string;
+  tags?: string[];
+  images?: string[];
+  author?: PostAuthor;
+  stats?: PostStats;
+  isLiked?: boolean;
+  isFavorited?: boolean;
+  createdAt?: string; // ISO
+  updatedAt?: string; // ISO
+}
+
+export interface SharePost extends Omit<PostBase, 'images'> {
+  postType: 'share';
+  shareType: ShareType;
+  cuisine?: string;
+  flavors?: string[];
+  price?: number;
+  images: string[]; // 1-9
+}
+
+export interface SeekingPost extends PostBase {
+  postType: 'seeking';
+  budgetRange?: { min: number; max: number };
+  preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
+}
+
+export interface CompanionPost extends PostBase {
+  postType: 'companion';
+  meetingInfo?: {
+    date?: string; // YYYY-MM-DD
+    time?: string; // HH:mm
+    location?: string;
+    maxPeople?: number;
+    currentPeople?: number;
+    costSharing?: string;
+    status?: 'open' | 'full' | 'closed';
+  };
+  contact?: { method?: 'comment' | 'wechat' | 'other'; note?: string };
+}
+
+export type Post = SharePost | SeekingPost | CompanionPost;
+
+// Create inputs mirror domain fields, without server-generated ones
+export type CommonCreateBase = {
+  postType: PostType;
+  title: string;
+  content: string;
+  category: Category;
+  canteen?: string;
+  tags?: string[];
+  images?: string[];
+};
+
+export type SharePostCreateInput = CommonCreateBase & {
+  postType: 'share';
+  shareType: ShareType;
+  cuisine?: string;
+  flavors?: string[];
+  price?: number;
+  images: string[]; // required for share
+};
+
+export type SeekingPostCreateInput = CommonCreateBase & {
+  postType: 'seeking';
+  budgetRange?: { min: number; max: number };
+  preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
+};
+
+export type CompanionPostCreateInput = CommonCreateBase & {
+  postType: 'companion';
+  meetingInfo?: CompanionPost['meetingInfo'];
+  contact?: CompanionPost['contact'];
+};
+
+export type PostCreateInput =
+  | SharePostCreateInput
+  | SeekingPostCreateInput
+  | CompanionPostCreateInput;
+
+export type PostCreateResult = {
+  id: string;
+  postType: PostType;
+  status: 'pending' | 'approved' | 'rejected';
+};

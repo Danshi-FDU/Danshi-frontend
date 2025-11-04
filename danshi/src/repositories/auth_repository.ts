@@ -113,4 +113,6 @@ export class MockAuthRepository implements AuthRepository {
   }
 }
 
-export const authRepository: AuthRepository = USE_MOCK ? new MockAuthRepository() : new ApiAuthRepository();
+export const authRepository: AuthRepository = USE_MOCK
+  ? new MockAuthRepository()
+  : new ApiAuthRepository();

@@ -24,6 +24,18 @@ export const API_ENDPOINTS = {
   USERS: {
     ROOT: '/api/v1/users', // GET /:userId, PUT /:userId
   },
+  POSTS: {
+    GETPOSTPRE: '/api/v1/posts',  // GET
+    GETPOSTALL: '/api/v1/posts/:postId',  // GET
+    CREATEPOST: '/api/v1/posts',  // POST
+    UPDATEPOST: '/api/v1/posts/:postId',  // PUT
+    DELETEPOST: '/api/v1/posts/:postId',  // DELETE
+    LIKEPOST: '/api/v1/posts/:postId/like',  // POST
+    UNLIKEPOST: '/api/v1/posts/:postId/like',  // DELETE
+    FAVORITEPOST: '/api/v1/posts/:postId/favorite',  // POST
+    UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
+    CHANGEPOSTSTATUS: '/api/v1/posts/:postId/companion-status', // PUT
+  },
 } as const;
 
 // Role literals and their order (low -> high privilege)
@@ -46,3 +58,4 @@ export const REGEX = {
 
 // Convenience type to align with domain type if needed
 export type Role = User['role'];
+

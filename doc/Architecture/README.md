@@ -105,7 +105,18 @@
     - 头像模拟：按邮箱（优先）或用户名生成稳定的头像 URL（DiceBear identicon），确保 `avatarUrl` 始终可用。
 
 - `src/repositories/posts_repository.ts`
-  - 作为 `posts` 资源的统一对外仓储接口，默认内置 AsyncStorage Mock 数据源，可按需切换至服务端实现。
+  - Posts 资源仓储接口，提供 Mock/Api 两种实现，随 `USE_MOCK` 自动切换。
+  - 能力（方法）：
+    - `list(filters)`：首页/列表检索（支持 postType/shareType/category/canteen/cuisine/flavors/tags/minPrice/maxPrice/sortBy/page/limit）。
+    - `get(postId)`：获取详情（访问即计入浏览量，后端负责）。
+    - `create(input)`：创建帖子（三种类型：share/seeking/companion）。
+    - `update(postId, input)`：更新帖子。
+    - `delete(postId)`：删除帖子。
+    - `like/unlike(postId)`：点赞/取消点赞。
+    - `favorite/unfavorite(postId)`：收藏/取消收藏。
+    - `updateCompanionStatus(postId, { status, currentPeople? })`：更新约饭状态（仅 companion）。
+  - Api 实现：读操作走未鉴权客户端 `http`，写操作走鉴权客户端 `httpAuth`，统一用 `unwrapApiResponse` 解包 `{ code,message,data }`。
+  - Mock 实现：内存存储，支持基础分页与统计字段的本地变更，用于联调与离线演示。
 
 
 ### 2.5 services/
@@ -117,7 +128,19 @@
     - 登出：同时清理本地 `token` 与 `refreshToken`
 
 - `src/services/posts_service.ts`
-
+  - Posts 用例服务：参数校验与规范化、编排调用仓储；提供：
+    - `list(filters)`：清理分页参数、trim 多值筛选；
+    - `get(postId)`：ID 校验；
+    - `create(input)`：三类帖子分别校验：
+      - 通用：`title`/`content` 非空长度、`category`（food/recipe）、`tags ≤ 10`；
+      - share：`shareType` 必填、`images` 1~9 张且为 http(s) URL、`price ≥ 0`；
+      - seeking：`images` 0~9 张且为 http(s) URL、`budgetRange` 合法且 `min ≤ max`；
+      - companion：`images` 0~9 张且为 http(s) URL、`meetingInfo` 人数逻辑校验；
+    - `update(postId, input)`：与 `create` 同级别校验；
+    - `remove(postId)`：删除；
+    - `like/unlike`、`favorite/unfavorite`：交由仓储；
+    - `updateCompanionStatus(postId, { status, currentPeople? })`：状态值与人数校验。
+  - 说明：Service 输出与后端契约贴合，但表现层保持独立；后续可在此扩展草稿、上传等流程。
 > 说明：Service 面向“用例”，保证“从输入到输出”的完整闭环，减少表现层的粘合代码与业务入侵。
 
 ### 2.6 context/
@@ -201,6 +224,24 @@
   - `getUser/updateUser`：存取本地 Mock store，自动补齐头像
 - 前端约束：
   - 服务端模式下，`avatarUrl` 仅支持 http(s)；拖拽得到的 `blob:` 地址仅用于本地预览，不会上送
+  
+### Posts（帖子）
+
+- API（路径示例）：
+  - 列表：`GET /api/v1/posts`（query 见筛选项）
+  - 详情：`GET /api/v1/posts/:postId`
+  - 创建：`POST /api/v1/posts`
+  - 更新：`PUT /api/v1/posts/:postId`
+  - 删除：`DELETE /api/v1/posts/:postId`
+  - 点赞：`POST /api/v1/posts/:postId/like` / 取消：`DELETE /api/v1/posts/:postId/like`
+  - 收藏：`POST /api/v1/posts/:postId/favorite` / 取消：`DELETE /api/v1/posts/:postId/favorite`
+  - 更新约饭状态（companion）：`PUT /api/v1/posts/:postId/companion-status`
+- 筛选项（列表）：`postType`、`shareType`、`category`、`canteen`、`cuisine`、`flavors[]`、`tags[]`、`minPrice`、`maxPrice`、`sortBy`（latest/hot/trending/price）、`page`、`limit`
+- 前端实现：
+  - Repositories：读操作使用未鉴权 HTTP 客户端；写操作使用鉴权客户端；统一 `unwrapApiResponse`
+  - Services：对输入进行严格校验与规范化（详见 posts_service），仅返回与后端契约匹配的结果结构；
+  - Mock：内存数据，支持分页、浏览量自增模拟与 like/favorite 状态切换；
+  - 表现层：未耦合，可在后续 Screen/组件中逐步接入。
 - `grid.tsx`：网格容器（结合断点切换列数/间距）
 - `parallax_screen.tsx`：带视差头部的 Screen 变体
 - `responsive_image.tsx`：按父容器/断点自适应的图片组件
@@ -263,6 +304,11 @@
 
 - `src/models/User.ts`
   - 用户对象模型（含 `role`，支持 `super_admin`）
+- `src/models/Post.ts`
+  - 帖子领域模型与类型集中定义：
+    - `Post`（联合：`SharePost | SeekingPost | CompanionPost`）
+    - `PostAuthor`（引用 `User` 的子集）与 `PostStats`
+    - `PostCreateInput`/`PostCreateResult` 等创建相关类型
 
 ### 2.11 utils/
 
@@ -465,12 +511,12 @@
 
 - repositories（数据访问）
   - `src/repositories/auth_repository.ts`：认证仓储（Mock/Api）。
-  - `src/repositories/posts_repository.ts`：Posts 仓储（本地/可扩展服务端）。
+  - `src/repositories/posts_repository.ts`：Posts 仓储（Mock/Api；列表/详情/创建/更新/删除/点赞/收藏/状态）。
   - `src/repositories/users_repository.ts`：Users 仓储（Mock/Api；支持 GET/PUT）。
 
 - services（领域服务）
   - `src/services/auth_service.ts`：认证服务（登录/注册/刷新/登出）。
-  - `src/services/posts_service.ts`：Posts 服务（校验+创建）。
+  - `src/services/posts_service.ts`：Posts 服务（校验+列表/详情/创建/更新/删除/点赞/收藏/状态）。
   - `src/services/users_service.ts`：Users 服务（校验与编排；avatarUrl 在 Mock/Server 下不同校验）。
 
 - context（上下文）
@@ -504,6 +550,7 @@
 
 - models & utils
   - `src/models/User.ts`：用户模型。
+  - `src/models/Post.ts`：帖子模型与创建类型。
   - `src/utils/index.ts`：工具方法聚合。
 
 ---
