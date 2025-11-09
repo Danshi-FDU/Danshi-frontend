@@ -6,7 +6,7 @@
 
 ```bash
 git clone https://github.com/Danshi-FDU/Danshi-frontend.git
-cd danshi
+cd Danshi-frontend/danshi
 ```
 
 
