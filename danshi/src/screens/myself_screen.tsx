@@ -1,20 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Platform, Pressable } from 'react-native';
+import { View, StyleSheet, Image, Platform, Pressable, ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import Button from '@/src/components/ui/button';
 import { useTheme } from '@/src/context/theme_context';
 import { useAuth } from '@/src/context/auth_context';
-import Screen from '@/src/components/ui/screen';
-import Card from '@/src/components/ui/card';
-import { H2, Body } from '@/src/components/ui/typography';
-import Input from '@/src/components/ui/input';
+import { Appbar, Button, Card, IconButton, Text, TextInput, useTheme as usePaperTheme } from 'react-native-paper';
 import { usersService } from '@/src/services/users_service';
 import type { UserProfile } from '@/src/repositories/users_repository';
 import { DEFAULT_HOMETOWN, HOMETOWN_OPTIONS } from '@/src/constants/selects';
-import { EditableTextRow, EditableSelectRow } from '@/src/components/ui/editable';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
-import AvatarDropzone from '@/src/components/ui/avatar_dropzone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MyselfScreen() {
 	const { text, icon, card, effective } = useTheme();
@@ -56,24 +51,21 @@ export default function MyselfScreen() {
 		return () => { mounted = false; };
 	}, [user?.id]);
 
-	return (
-		<Screen variant="scroll" withContainer>
-			{/* Topbar: Title + Settings Button */}
-			<View style={styles.headerRow}>
-				<H2>个人中心</H2>
-						<TouchableOpacity
-							onPress={() => router.push('/myself/settings')}
-					accessibilityRole="button"
-					accessibilityLabel="打开设置"
-					style={{ paddingVertical: 6, paddingHorizontal: 8 }}
-				>
-					<Ionicons name="settings-outline" size={20} color={text as string} />
-				</TouchableOpacity>
-			</View>
+		const insets = useSafeAreaInsets();
+
+		const pTheme = usePaperTheme();
+		return (
+			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
+				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
+								<Appbar.Content title="个人中心" />
+					<Appbar.Action icon="cog-outline" onPress={() => router.push('/myself/settings')} accessibilityLabel="打开设置" />
+				</Appbar.Header>
+				<ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16 }}>
 
 			{/* user card */}
-			<Card padded style={{ marginTop: 8 }}>
-				<View style={styles.profileRow}>
+						<Card style={{ marginTop: 8 }}>
+								<Card.Content>
+								<View style={styles.profileRow}>
 					<Pressable
 						onPress={() => {
 							setAvatarDraft(profile?.avatarUrl ?? null);
@@ -96,135 +88,177 @@ export default function MyselfScreen() {
 						) : null}
 					</Pressable>
 					<View style={{ flex: 1, marginLeft: 12 }}>
-						<Body emphasis style={{ fontSize: 16 }}>{name}</Body>
-						{email ? <Body style={{ marginTop: 4, color: icon as string }}>{email}</Body> : null}
+												<Text variant="titleMedium">{name}</Text>
+												{email ? <Text style={{ marginTop: 4, color: icon as string }}>{email}</Text> : null}
 					</View>
 				</View>
-			</Card>
+								</Card.Content>
+						</Card>
 
 			{/* stats */}
 			<View style={{ height: 12 }} />
 			{profile ? (
-				<Card padded>
-					<Body emphasis style={{ marginBottom: 8 }}>数据概览</Body>
+								<Card>
+										<Card.Content>
+										<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
 					<View style={styles.statsRow}>
-						<View style={styles.statItem}><Body emphasis>{profile.stats.postCount}</Body><Body style={styles.statLabel}>帖子</Body></View>
-						<View style={styles.statItem}><Body emphasis>{profile.stats.likeCount}</Body><Body style={styles.statLabel}>获赞</Body></View>
-						<View style={styles.statItem}><Body emphasis>{profile.stats.favoriteCount}</Body><Body style={styles.statLabel}>收藏</Body></View>
-						<View style={styles.statItem}><Body emphasis>{profile.stats.followerCount}</Body><Body style={styles.statLabel}>粉丝</Body></View>
-						<View style={styles.statItem}><Body emphasis>{profile.stats.followingCount}</Body><Body style={styles.statLabel}>关注</Body></View>
+												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.postCount}</Text><Text style={styles.statLabel}>帖子</Text></View>
+												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.likeCount}</Text><Text style={styles.statLabel}>获赞</Text></View>
+												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.favoriteCount}</Text><Text style={styles.statLabel}>收藏</Text></View>
+												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followerCount}</Text><Text style={styles.statLabel}>粉丝</Text></View>
+												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followingCount}</Text><Text style={styles.statLabel}>关注</Text></View>
 					</View>
-				</Card>
+										</Card.Content>
+								</Card>
 			) : null}
 
 			{/* bio */}
 			<View style={{ height: 12 }} />
-			<EditableTextRow
-				label="个人简介"
-				value={profile?.bio ?? ''}
-				placeholder="填写你的个人简介"
-				multiline
-				initialEditing={false}
-				onToggleEditing={(open) => { setEditingBio(open); setActiveEdit(open ? 'bio' : 'none'); }}
-				editing={activeEdit === 'bio'}
-				onSave={async (next) => {
-					if (!user?.id) return;
-					const updated = await usersService.updateUser(user.id, { bio: next });
-					setProfile(updated);
-					setBioDraft(updated.bio ?? '');
-				}}
-			/>
+						<Card>
+							<Card.Title title="个人简介" right={(props) => activeEdit !== 'bio' ? (
+								<IconButton {...props} icon="pencil-outline" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('bio'); }} />
+							) : null} />
+							<Card.Content>
+								{activeEdit !== 'bio' ? (
+									<Text style={{ color: icon as string }}>{(profile?.bio ?? '').trim() ? profile?.bio : '暂无'}</Text>
+								) : (
+									<>
+										<TextInput
+											mode="outlined"
+											value={bioDraft}
+											onChangeText={setBioDraft}
+											placeholder="填写你的个人简介"
+											multiline
+										/>
+										<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+											<Button mode="text" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('none'); }} style={{ marginRight: 8 }}>取消</Button>
+											<Button mode="contained" onPress={async () => {
+												if (!user?.id) return;
+												const updated = await usersService.updateUser(user.id, { bio: bioDraft });
+												setProfile(updated);
+												setActiveEdit('none');
+											}}>保存</Button>
+										</View>
+									</>
+								)}
+							</Card.Content>
+						</Card>
 
 			{/* username */}
-			<EditableTextRow
-				label="昵称"
-				value={profile?.name ?? ''}
-				placeholder="输入你的昵称"
-				onToggleEditing={(open) => setActiveEdit(open ? 'name' : 'none')}
-				editing={activeEdit === 'name'}
-				onSave={async (next) => {
-					if (!user?.id) return;
-					const updated = await usersService.updateUser(user.id, { name: next });
-					setProfile(updated);
-				}}
-			/>
+						<View style={{ height: 12 }} />
+						<Card>
+							<Card.Title title="昵称" right={(props) => activeEdit !== 'name' ? (
+								<IconButton {...props} icon="pencil-outline" onPress={() => { setActiveEdit('name'); }} />
+							) : null} />
+							<Card.Content>
+								{activeEdit !== 'name' ? (
+									<Text style={{ color: icon as string }}>{(profile?.name ?? '').trim() ? profile?.name : '暂无'}</Text>
+								) : (
+									<>
+										<TextInput
+											mode="outlined"
+											value={profile?.name ?? ''}
+											onChangeText={(t) => setProfile(p => (p ? { ...p, name: t } : p))}
+											placeholder="输入你的昵称"
+										/>
+										<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+											<Button mode="text" onPress={() => { setActiveEdit('none'); }} style={{ marginRight: 8 }}>取消</Button>
+											<Button mode="contained" onPress={async () => {
+												if (!user?.id || !profile) return;
+												const updated = await usersService.updateUser(user.id, { name: profile.name });
+												setProfile(updated);
+												setActiveEdit('none');
+											}}>保存</Button>
+										</View>
+									</>
+								)}
+							</Card.Content>
+						</Card>
 
 			{/* hometown */}
-			<EditableSelectRow
-				label="家乡"
-				value={profile?.hometown ?? DEFAULT_HOMETOWN}
-				placeholder={DEFAULT_HOMETOWN}
-				options={HOMETOWN_OPTIONS}
-				onToggleEditing={(open) => setActiveEdit(open ? 'hometown' : 'none')}
-				editing={activeEdit === 'hometown'}
-				onSave={async (next) => {
-					if (!user?.id) return;
-					const updated = await usersService.updateUser(user.id, { hometown: next });
-					setProfile(updated);
-				}}
-			/>
+						<View style={{ height: 12 }} />
+						<Card>
+							<Card.Title title="家乡" right={(props) => activeEdit !== 'hometown' ? (
+								<IconButton {...props} icon="pencil-outline" onPress={() => { setActiveEdit('hometown'); }} />
+							) : null} />
+							<Card.Content>
+								{activeEdit !== 'hometown' ? (
+									<Text style={{ color: icon as string }}>{profile?.hometown ?? DEFAULT_HOMETOWN}</Text>
+								) : (
+									<>
+										<View style={{ gap: 8 }}>
+											{HOMETOWN_OPTIONS.map(opt => (
+												<Pressable key={opt.value} onPress={async () => {
+													if (!user?.id) return;
+													const updated = await usersService.updateUser(user.id, { hometown: opt.value });
+													setProfile(updated);
+													setActiveEdit('none');
+												}} style={({ pressed }) => [
+													{ paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8, backgroundColor: card as string },
+													pressed && { opacity: 0.9 }
+												]}>
+													<Text>{opt.label}</Text>
+												</Pressable>
+											))}
+										</View>
+										<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+											<Button mode="text" onPress={() => setActiveEdit('none')}>取消</Button>
+										</View>
+									</>
+								)}
+							</Card.Content>
+						</Card>
 
 			{/* avatar */}
 			<BottomSheet visible={avatarOpen} onClose={() => setAvatarOpen(false)}>
-				<Body style={{ marginBottom: 8 }}>修改头像</Body>
-				{Platform.OS === 'web' ? (
-					<AvatarDropzone value={avatarDraft ?? profile?.avatarUrl ?? undefined} onChange={(u) => setAvatarDraft(u)} />
-				) : (
-					<Input
-						placeholder="输入图片URL，留空使用自动头像"
-						value={avatarDraft ?? ''}
-						onChangeText={(t) => setAvatarDraft(t)}
-					/>
-				)}
+								<Text style={{ marginBottom: 8 }}>修改头像</Text>
+								<TextInput
+										mode="outlined"
+										placeholder="输入图片URL，留空使用自动头像"
+										value={avatarDraft ?? ''}
+										onChangeText={(t) => setAvatarDraft(t)}
+								/>
 				<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-					<Button
-						title="取消"
-						variant="secondary"
-						size="sm"
-						onPress={() => {
-							setAvatarOpen(false);
-							setAvatarDraft(null);
-						}}
-						style={{ marginRight: 8 }}
-					/>
-					<Button
-						title="保存"
-						size="sm"
-						loading={loading}
-						onPress={async () => {
-							if (!user?.id) return;
-							setLoading(true);
-							setErr('');
-							try {
-								const normalized = avatarDraft && avatarDraft.trim() !== '' ? avatarDraft : null;
-								const updated = await usersService.updateUser(user.id, { avatarUrl: normalized });
-								setProfile(updated);
-								setAvatarOpen(false);
-								setAvatarDraft(null);
-							} catch (e) {
-								setErr(e instanceof Error ? e.message : String(e));
-							} finally {
-								setLoading(false);
-							}
-						}}
-					/>
+										<Button
+												mode="text"
+												onPress={() => {
+														setAvatarOpen(false);
+														setAvatarDraft(null);
+												}}
+												style={{ marginRight: 8 }}
+										>取消</Button>
+										<Button
+												mode="contained"
+												loading={loading}
+												onPress={async () => {
+														if (!user?.id) return;
+														setLoading(true);
+														setErr('');
+														try {
+																const normalized = avatarDraft && avatarDraft.trim() !== '' ? avatarDraft : null;
+																const updated = await usersService.updateUser(user.id, { avatarUrl: normalized });
+																setProfile(updated);
+																setAvatarOpen(false);
+																setAvatarDraft(null);
+														} catch (e) {
+																setErr(e instanceof Error ? e.message : String(e));
+														} finally {
+																setLoading(false);
+														}
+												}}
+										>保存</Button>
 				</View>
-				{err ? <Body style={{ marginTop: 6, color: '#d33' }}>{err}</Body> : null}
+								{err ? <Text style={{ marginTop: 6, color: '#d33' }}>{err}</Text> : null}
 			</BottomSheet>
 
             <View style={{ height: 16 }} />
-            
-            <Button variant="danger" onPress={() => signOut()} title="登出"></Button>
-		</Screen>
+						<Button mode="contained" buttonColor={'#B71C1C'} onPress={() => signOut()}>登出</Button>
+				</ScrollView>
+				</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	headerRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-	},
 	profileRow: {
 		flexDirection: 'row',
 		alignItems: 'center',

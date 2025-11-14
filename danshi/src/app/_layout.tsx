@@ -5,12 +5,13 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeModeProvider, useTheme } from '@/src/context/theme_context';
 import { AuthProvider, useAuth } from '@/src/context/auth_context';
 import { WaterfallSettingsProvider } from '@/src/context/waterfall_context';
-import { PaperProvider } from 'react-native-paper';
+import { PaperProvider, useTheme as usePaperTheme } from 'react-native-paper';
 import { getMD3Theme } from '@/src/constants/md3_theme';
 
 function Gate() {
   const { userToken, isLoading } = useAuth();
   const pathname = usePathname();
+  const pTheme = usePaperTheme();
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -26,10 +27,10 @@ function Gate() {
     return <Redirect href="/" />;
   }
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
       <StatusBar style="auto" translucent />
       <Slot />
-    </>
+    </View>
   );
 }
 
