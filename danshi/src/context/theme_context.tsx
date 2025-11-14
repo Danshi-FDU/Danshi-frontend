@@ -2,11 +2,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { View, StyleSheet } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useColorScheme as useRNColorScheme } from 'react-native'
-import { Colors } from '@/src/constants/theme'
+import { MD3DarkTheme, MD3LightTheme, useTheme as usePaperTheme, MD3Theme } from 'react-native-paper'
 
 // Types
 export type ThemeMode = 'light' | 'dark' | 'system'
-export type ThemeColors = typeof Colors.light
+export type ThemeColors = MD3Theme['colors']
 
 type ThemeContextValue = {
   mode: ThemeMode
@@ -62,7 +62,7 @@ export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const effective = mode === 'system' ? (system === 'dark' ? 'dark' : 'light') : mode
 
   if (!isReady) {
-    const bg = effective === 'dark' ? Colors.dark.background : Colors.light.background
+    const bg = effective === 'dark' ? MD3DarkTheme.colors.background : MD3LightTheme.colors.background
     return <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
   }
 
@@ -74,15 +74,16 @@ export function useTheme() {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider')
 
   const { effective } = ctx
-  const colors: ThemeColors = Colors[effective]
+  const paper = usePaperTheme()
+  const colors: ThemeColors = paper.colors
 
   return {
     colors,
-    text: colors.text,
-    tint: colors.tint,
-    card: colors.card,
-    danger: colors.danger,
-    icon: colors.icon,
+    text: colors.onSurface,
+    tint: colors.primary,
+    card: colors.surface,
+    danger: colors.error,
+    icon: colors.secondary,
     background: colors.background,
     mode: ctx.mode,
     effective: ctx.effective,
