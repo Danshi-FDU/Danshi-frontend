@@ -1,6 +1,6 @@
 # 项目架构说明（DanShi）
 
-> 最新修改日期：2025-10-31
+> 最新修改日期：2025-11-14
 >
 
 ---
@@ -14,7 +14,7 @@
   - Infra（基础设施层）：错误模型、HTTP 客户端、认证存储与权限工具
   - Data Sources & Repositories（数据访问层）：统一对外的资源访问接口（API/本地存储/Mock）
   - Services（领域服务层）：业务校验与编排，面向用例而非数据表
-  - Presentation（表现层）：Hook、Context、组件、屏幕、导航与主题系统
+  - Presentation（表现层）：Hook、Context、组件（基于 Material 3）、屏幕、导航与主题系统
 
 ---
 
@@ -139,56 +139,17 @@
 - `src/hooks/use_responsive.ts`
   - 补充响应式工具（如组合常用场景）
 ### 2.8 components/
-- `src/components/themed_text.tsx`、`src/components/themed_view.tsx`
 
-- `src/constants/selects.ts`
-  - 下拉常量与类型：
-    - `DEFAULT_HOMETOWN`（默认“保密”）
-    - `HOMETOWN_OPTIONS` 家乡选项列表
-    - `findOptionLabel()` 辅助查询
-  - 供通用下拉与个人信息编辑中的“家乡”选择使用
-  - 与主题系统耦合的文本/容器组件，自动应用配色
-  - 视差滚动容器，支持自定义 header 背景色（按 `useTheme()`）
+- 主题与通用：
+  - `src/components/themed_text.tsx`、`src/components/themed_view.tsx`
+  - `src/components/haptic_tab.tsx`、`src/components/external_link.tsx`
+  - `src/components/overlays/bottom_sheet.tsx`：底部弹层（保留，自适应 Material 3 背景色）
 
-- `src/repositories/users_repository.ts`
-  - `UsersRepository` 接口 + `ApiUsersRepository`/`MockUsersRepository` 实现，受 `USE_MOCK` 控制切换
-  - 能力：
-    - `getUser(userId): Promise<UserProfile>`（含 stats、isFollowing、createdAt、bio）
-    - `updateUser(userId, input): Promise<{ user: UserProfile }>`（支持 name、bio、gender、hometown、avatarUrl）
-  - Mock 行为：
-    - 稳定头像：若未设置 `avatarUrl`，按 email/用户名生成 DiceBear identicon
-    - 注册/更新会落库到 Mock store，便于后续读取
-- `src/components/overlays/bottom_sheet.tsx`
-- `src/components/haptic_tab.tsx`
-- `src/components/external_link.tsx`
+- Material 3（react-native-paper）
+  - `src/components/md3/appbar.tsx`：品牌 Appbar 包装（`AppbarHeader`），背景取 `Colors.header`、前景取 `Colors.text`；自动处理安全区与居中标题。
+  - `src/components/md3/masonry.tsx`：瀑布流布局（响应式列数/间距），作为 UI 通用容器。
 
-- `src/services/users_service.ts`
-  - 输入校验与仓储编排：
-    - `getUser(userId)`：用户 ID 必填
-    - `updateUser(userId, input)`：
-      - `name` 非空校验
-      - `avatarUrl` 校验：
-        - Mock 模式（`USE_MOCK=true`）：允许 `http(s)` 与本地预览 `blob:/data:/file:`/`data:`
-        - 接口模式（`USE_MOCK=false`）：仅允许 `http(s)`；提示应上传文件后使用服务端返回 URL
-  - 外链跳转组件（Web/原生统一处理）
-
-- `select.tsx`：通用下拉选择（Modal 弹层选择）
-  - 主题适配：卡片背景、选中高亮与分割线随明/暗色切换
-- `editable.tsx`：通用可编辑行组件集（文本/下拉/头像）
-  - `EditableTextRow`、`EditableSelectRow`（“标题 + 铅笔 + 编辑态（取消/保存）”模式）
-  - 支持“受控编辑态”（`editing`）以便页面层强制“任意时刻只打开一个编辑”
-- `avatar_dropzone.tsx`：头像拖拽上传（Web 表现层）预览框
-  - Web 支持拖拽 `File` 生成 `blob:` 预览地址；移动端显示提示
-  - 主题适配：边框/底色取自 `useTheme()`
-
-  - 资料编辑：采用与“个人简介”一致的可编辑卡片风格（通用组件 `editable.tsx`）
-  - 可编辑项：昵称（文本）、家乡（下拉，默认“保密”）、头像、个人简介（多行）
-  - 头像编辑：点击头像开启 BottomSheet
-    - Web：拖拽图片到 `AvatarDropzone` 预览；Mock 模式可保存本地 `blob:` 预览
-    - 移动端：输入 URL（留空回退为自动头像）
-    - 服务端模式：头像 URL 需为 http(s)；建议先走上传接口取正式 URL
-  - 单一编辑：通过受控 `editing`，保证同一时间仅一个编辑项处于打开状态；切换项时自动关闭前一个
-  - 头像铅笔角标：仅 Web 悬停时显示，移动端不显示
+- 说明：旧自研 UI 目录 `src/components/ui/` 已移除；屏幕请直接使用 `react-native-paper` 组件（`Card`/`TextInput`/`Button`/`List`/`Appbar` 等）与上面两个包装组件。
 
 
 ### Users（用户信息）
@@ -242,7 +203,7 @@
 - `src/app/(tabs)/_layout.tsx`：底部标签页布局
 - `src/app/(tabs)/explore.tsx`、`post.tsx`：Tab 页入口
 - `src/app/(tabs)/myself/_layout.tsx`：”我的“分组的嵌套路由栈布局（Stack）
-  - `settings` 页面使用 `headerTransparent: true` + 空标题，仅显示返回箭头，避免顶部白条
+  - 头部采用品牌 `AppbarHeader`，不再使用透明头部策略。
 - `src/app/(tabs)/myself/index.tsx`：”我的“首页（路由入口，渲染个人界面 Screen）
 - `src/app/(tabs)/myself/settings.tsx`：设置页（通过“我的”右上角进入）
 - `src/app/(tabs)/settings.tsx`：兼容保留为 Redirect 到 `/myself/settings`（不在 Tab 上展示）
@@ -257,7 +218,7 @@
 - `register_screen.tsx`：注册页（同上）
 - `post_screen.tsx`：发帖页（输入校验 + `posts_service`，并已响应式调整文本框高度、间距）
 - `myself_screen.tsx`：个人中心页（顶部标题 + 右上角设置入口）
-- `settings_screen.tsx`：设置页（主题切换、瀑布流高度参数；通过“我的”页进入；头部透明仅显示返回箭头）
+- `settings_screen.tsx`：设置页（主题切换、瀑布流高度参数；通过“我的”页进入；使用品牌 Appbar）。
 
 ### 2.10 models/
 
@@ -380,10 +341,15 @@
 ## 7. 主题与设计系统（Theme + DS）
 
 - `Colors`（light/dark）、`Spacing`、`Fonts`、`TypeScale` 在 `constants/theme.ts` 定义。
-- `useTheme()` 提供 `colors`、`background`、`text`、`icon`、`danger`、`card` 等，组件按需解构。
+- Material 3 主题提供：
+  - `src/app/_layout.tsx` 使用 `PaperProvider` 提供全局 MD3 主题。
+  - `src/constants/md3_theme.ts` 将 `Colors` 映射到 MD3 token：`primary`、`background`、`surface`、`error`、`on*` 等。
+  - 页面根容器与滚动容器统一使用 `theme.colors.background` 作为背景，卡片/浮层使用 `theme.colors.surface`。
+- 品牌头部：
+  - `src/components/md3/appbar.tsx` 统一 Appbar 的背景（`Colors.header`）与前景（`Colors.text`）。
 - 组件规范：
-  - 按 `variant/size` 组合出一致的视觉语言（如 Button/Input/Card）。
-  - 不在组件内部硬编码颜色，统一走主题。
+  - 尽量直接使用 `react-native-paper` 组件；仅在需要统一风格/减少重复时增加轻包装。
+  - 不在组件内部硬编码颜色，统一走主题（MD3 token 或 `useTheme()`）。
 
 ---
 
@@ -482,15 +448,15 @@
   - `src/hooks/use_media_query.ts`、`src/hooks/use_responsive.ts`：响应式辅助。
 
 - components（通用组件）
-  - overlay：
-    - `src/components/overlays/bottom_sheet.tsx`：底部弹窗（主题适配）。
-  - ui：
-    - `src/components/ui/button.tsx`、`card.tsx`、`collapsible.tsx`、`container.tsx`、`grid.tsx`、`icon_symbol(.ios).tsx`、`input.tsx`、`masonry.tsx`、`parallax_screen.tsx`、`responsive_image.tsx`、`screen.tsx`、`settings.tsx`、`stack.tsx`、`typography.tsx`。
-    - 新增：`src/components/ui/select.tsx`（下拉选择，主题适配）。
-    - 新增：`src/components/ui/editable.tsx`（可编辑行集合：文本/下拉，受控 editing）。
-    - 新增：`src/components/ui/avatar_dropzone.tsx`（Web 拖拽头像预览，主题适配）。
+  - overlays：
+    - `src/components/overlays/bottom_sheet.tsx`：底部弹窗。
+  - md3：
+    - `src/components/md3/appbar.tsx`：品牌 Appbar 包装。
+    - `src/components/md3/masonry.tsx`：瀑布流容器。
   - 其他：
     - `src/components/parallax_scroll_view.tsx`、`src/components/themed_text.tsx`、`src/components/themed_view.tsx`、`src/components/haptic_tab.tsx`、`src/components/external_link.tsx`。
+
+> 说明：原 `src/components/ui/` 目录已在 Material 3 迁移中移除；页面直接使用 Paper 组件与 md3 包装组件。
 
 - app（路由入口）
   - `src/app/_layout.tsx`（根布局）与 `src/app/(tabs)/_layout.tsx`（Tab 分组）等。
