@@ -11,7 +11,7 @@ export type AuthContextValue = {
   isLoading: boolean;
   signIn: (token: string) => Promise<void>; 
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>; // refresh /me
+  refreshUser: (tokenOverride?: string) => Promise<void>; // refresh /me
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -57,8 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const refreshUser = async () => {
-    if (!userToken) return;
+  const refreshUser = async (tokenOverride?: string) => {
+    const token = tokenOverride ?? userToken ?? (await AuthStorage.getToken());
+    if (!token) return;
     try {
       const me = await authService.me();
       setUser(me);
@@ -74,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserToken(token);
       setPreview(computePreview(token)); 
       setUser(null);
-      refreshUser().finally(() => {});
+      await refreshUser(token);
     } finally {
       setIsLoading(false);
     }

@@ -1,11 +1,17 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '@/src/context/theme_context';
 import { HapticTab } from '@/src/components/haptic_tab';
+import { useAuth } from '@/src/context/auth_context';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const { userToken, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!userToken) {
+    return <Redirect href="/login" />;
+  }
   const screenOptions = React.useMemo(
     () => ({
       headerShown: false,

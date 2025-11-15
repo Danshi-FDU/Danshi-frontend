@@ -54,8 +54,9 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
       }
 
       return (data as unknown) as T;
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') {
+    } catch (e: any) {
+      const name = (e && typeof e === 'object') ? (e as any).name : undefined;
+      if (name === 'AbortError') {
         throw new AppError('请求超时', { code: 'TIMEOUT', cause: e });
       }
       throw AppError.from(e);

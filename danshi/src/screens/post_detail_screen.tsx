@@ -9,6 +9,9 @@ import {
   Modal,
   Alert,
   Share,
+  useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import {
   Appbar,
@@ -183,9 +186,6 @@ function ShareDetails({ post }: { post: SharePost }) {
             value={post.flavors.join('、')}
           />
         ) : null}
-        {post.tags?.length ? (
-          <InfoItem label="话题标签" value={post.tags.map((tag) => `#${tag}`).join('、')} />
-        ) : null}
       </View>
     </View>
   );
@@ -275,6 +275,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const commentsOffsetRef = useRef(0);
+  const viewerScrollRef = useRef<ScrollView | null>(null);
+  const windowWidth = useWindowDimensions().width;
 
   const fetchPost = useCallback(
     async (mode: LoaderState = 'initial') => {
@@ -424,6 +426,21 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     setImageViewer((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  const handleViewerMomentum = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!windowWidth) return;
+      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / windowWidth);
+      setImageViewer((prev) => (prev.index === nextIndex ? prev : { ...prev, index: nextIndex }));
+    },
+    [windowWidth]
+  );
+
+  useEffect(() => {
+    if (imageViewer.visible && viewerScrollRef.current) {
+      viewerScrollRef.current.scrollTo({ x: windowWidth * imageViewer.index, animated: false });
+    }
+  }, [imageViewer.index, imageViewer.visible, windowWidth]);
+
   const handleShareToPlatform = useCallback(
     async (platform: 'qq' | 'wechat') => {
       if (!post) return;
@@ -566,141 +583,129 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         ) : null}
 
         {post ? (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-                shadowColor: theme.colors.shadow,
-              },
-            ]}
-          >
-            <View style={styles.headerSection}>
-              <View style={styles.headerChips}>{headerChips}</View>
-              <Text variant="headlineSmall" style={styles.title}>
-                {post.title}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
-              >
-                由 {post.author?.name ?? '匿名用户'} 发布
-              </Text>
-            </View>
-
-            {hasImages ? (
-              <View style={styles.imageContainer}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.imagesRow}
+          <>
+            <View style={styles.postContainer}>
+              <View style={styles.headerSection}>
+                <View style={styles.headerChips}>{headerChips}</View>
+                <Text variant="headlineSmall" style={styles.title}>
+                  {post.title}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
                 >
-                  {post.images?.map((uri, idx) => (
-                    <Pressable key={`${uri}-${idx}`} onPress={() => handleOpenImageViewer(idx)}>
-                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                <Text variant="bodySmall" style={[styles.imageHint, { color: theme.colors.onSurfaceVariant }] }>
-                  共 {post.images?.length ?? 0} 张图片
+                  由 {post.author?.name ?? '匿名用户'} 发布
                 </Text>
               </View>
-            ) : null}
 
-            <Text variant="bodyLarge" style={styles.content}>
-              {post.content}
-            </Text>
+              {hasImages ? (
+                <View style={styles.imageContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.imagesRow}
+                  >
+                    {post.images?.map((uri, idx) => (
+                      <Pressable key={`${uri}-${idx}`} onPress={() => handleOpenImageViewer(idx)}>
+                        <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                  <Text variant="bodySmall" style={[styles.imageHint, { color: theme.colors.onSurfaceVariant }] }>
+                    共 {post.images?.length ?? 0} 张图片
+                  </Text>
+                </View>
+              ) : null}
 
-            {tags.length && post.postType !== 'share' ? (
-              <Text variant="bodySmall" style={[styles.tagsText, { color: theme.colors.onSurfaceVariant }]}>
-                话题：{tags.map((tag) => `#${tag}`).join('、')}
+              <Text variant="bodyLarge" style={styles.content}>
+                {post.content}
               </Text>
-            ) : null}
 
-            <Divider />
+              {tags.length ? (
+                <Text variant="bodySmall" style={[styles.tagsText, { color: theme.colors.onSurfaceVariant }] }>
+                  话题：{tags.map((tag) => `#${tag}`).join('、')}
+                </Text>
+              ) : null}
 
-            {post.postType === 'share' ? <ShareDetails post={post as SharePost} /> : null}
-            {post.postType === 'seeking' ? <SeekingDetails post={post as SeekingPost} /> : null}
-            {post.postType === 'companion' ? <CompanionDetails post={post as CompanionPost} /> : null}
+              <Divider />
 
-            <Divider />
+              {post.postType === 'share' ? <ShareDetails post={post as SharePost} /> : null}
+              {post.postType === 'seeking' ? <SeekingDetails post={post as SeekingPost} /> : null}
+              {post.postType === 'companion' ? <CompanionDetails post={post as CompanionPost} /> : null}
 
-            <View style={styles.metaFooter}>
-              <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
-                帖子编号：{post.id}
-              </Text>
-              <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
-                最近更新：{formatDate(post.updatedAt ?? post.createdAt) || '暂无'}
-              </Text>
-              <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
-                发布于：{formatDate(post.createdAt) || '暂无'}
-              </Text>
-            </View>
-          </View>
-        ) : null}
+              <Divider />
 
-        {post ? (
-          <View
-            style={[
-              styles.commentsSection,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-                shadowColor: theme.colors.shadow,
-              },
-            ]}
-            onLayout={(event) => {
-              commentsOffsetRef.current = event.nativeEvent.layout.y;
-            }}
-          >
-            <View style={styles.commentsHeader}>
-              <Text variant="titleMedium">评论</Text>
-              <View style={styles.commentsHeaderBadges}>
-                <Chip compact icon="message-outline" mode="outlined">
-                  共 {commentCount}
-                </Chip>
-                <Chip compact icon="eye-outline" mode="outlined">
-                  浏览 {viewCount}
-                </Chip>
+              <View style={styles.metaFooter}>
+                <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
+                  帖子编号：{post.id}
+                </Text>
+                <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
+                  最近更新：{formatDate(post.updatedAt ?? post.createdAt) || '暂无'}
+                </Text>
+                <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
+                  发布于：{formatDate(post.createdAt) || '暂无'}
+                </Text>
               </View>
             </View>
-            {actionError ? (
-              <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }]}>
-                {actionError}
-              </Text>
-            ) : null}
-            {comments.length ? (
-              <View style={styles.commentsList}>
-                {comments.map((item) => (
-                  <View key={item.id} style={styles.commentItem}>
-                    {item.avatarUrl ? (
-                      <Avatar.Image size={40} source={{ uri: item.avatarUrl }} />
-                    ) : (
-                      <Avatar.Text size={40} label={item.author.slice(0, 1)} />
-                    )}
-                    <View style={styles.commentBody}>
-                      <View style={styles.commentHeaderRow}>
-                        <Text variant="labelLarge">{item.author}</Text>
-                        <Text variant="bodySmall" style={[styles.commentTimestamp, { color: theme.colors.onSurfaceVariant }]}>
-                          {formatDate(item.createdAt)}
+
+            <View
+              style={[styles.sectionDividerThick, { backgroundColor: theme.colors.outlineVariant }]}
+            />
+
+            <View
+              style={styles.commentsSection}
+              onLayout={(event) => {
+                commentsOffsetRef.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <View style={styles.commentsHeader}>
+                <Text variant="titleMedium">评论</Text>
+                <View style={styles.commentsHeaderBadges}>
+                  <Chip compact icon="message-outline" mode="outlined">
+                    共 {commentCount}
+                  </Chip>
+                  <Chip compact icon="eye-outline" mode="outlined">
+                    浏览 {viewCount}
+                  </Chip>
+                </View>
+              </View>
+              {actionError ? (
+                <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }]}>
+                  {actionError}
+                </Text>
+              ) : null}
+              {comments.length ? (
+                <View style={styles.commentsList}>
+                  {comments.map((item) => (
+                    <View key={item.id} style={styles.commentItem}>
+                      {item.avatarUrl ? (
+                        <Avatar.Image size={40} source={{ uri: item.avatarUrl }} />
+                      ) : (
+                        <Avatar.Text size={40} label={item.author.slice(0, 1)} />
+                      )}
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentHeaderRow}>
+                          <Text variant="labelLarge">{item.author}</Text>
+                          <Text variant="bodySmall" style={[styles.commentTimestamp, { color: theme.colors.onSurfaceVariant }]}>
+                            {formatDate(item.createdAt)}
+                          </Text>
+                        </View>
+                        <Text variant="bodyMedium" style={styles.commentContent}>
+                          {item.content}
                         </Text>
                       </View>
-                      <Text variant="bodyMedium" style={styles.commentContent}>
-                        {item.content}
-                      </Text>
                     </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyComments}>
-                <Text variant="bodyMedium" style={[styles.emptyCommentText, { color: theme.colors.onSurfaceVariant }]}>
-                  还没有评论，快来抢沙发吧～
-                </Text>
-              </View>
-            )}
-          </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyComments}>
+                  <Text variant="bodyMedium" style={[styles.emptyCommentText, { color: theme.colors.onSurfaceVariant }] }>
+                    还没有评论，快来抢沙发吧～
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
         ) : null}
 
         {!post && !error && !isInitialLoading ? (
@@ -820,16 +825,51 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         </View>
       </BottomSheet>
       <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={handleCloseImageViewer}>
-        <Pressable style={styles.viewerOverlay} onPress={handleCloseImageViewer}>
-          {post?.images?.[imageViewer.index] ? (
-            <Image
-              source={{ uri: post.images[imageViewer.index] }}
-              style={styles.viewerImage}
-              resizeMode="contain"
-            />
-          ) : null}
-          <Text style={[styles.viewerHint, { color: theme.colors.onPrimary }]}>轻触退出</Text>
-        </Pressable>
+        <View style={styles.viewerOverlay}>
+          <IconButton
+            icon="close"
+            size={24}
+            onPress={handleCloseImageViewer}
+            iconColor="#fff"
+            containerColor="rgba(0,0,0,0.45)"
+            style={[styles.viewerCloseButton, { top: insets.top + 12 }]}
+          />
+          <View style={styles.viewerContent}>
+            <ScrollView
+              ref={viewerScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.viewerScroll}
+              contentContainerStyle={styles.viewerPager}
+              onMomentumScrollEnd={handleViewerMomentum}
+            >
+              {(post?.images ?? []).map((uri, idx) => (
+                <ScrollView
+                  key={`${uri}-${idx}`}
+                  style={[styles.viewerPage, { width: windowWidth }]}
+                  contentContainerStyle={styles.viewerZoomContainer}
+                  minimumZoomScale={1}
+                  maximumZoomScale={3}
+                  showsHorizontalScrollIndicator={false}
+                  showsVerticalScrollIndicator={false}
+                  centerContent
+                  bouncesZoom
+                  nestedScrollEnabled
+                >
+                  <Image
+                    source={{ uri }}
+                    style={[styles.viewerImage, { width: windowWidth }]}
+                    resizeMode="contain"
+                  />
+                </ScrollView>
+              ))}
+            </ScrollView>
+          </View>
+          <Text style={[styles.viewerHint, { color: theme.colors.onPrimary }]}>
+            {post?.images?.length ? `${imageViewer.index + 1}/${post.images.length}` : '0/0'} · 捏合放大，左右滑动查看
+          </Text>
+        </View>
       </Modal>
     </View>
   );
@@ -874,12 +914,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   errorText: {},
-  card: {
-    borderRadius: 16,
-    padding: 20,
+  postContainer: {
     gap: 16,
-    elevation: 1,
-    borderWidth: 1,
   },
   headerSection: {
     gap: 8,
@@ -957,12 +993,15 @@ const styles = StyleSheet.create({
   },
   statusChipOpen: {
     borderColor: '#22c55e',
+    paddingHorizontal: 6,
   },
   statusChipFull: {
     borderColor: '#f59e0b',
+    paddingHorizontal: 6,
   },
   statusChipClosed: {
     borderColor: '#9ca3af',
+    paddingHorizontal: 6,
   },
   metaFooter: {
     gap: 4,
@@ -974,12 +1013,16 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 32,
   },
+  sectionDividerThick: {
+    height: 2,
+    width: '100%',
+    borderRadius: 1,
+    marginVertical: 4,
+  },
   commentsSection: {
-    borderRadius: 16,
-    padding: 20,
     gap: 16,
-    borderWidth: 1,
-    elevation: 1,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   commentsHeader: {
     flexDirection: 'row',
@@ -1080,18 +1123,43 @@ const styles = StyleSheet.create({
   },
   viewerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.88)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 32,
+  },
+  viewerCloseButton: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 10,
+  },
+  viewerContent: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  viewerScroll: {
+    flex: 1,
+  },
+  viewerPager: {
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  viewerPage: {
+    flex: 1,
+  },
+  viewerZoomContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
   viewerImage: {
-    width: '100%',
-    height: '75%',
-    borderRadius: 16,
+    height: '85%',
   },
   viewerHint: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 14,
+    textAlign: 'center',
   },
 });
