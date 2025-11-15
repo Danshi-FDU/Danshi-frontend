@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   View,
   Image,
   RefreshControl,
   StyleSheet,
+  Pressable,
+  Modal,
+  Alert,
+  Share,
 } from 'react-native';
 import {
   Appbar,
@@ -14,6 +18,9 @@ import {
   Avatar,
   Button,
   Text,
+  IconButton,
+  Badge,
+  TextInput,
   useTheme as usePaperTheme,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +32,7 @@ import type {
   SeekingPost,
   SharePost,
 } from '@/src/models/Post';
+import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 
 const TYPE_LABEL: Record<Post['postType'], string> = {
   share: '分享',
@@ -48,6 +56,70 @@ const CONTACT_LABEL: Record<'comment' | 'wechat' | 'other', string> = {
   wechat: '微信',
   other: '其他方式',
 };
+
+type CommentItem = {
+  id: string;
+  author: string;
+  avatarUrl?: string;
+  content: string;
+  createdAt: string;
+};
+
+const COMMENT_SEEDS: Record<Post['postType'] | 'default', Array<Omit<CommentItem, 'id' | 'createdAt'>>> = {
+  share: [
+    {
+      author: '赵一凡',
+      avatarUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=80&h=80&crop=faces',
+      content: '感谢分享！椒麻鸡看起来好馋人，下次去南区必须试试。',
+    },
+    {
+      author: '宋瑶',
+      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&crop=faces',
+      content: '同感！推荐搭配他们家的酸梅汤，超级解腻。',
+    },
+  ],
+  seeking: [
+    {
+      author: '徐晨',
+      avatarUrl: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=80&h=80&crop=faces',
+      content: '江湾一楼的清粥小菜不错，建议早上 8 点前去人少。',
+    },
+    {
+      author: '韩子墨',
+      content: '可以试试豆浆摊的全麦包子，很清爽。',
+    },
+  ],
+  companion: [
+    {
+      author: '顾明远',
+      avatarUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=80&h=80&crop=faces',
+      content: '已私信，周五一起！',
+    },
+    {
+      author: '冯琳',
+      content: '能不能顺便试试隔壁的烤冷面？',
+    },
+  ],
+  default: [
+    {
+      author: '校园吃货',
+      content: '赞！已经收藏。',
+    },
+  ],
+};
+
+function buildMockComments(post: Post): CommentItem[] {
+  const baseTime = post.updatedAt ?? post.createdAt ?? new Date().toISOString();
+  const baseMs = new Date(baseTime).getTime() || Date.now();
+  const seeds = COMMENT_SEEDS[post.postType] ?? COMMENT_SEEDS.default;
+  return seeds.map((seed, index) => ({
+    id: `${post.id}-comment-${index + 1}`,
+    author: seed.author,
+    avatarUrl: seed.avatarUrl,
+    content: seed.content,
+    createdAt: new Date(baseMs - (index + 1) * 3600 * 1000).toISOString(),
+  }));
+}
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -108,16 +180,11 @@ function ShareDetails({ post }: { post: SharePost }) {
         {post.flavors?.length ? (
           <InfoItem
             label="口味标签"
-            value={
-              <View style={styles.inlineChipRow}>
-                {post.flavors.map((flavor) => (
-                  <Chip key={flavor} compact mode="outlined">
-                    {flavor}
-                  </Chip>
-                ))}
-              </View>
-            }
+            value={post.flavors.join('、')}
           />
+        ) : null}
+        {post.tags?.length ? (
+          <InfoItem label="话题标签" value={post.tags.map((tag) => `#${tag}`).join('、')} />
         ) : null}
       </View>
     </View>
@@ -200,6 +267,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState({ like: false, favorite: false });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [commentSheetVisible, setCommentSheetVisible] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [imageViewer, setImageViewer] = useState<{ visible: boolean; index: number }>({ visible: false, index: 0 });
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const commentsOffsetRef = useRef(0);
 
   const fetchPost = useCallback(
     async (mode: LoaderState = 'initial') => {
@@ -207,9 +282,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       if (mode !== 'refresh') setError(null);
       try {
         const data = await postsService.get(postId);
-        setPost(data);
+        const seededComments = buildMockComments(data);
+        let nextComments: CommentItem[] = [];
+        setComments((prev) => {
+          const next = mode === 'initial' ? seededComments : prev.length ? prev : seededComments;
+          nextComments = next;
+          return next;
+        });
+        setPost({
+          ...data,
+          stats: { ...(data.stats ?? {}), commentCount: nextComments.length },
+        });
         setActionError(null);
         setActionLoading({ like: false, favorite: false });
+        setShareSheetVisible(false);
+        if (mode === 'initial') setIsFollowing(false);
+        if (mode === 'initial') setCommentInput('');
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
         setError(message);
@@ -281,21 +369,171 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     }
   }, [post?.id, post?.isFavorited]);
 
+  const handleToggleFollow = useCallback(() => {
+    setIsFollowing((prev) => !prev);
+  }, []);
+
   const hasImages = post?.images?.length;
 
   const tags = useMemo(() => post?.tags ?? [], [post?.tags]);
+
+  const headerChips = useMemo(() => {
+    if (!post) return [] as React.ReactNode[];
+    const chips: React.ReactNode[] = [];
+    if (post.canteen) {
+      chips.push(
+        <Chip compact mode="outlined" icon="storefront-outline" key="canteen">
+          {post.canteen}
+        </Chip>
+      );
+    }
+    chips.push(
+      <Chip compact key="type">
+        {TYPE_LABEL[post.postType]}
+      </Chip>
+    );
+    if (post.postType === 'share') {
+      chips.push(
+        <Chip compact key="shareType">
+          {SHARE_LABEL[(post as SharePost).shareType]}
+        </Chip>
+      );
+    }
+    chips.push(
+      <Chip compact mode="outlined" key="category">
+        {post.category === 'recipe' ? '食谱' : '美食'}
+      </Chip>
+    );
+    return chips;
+  }, [post]);
+  const likeCount = post?.stats?.likeCount ?? 0;
+  const favoriteCount = post?.stats?.favoriteCount ?? 0;
+  const viewCount = post?.stats?.viewCount ?? 0;
+  const commentCount = post?.stats?.commentCount ?? comments.length;
+
+  const handleScrollToComments = useCallback(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ y: commentsOffsetRef.current, animated: true });
+  }, []);
+
+  const handleOpenImageViewer = useCallback((index: number) => {
+    setImageViewer({ visible: true, index });
+  }, []);
+
+  const handleCloseImageViewer = useCallback(() => {
+    setImageViewer((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleShareToPlatform = useCallback(
+    async (platform: 'qq' | 'wechat') => {
+      if (!post) return;
+      setShareSheetVisible(false);
+      const platformLabel = platform === 'qq' ? 'QQ' : '微信';
+      try {
+        await Share.share({
+          message: `${post.title}\n楼层 ID：${post.id}\n来自旦食社区，快来看看！`,
+        });
+      } catch (error) {
+        console.warn('[post_detail] share failed', error);
+        Alert.alert('分享失败', `暂时无法分享到${platformLabel}，请稍后再试。`);
+      }
+    },
+    [post]
+  );
+
+  const handleCopyPostId = useCallback(async () => {
+    if (!post) return;
+    setShareSheetVisible(false);
+    let copied = false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(post.id);
+        copied = true;
+      }
+    } catch (error) {
+      console.warn('[post_detail] clipboard write failed', error);
+    }
+
+    if (copied) {
+      Alert.alert('已复制', '楼层 ID 已复制到剪贴板');
+      return;
+    }
+
+    try {
+      await Share.share({ message: `楼层 ID：${post.id}` });
+      Alert.alert('已复制', '楼层 ID 已通过系统分享面板可复制');
+    } catch (error) {
+      Alert.alert('复制失败', `请手动复制楼层 ID：${post.id}`);
+    }
+  }, [post]);
+
+  const handleSubmitComment = useCallback(() => {
+    if (!post) return;
+    const content = commentInput.trim();
+    if (!content) return;
+    const now = new Date().toISOString();
+    const newComment: CommentItem = {
+      id: `${post.id}-comment-${Date.now()}`,
+      author: '我',
+      content,
+      createdAt: now,
+    };
+    setComments((prev) => [newComment, ...prev]);
+    setPost((prev) =>
+      prev
+        ? {
+            ...prev,
+            stats: { ...(prev.stats ?? {}), commentCount: (prev.stats?.commentCount ?? 0) + 1 },
+          }
+        : prev
+    );
+    setCommentInput('');
+    setCommentSheetVisible(false);
+  }, [commentInput, post]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title={post?.title ?? '帖子详情'} />
-        <Appbar.Action
-          icon="refresh"
-          onPress={() => fetchPost('initial')}
-          disabled={isInitialLoading || refreshing}
-          accessibilityLabel="刷新帖子"
-        />
+        {post ? (
+          <View style={styles.appbarMain}>
+            <View style={styles.appbarAuthorInfo}>
+              {post.author?.avatarUrl ? (
+                <Avatar.Image size={36} source={{ uri: post.author.avatarUrl }} />
+              ) : (
+                <Avatar.Text size={36} label={(post.author?.name ?? '访客').slice(0, 1)} />
+              )}
+              <View style={styles.appbarAuthorMeta}>
+                <Text variant="titleMedium" numberOfLines={1}>
+                  {post.author?.name ?? '匿名用户'}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  numberOfLines={1}
+                  style={[styles.appbarAuthorSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                >
+                  发布于 {formatDate(post.createdAt) || '未知'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.appbarActions}>
+              <Button
+                mode={isFollowing ? 'contained-tonal' : 'outlined'}
+                compact
+                onPress={handleToggleFollow}
+              >
+                {isFollowing ? '已关注' : '关注'}
+              </Button>
+              <IconButton
+                icon="share-variant"
+                onPress={() => setShareSheetVisible(true)}
+                accessibilityLabel="分享帖子"
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.appbarMain} />
+        )}
       </Appbar.Header>
 
       {isInitialLoading ? (
@@ -306,9 +544,17 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       ) : null}
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1, backgroundColor: theme.colors.background }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 16 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: 160, gap: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       >
         {error && !isInitialLoading ? (
           <View style={styles.errorWrapper}>
@@ -331,45 +577,16 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             ]}
           >
             <View style={styles.headerSection}>
-              <View style={styles.headerChips}>
-                <Chip compact>{TYPE_LABEL[post.postType]}</Chip>
-                {post.postType === 'share' ? (
-                  <Chip compact>{SHARE_LABEL[(post as SharePost).shareType]}</Chip>
-                ) : null}
-                <Chip compact mode="outlined">{post.category === 'recipe' ? '食谱' : '美食'}</Chip>
-              </View>
+              <View style={styles.headerChips}>{headerChips}</View>
               <Text variant="headlineSmall" style={styles.title}>
                 {post.title}
               </Text>
-              <View style={styles.authorRow}>
-                {post.author?.avatarUrl ? (
-                  <Avatar.Image size={48} source={{ uri: post.author.avatarUrl }} />
-                ) : (
-                  <Avatar.Text size={48} label={(post.author?.name ?? '访客').slice(0, 1)} />
-                )}
-                <View style={styles.authorMeta}>
-                  <Text variant="titleMedium">{post.author?.name ?? '匿名用户'}</Text>
-                  <Text
-                    variant="bodySmall"
-                    style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }] }
-                  >
-                    发布于 {formatDate(post.createdAt) || '未知'}
-                  </Text>
-                  {post.updatedAt && post.updatedAt !== post.createdAt ? (
-                    <Text
-                      variant="bodySmall"
-                      style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }] }
-                    >
-                      更新于 {formatDate(post.updatedAt) || '未知'}
-                    </Text>
-                  ) : null}
-                </View>
-                {post.canteen ? (
-                  <Chip compact mode="outlined" style={styles.authorBadge} icon="storefront-outline">
-                    {post.canteen}
-                  </Chip>
-                ) : null}
-              </View>
+              <Text
+                variant="bodySmall"
+                style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
+              >
+                由 {post.author?.name ?? '匿名用户'} 发布
+              </Text>
             </View>
 
             {hasImages ? (
@@ -380,12 +597,9 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   contentContainerStyle={styles.imagesRow}
                 >
                   {post.images?.map((uri, idx) => (
-                    <Image
-                      key={`${uri}-${idx}`}
-                      source={{ uri }}
-                      style={styles.image}
-                      resizeMode="cover"
-                    />
+                    <Pressable key={`${uri}-${idx}`} onPress={() => handleOpenImageViewer(idx)}>
+                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+                    </Pressable>
                   ))}
                 </ScrollView>
                 <Text variant="bodySmall" style={[styles.imageHint, { color: theme.colors.onSurfaceVariant }] }>
@@ -394,56 +608,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               </View>
             ) : null}
 
-            <View style={styles.actionRow}>
-              <Button
-                mode={post.isLiked ? 'contained-tonal' : 'outlined'}
-                icon={post.isLiked ? 'heart' : 'heart-outline'}
-                onPress={handleToggleLike}
-                loading={actionLoading.like}
-                disabled={actionLoading.like}
-                compact
-                style={styles.actionButton}
-              >
-                {`点赞 ${post.stats?.likeCount ?? 0}`}
-              </Button>
-              <Button
-                mode={post.isFavorited ? 'contained-tonal' : 'outlined'}
-                icon={post.isFavorited ? 'bookmark' : 'bookmark-outline'}
-                onPress={handleToggleFavorite}
-                loading={actionLoading.favorite}
-                disabled={actionLoading.favorite}
-                compact
-                style={styles.actionButton}
-              >
-                {`收藏 ${post.stats?.favoriteCount ?? 0}`}
-              </Button>
-              <Chip compact mode="outlined" icon="message-outline" style={styles.actionStatsChip}>
-                {`评论 ${post.stats?.commentCount ?? 0}`}
-              </Chip>
-              <Chip compact mode="outlined" icon="eye-outline" style={styles.actionStatsChip}>
-                {`浏览 ${post.stats?.viewCount ?? 0}`}
-              </Chip>
-            </View>
-            {actionError ? (
-              <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }] }>
-                {actionError}
-              </Text>
-            ) : null}
-
-            <Divider />
-
             <Text variant="bodyLarge" style={styles.content}>
               {post.content}
             </Text>
 
-            {tags.length ? (
-              <View style={styles.tagsRow}>
-                {tags.map((tag) => (
-                  <Chip key={tag} compact mode="outlined">
-                    #{tag}
-                  </Chip>
-                ))}
-              </View>
+            {tags.length && post.postType !== 'share' ? (
+              <Text variant="bodySmall" style={[styles.tagsText, { color: theme.colors.onSurfaceVariant }]}>
+                话题：{tags.map((tag) => `#${tag}`).join('、')}
+              </Text>
             ) : null}
 
             <Divider />
@@ -461,7 +633,73 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
                 最近更新：{formatDate(post.updatedAt ?? post.createdAt) || '暂无'}
               </Text>
+              <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
+                发布于：{formatDate(post.createdAt) || '暂无'}
+              </Text>
             </View>
+          </View>
+        ) : null}
+
+        {post ? (
+          <View
+            style={[
+              styles.commentsSection,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+                shadowColor: theme.colors.shadow,
+              },
+            ]}
+            onLayout={(event) => {
+              commentsOffsetRef.current = event.nativeEvent.layout.y;
+            }}
+          >
+            <View style={styles.commentsHeader}>
+              <Text variant="titleMedium">评论</Text>
+              <View style={styles.commentsHeaderBadges}>
+                <Chip compact icon="message-outline" mode="outlined">
+                  共 {commentCount}
+                </Chip>
+                <Chip compact icon="eye-outline" mode="outlined">
+                  浏览 {viewCount}
+                </Chip>
+              </View>
+            </View>
+            {actionError ? (
+              <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }]}>
+                {actionError}
+              </Text>
+            ) : null}
+            {comments.length ? (
+              <View style={styles.commentsList}>
+                {comments.map((item) => (
+                  <View key={item.id} style={styles.commentItem}>
+                    {item.avatarUrl ? (
+                      <Avatar.Image size={40} source={{ uri: item.avatarUrl }} />
+                    ) : (
+                      <Avatar.Text size={40} label={item.author.slice(0, 1)} />
+                    )}
+                    <View style={styles.commentBody}>
+                      <View style={styles.commentHeaderRow}>
+                        <Text variant="labelLarge">{item.author}</Text>
+                        <Text variant="bodySmall" style={[styles.commentTimestamp, { color: theme.colors.onSurfaceVariant }]}>
+                          {formatDate(item.createdAt)}
+                        </Text>
+                      </View>
+                      <Text variant="bodyMedium" style={styles.commentContent}>
+                        {item.content}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyComments}>
+                <Text variant="bodyMedium" style={[styles.emptyCommentText, { color: theme.colors.onSurfaceVariant }]}>
+                  还没有评论，快来抢沙发吧～
+                </Text>
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -474,6 +712,125 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </View>
         ) : null}
       </ScrollView>
+
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outlineVariant,
+            shadowColor: theme.colors.shadow,
+            paddingBottom: insets.bottom + 8,
+          },
+        ]}
+      >
+        <Pressable
+          style={[styles.commentTrigger, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}
+          onPress={() => setCommentSheetVisible(true)}
+        >
+          <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }]}>
+            写评论…
+          </Text>
+        </Pressable>
+        <View style={styles.bottomActions}>
+          <View style={styles.iconButtonWrapper}>
+            <IconButton
+              icon={post?.isFavorited ? 'bookmark' : 'bookmark-outline'}
+              size={24}
+              onPress={handleToggleFavorite}
+              disabled={actionLoading.favorite}
+              iconColor={post?.isFavorited ? theme.colors.primary : theme.colors.onSurface}
+            />
+            {favoriteCount ? (
+              <Badge style={styles.iconBadge}>{favoriteCount}</Badge>
+            ) : null}
+          </View>
+          <View style={styles.iconButtonWrapper}>
+            <IconButton
+              icon={post?.isLiked ? 'heart' : 'heart-outline'}
+              size={24}
+              onPress={handleToggleLike}
+              disabled={actionLoading.like}
+              iconColor={post?.isLiked ? theme.colors.error : theme.colors.onSurface}
+            />
+            {likeCount ? (
+              <Badge style={styles.iconBadge}>{likeCount}</Badge>
+            ) : null}
+          </View>
+          <View style={styles.iconButtonWrapper}>
+            <IconButton icon="message-outline" size={24} onPress={handleScrollToComments} />
+            {commentCount ? (
+              <Badge style={styles.iconBadge}>{commentCount}</Badge>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <BottomSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} height={240}>
+        <View style={styles.shareSheetContent}>
+          <Text variant="titleMedium">分享至</Text>
+          <Text variant="bodySmall" style={[styles.shareSheetHint, { color: theme.colors.onSurfaceVariant }]}>
+            选择渠道或复制楼层 ID，方便好友快速找到这条帖子。
+          </Text>
+          <View style={styles.shareSheetButtons}>
+            <Button
+              mode="contained-tonal"
+              icon="chat-outline"
+              onPress={() => handleShareToPlatform('qq')}
+              style={styles.shareSheetButton}
+            >
+              分享到 QQ
+            </Button>
+            <Button
+              mode="contained-tonal"
+              icon="wechat"
+              onPress={() => handleShareToPlatform('wechat')}
+              style={styles.shareSheetButton}
+            >
+              分享到微信
+            </Button>
+          </View>
+          <Button mode="outlined" icon="content-copy" onPress={handleCopyPostId}>
+            复制楼层 ID
+          </Button>
+        </View>
+      </BottomSheet>
+      <BottomSheet visible={commentSheetVisible} onClose={() => setCommentSheetVisible(false)} height={280}>
+        <View style={styles.commentSheetContent}>
+          <Text variant="titleMedium">写评论</Text>
+          <Text variant="bodySmall" style={[styles.commentSheetHint, { color: theme.colors.onSurfaceVariant }]}>
+            分享你的想法吧～
+          </Text>
+          <TextInput
+            mode="outlined"
+            multiline
+            numberOfLines={4}
+            placeholder="说点什么..."
+            value={commentInput}
+            onChangeText={setCommentInput}
+          />
+          <View style={styles.commentSheetActions}>
+            <Button mode="text" onPress={() => setCommentSheetVisible(false)}>
+              取消
+            </Button>
+            <Button mode="contained" onPress={handleSubmitComment} disabled={!commentInput.trim()}>
+              发送
+            </Button>
+          </View>
+        </View>
+      </BottomSheet>
+      <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={handleCloseImageViewer}>
+        <Pressable style={styles.viewerOverlay} onPress={handleCloseImageViewer}>
+          {post?.images?.[imageViewer.index] ? (
+            <Image
+              source={{ uri: post.images[imageViewer.index] }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
+          ) : null}
+          <Text style={[styles.viewerHint, { color: theme.colors.onPrimary }]}>轻触退出</Text>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -481,6 +838,29 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 export default PostDetailScreen;
 
 const styles = StyleSheet.create({
+  appbarMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingRight: 8,
+  },
+  appbarAuthorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+  },
+  appbarAuthorMeta: {
+    flexShrink: 1,
+  },
+  appbarAuthorSubtitle: {},
+  appbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   loaderWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -546,26 +926,11 @@ const styles = StyleSheet.create({
   content: {
     lineHeight: 22,
   },
-  actionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionButton: {
-    flexGrow: 1,
-    minWidth: 140,
-    flexBasis: '48%',
-  },
-  actionStatsChip: {
-    alignSelf: 'center',
-  },
   actionErrorText: {
     marginTop: -4,
   },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  tagsText: {
+    marginTop: 4,
   },
   detailSection: {
     gap: 8,
@@ -590,11 +955,6 @@ const styles = StyleSheet.create({
   infoValue: {
     flexShrink: 1,
   },
-  inlineChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
   statusChipOpen: {
     borderColor: '#22c55e',
   },
@@ -613,5 +973,125 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: 32,
+  },
+  commentsSection: {
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+    borderWidth: 1,
+    elevation: 1,
+  },
+  commentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  commentsHeaderBadges: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  commentsList: {
+    gap: 16,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  commentBody: {
+    flex: 1,
+    gap: 4,
+  },
+  commentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  commentTimestamp: {},
+  commentContent: {
+    lineHeight: 20,
+  },
+  emptyComments: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyCommentText: {
+    textAlign: 'center',
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 12,
+    borderTopWidth: 1,
+    elevation: 8,
+  },
+  commentTrigger: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  commentTriggerText: {
+    color: '#666',
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconButtonWrapper: {
+    position: 'relative',
+  },
+  iconBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  commentSheetContent: {
+    gap: 12,
+  },
+  commentSheetHint: {},
+  commentSheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  shareSheetContent: {
+    gap: 16,
+    paddingBottom: 12,
+  },
+  shareSheetHint: {},
+  shareSheetButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  shareSheetButton: {
+    flex: 1,
+  },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.88)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  viewerImage: {
+    width: '100%',
+    height: '75%',
+    borderRadius: 16,
+  },
+  viewerHint: {
+    marginTop: 12,
+    fontSize: 14,
   },
 });

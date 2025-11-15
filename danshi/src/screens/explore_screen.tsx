@@ -13,6 +13,7 @@ import {
   Chip,
   SegmentedButtons,
   Button,
+  IconButton,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postsService } from '@/src/services/posts_service';
@@ -72,6 +73,15 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string; description: string
   { value: 'price', label: '价格', description: '分享帖按价格排序' },
 ];
 
+function sortPostsByPrice(list: Post[]): Post[] {
+  return [...list].sort((a, b) => {
+    const aPrice = a.postType === 'share' && typeof a.price === 'number' ? a.price : Number.POSITIVE_INFINITY;
+    const bPrice = b.postType === 'share' && typeof b.price === 'number' ? b.price : Number.POSITIVE_INFINITY;
+    if (aPrice === bPrice) return 0;
+    return aPrice - bPrice;
+  });
+}
+
 function formatDate(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -115,23 +125,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, style }) => {
         <Text variant="titleMedium" numberOfLines={2} style={styles.cardTitle}>
           {post.title}
         </Text>
-        <Text
-          variant="bodyMedium"
-          numberOfLines={4}
-          style={[styles.cardBody, { color: theme.colors.onSurfaceVariant }]}
-        >
-          {post.content}
-        </Text>
-        {post.tags?.length ? (
-          <View style={styles.tagsWrapper}>
-            {post.tags.slice(0, 3).map((tag) => (
-              <Chip key={tag} compact mode="outlined">
-                #{tag}
-              </Chip>
-            ))}
-            {post.tags.length > 3 ? <Chip compact mode="outlined">+{post.tags.length - 3}</Chip> : null}
-          </View>
-        ) : null}
         {post.postType === 'share' ? (
           <View style={styles.metaSection}>
             {typeof post.price === 'number' ? (
@@ -146,16 +139,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, style }) => {
                 </Text>
               ) : null}
               {post.flavors?.length ? (
-                <View style={styles.inlineChips}>
-                  {post.flavors.slice(0, 3).map((flavor) => (
-                    <Chip key={flavor} compact mode="outlined">
-                      {flavor}
-                    </Chip>
-                  ))}
-                  {post.flavors.length > 3 ? (
-                    <Chip compact mode="outlined">+{post.flavors.length - 3}</Chip>
-                  ) : null}
-                </View>
+                <Text variant="bodySmall" style={[styles.metaChipText, { color: theme.colors.onSurfaceVariant }] }>
+                  口味：{post.flavors.slice(0, 3).join('、')}
+                  {post.flavors.length > 3 ? ` 等${post.flavors.length - 3}种` : ''}
+                </Text>
               ) : null}
             </View>
           </View>
@@ -218,6 +205,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, style }) => {
               </Text>
             ) : null}
           </View>
+        ) : null}
+        {post.tags?.length ? (
+          <Text variant="bodySmall" style={[styles.metaTextLine, { color: theme.colors.onSurfaceVariant }] }>
+            话题：{post.tags.slice(0, 3).map((tag) => `#${tag}`).join('、')}
+            {post.tags.length > 3 ? ` 等${post.tags.length - 3}个` : ''}
+          </Text>
         ) : null}
         {hasMeta ? (
           <Text variant="labelMedium" style={[styles.metaText, { color: theme.colors.onSurfaceVariant }] }>
@@ -293,7 +286,9 @@ export default function ExploreScreen() {
       try {
         const params = { ...requestFilters, ...(overrides ?? {}) };
         const { posts: result } = await postsService.list(params);
-        setPosts(result);
+        const shouldSortByPrice = (params.sortBy ?? filters.sortBy) === 'price';
+        const processed = shouldSortByPrice ? sortPostsByPrice(result) : result;
+        setPosts(processed);
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
         setError(message);
@@ -301,7 +296,7 @@ export default function ExploreScreen() {
         setLoaderState('idle');
       }
     },
-    [requestFilters]
+    [filters.sortBy, requestFilters]
   );
 
   useEffect(() => {
@@ -408,12 +403,6 @@ export default function ExploreScreen() {
     setFilters({ ...INITIAL_FILTERS });
   }, []);
 
-  useEffect(() => {
-    if (filters.postType !== 'share' && filters.sortBy === 'price') {
-      setFilters((prev) => ({ ...prev, sortBy: 'trending' }));
-    }
-  }, [filters.postType, filters.sortBy]);
-
   const sortHintText = useMemo(() => {
     if (filters.sortBy === 'price') {
       return filters.postType === 'share' ? '按价格从低到高排序，适用于美食分享帖子' : '价格排序仅适用于美食分享帖子';
@@ -424,43 +413,53 @@ export default function ExploreScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
       <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
-        <Appbar.Content title="发现帖子" />
-        <Appbar.Action
-          icon="refresh"
-          onPress={() => fetchPosts('initial')}
-          disabled={isInitialLoading || refreshing}
-          accessibilityLabel="刷新帖子"
-        />
+        <Appbar.Content title="社区" />
+        <Appbar.Action icon="magnify" onPress={() => {}} accessibilityLabel="搜索帖子" />
       </Appbar.Header>
+      <View style={styles.typeBarContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.typeBarScroll}
+        >
+          {postTypeOptions.map((option) => (
+            <Chip
+              key={option.value}
+              selected={filters.postType === option.value}
+              onPress={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  postType: option.value,
+                  shareType: option.value === 'share' ? prev.shareType : 'all',
+                }))
+              }
+              mode={filters.postType === option.value ? 'flat' : 'outlined'}
+              compact
+              style={styles.typeBarChip}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </ScrollView>
+        <IconButton
+          icon="tune-variant"
+          onPress={() => setFiltersSheetVisible(true)}
+          style={styles.typeBarFilterButton}
+        />
+      </View>
       <ScrollView
         style={{ backgroundColor: pTheme.colors.background }}
         contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 16 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[pTheme.colors.primary]}
+            tintColor={pTheme.colors.primary}
+          />
+        }
       >
-        <View style={styles.hero}>
-          <Text variant="headlineSmall" style={styles.heroTitle}>
-            探索旦食社区
-          </Text>
-          <Text variant="bodyMedium" style={[styles.heroSubtitle, { color: pTheme.colors.onSurfaceVariant }] }>
-            根据帖子类型、排序与食堂分类筛选，快速找到最适合你的分享、求助和搭子信息。
-          </Text>
-        </View>
-
-        <View style={styles.filterToggleRow}>
-          <Button
-            mode="outlined"
-            icon="tune-variant"
-            onPress={() => setFiltersSheetVisible(true)}
-          >
-            打开筛选
-          </Button>
-          {hasAnyFilters ? (
-            <Button mode="text" onPress={resetFilters}>
-              重置
-            </Button>
-          ) : null}
-        </View>
-
         {activeFilterChips.length ? (
           <View style={styles.activeFiltersRow}>
             {activeFilterChips.map((chip) => (
@@ -579,7 +578,6 @@ export default function ExploreScreen() {
                 value: option.value,
                 label: option.label,
                 style: styles.segmentButton,
-                disabled: option.value === 'price' && filters.postType !== 'share',
               }))}
             />
             <Text variant="bodySmall" style={[styles.sortHint, { color: pTheme.colors.onSurfaceVariant }] }>
@@ -668,7 +666,8 @@ const styles = StyleSheet.create({
     height: 180,
   },
   cardContent: {
-    gap: 8,
+    gap: 12,
+    paddingTop: 12,
   },
   tagRow: {
     flexDirection: 'row',
@@ -678,30 +677,19 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontWeight: '600',
   },
-  cardBody: {
-  },
-  tagsWrapper: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
   metaSection: {
-    gap: 6,
+    gap: 8,
   },
   metaLine: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   metaText: {
   },
   metaChipText: {},
-  inlineChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
+  metaTextLine: {},
   priceText: {
     fontWeight: '700',
   },
@@ -735,13 +723,25 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   emptyText: {},
-  hero: {
+  typeBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  typeBarScroll: {
     gap: 8,
+    paddingRight: 8,
   },
-  heroTitle: {
-    fontWeight: '700',
+  typeBarChip: {
+    marginRight: 4,
   },
-  heroSubtitle: {},
+  typeBarFilterButton: {
+    margin: 0,
+  },
   filterToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
