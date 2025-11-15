@@ -36,6 +36,12 @@ export const API_ENDPOINTS = {
     UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
     CHANGEPOSTSTATUS: '/api/v1/posts/:postId/companion-status', // PUT
   },
+  CONFIG: {
+    CANTEENS: '/api/v1/config/canteens',
+    CUISINES: '/api/v1/config/cuisines',
+    FLAVORS: '/api/v1/config/flavors',
+    POST_TYPES: '/api/v1/config/post-types',
+  },
 } as const;
 
 // Role literals and their order (low -> high privilege)

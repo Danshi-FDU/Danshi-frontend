@@ -9,6 +9,7 @@ import type {
   CompanionPost,
   ShareType,
   PostType,
+  PostAuthor,
 } from '@/src/models/Post';
 
 export interface PostsRepository {
@@ -117,8 +118,158 @@ class ApiPostsRepository implements PostsRepository {
   }
 }
 
+const MOCK_AUTHORS: PostAuthor[] = [
+  { id: 'mock-user-01', name: '王若琳', avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces' },
+  { id: 'mock-user-02', name: '陈嘉', avatarUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces' },
+  { id: 'mock-user-03', name: '李云鹏', avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces' },
+  { id: 'mock-user-04', name: '周琪', avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces' },
+];
+
+function seedMockPosts(): Post[] {
+  const now = '2025-11-12T08:00:00.000Z';
+  const earlier = '2025-11-09T09:45:00.000Z';
+  const weekAgo = '2025-11-05T13:20:00.000Z';
+  return [
+    {
+      id: 'mock-share-001',
+      postType: 'share',
+      shareType: 'recommend',
+      title: '南区食堂的椒麻鸡惊艳到我',
+      content: '邯郸南区二楼的椒麻鸡真的香，外酥里嫩，花椒的香气特别提神，还可以免费加一点酸菜一起拌着吃。',
+      category: 'food',
+      canteen: '邯郸校区南区食堂',
+      tags: ['椒麻鸡', '打卡', '南区必吃'],
+      images: [
+        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&auto=format&fit=crop',
+      ],
+      cuisine: '川菜',
+      flavors: ['麻辣', '香辣'],
+      price: 18.5,
+      author: MOCK_AUTHORS[0],
+      stats: { likeCount: 132, favoriteCount: 47, commentCount: 23, viewCount: 1045 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'mock-share-002',
+      postType: 'share',
+      shareType: 'warning',
+      title: '春晖食堂的黑椒牛排有点踩雷',
+      content: '黑椒没有香味，肉质偏柴，配菜也比较随意，价格却涨到了 28 元，感觉性价比不高，建议谨慎尝试。',
+      category: 'food',
+      canteen: '邯郸校区春晖食堂',
+      tags: ['避雷', '春晖食堂'],
+      images: [
+        'https://images.unsplash.com/photo-1534939561126-855b8675edd7?w=800&auto=format&fit=crop',
+      ],
+      cuisine: '西式',
+      flavors: ['黑椒', '偏咸'],
+      price: 28,
+      author: MOCK_AUTHORS[1],
+      stats: { likeCount: 56, favoriteCount: 9, commentCount: 14, viewCount: 612 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: earlier,
+      updatedAt: earlier,
+    },
+    {
+      id: 'mock-seeking-001',
+      postType: 'seeking',
+      title: '求推荐江湾食堂的清淡早餐',
+      content: '最近早上胃口不好，想找一些清淡又不油腻的早餐，有没有同学推荐江湾食堂的靠谱摊位？',
+      category: 'food',
+      canteen: '江湾校区食堂',
+      tags: ['早餐', '清淡'],
+      images: [],
+      budgetRange: { min: 6, max: 15 },
+      preferences: { preferFlavors: ['清淡'], avoidFlavors: ['油炸'] },
+      author: MOCK_AUTHORS[2],
+      stats: { likeCount: 21, favoriteCount: 5, commentCount: 18, viewCount: 389 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: weekAgo,
+      updatedAt: weekAgo,
+    },
+    {
+      id: 'mock-companion-001',
+      postType: 'companion',
+      title: '周五晚春晖烤鱼拼单有人吗',
+      content: '想约三四个同学一起拼单春晖三楼的小青椒烤鱼，人均 35 左右，顺便聊聊课程。',
+      category: 'food',
+      canteen: '邯郸校区春晖食堂',
+      tags: ['拼单', '周五晚上'],
+      images: [
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop',
+      ],
+      meetingInfo: {
+        date: '2025-11-15',
+        time: '18:30',
+        location: '春晖三楼烤鱼档口',
+        maxPeople: 4,
+        currentPeople: 2,
+        costSharing: 'AA制',
+        status: 'open',
+      },
+      contact: { method: 'wechat', note: '加我微信备注“烤鱼”即可' },
+      author: MOCK_AUTHORS[3],
+      stats: { likeCount: 44, favoriteCount: 17, commentCount: 11, viewCount: 522 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: earlier,
+      updatedAt: earlier,
+    },
+    {
+      id: 'mock-share-003',
+      postType: 'share',
+      shareType: 'recommend',
+      title: '邯郸北区的番茄牛腩面好暖胃',
+      content: '这碗番茄牛腩面汤底特别鲜，酸甜开胃，牛腩给得也很足，适合秋天晚上吃一碗暖暖身。',
+      category: 'food',
+      canteen: '邯郸校区北区食堂',
+      tags: ['面食', '暖胃'],
+      images: [
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop',
+      ],
+      cuisine: '中式',
+      flavors: ['鲜', '清爽'],
+      price: 16,
+      author: MOCK_AUTHORS[2],
+      stats: { likeCount: 88, favoriteCount: 31, commentCount: 19, viewCount: 745 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: '2025-11-10T11:15:00.000Z',
+      updatedAt: '2025-11-10T11:15:00.000Z',
+    },
+    {
+      id: 'mock-recipe-001',
+      postType: 'share',
+      shareType: 'recommend',
+      title: '寝室快手番茄蛋包饭教程',
+      content: '用微波炉也能做出松软的蛋包饭，番茄酱煮一下更好吃，附带详细步骤和时间安排，适合宿舍党。',
+      category: 'recipe',
+      tags: ['宿舍料理', '番茄蛋包饭'],
+      images: [
+        'https://images.unsplash.com/photo-1589308078054-83299d4d71dc?w=800&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1525755662778-989d0524087e?w=800&auto=format&fit=crop',
+      ],
+      cuisine: '家常',
+      flavors: ['酸甜', '柔软'],
+      price: 12,
+      author: MOCK_AUTHORS[0],
+      stats: { likeCount: 201, favoriteCount: 96, commentCount: 54, viewCount: 1520 },
+      isLiked: false,
+      isFavorited: false,
+      createdAt: '2025-11-08T07:30:00.000Z',
+      updatedAt: '2025-11-08T07:30:00.000Z',
+    },
+  ];
+}
+
 class MockPostsRepository implements PostsRepository {
-  private store: Post[] = [];
+  private store: Post[] = seedMockPosts();
 
   async create(input: PostCreateInput): Promise<PostCreateResult> {
     // 仅返回最小结果，模拟“创建成功，待审核”

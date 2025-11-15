@@ -57,15 +57,15 @@ export default function MyselfScreen() {
 		return (
 			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
 				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
-								<Appbar.Content title="个人中心" />
+					<Appbar.Content title="个人中心" />
 					<Appbar.Action icon="cog-outline" onPress={() => router.push('/myself/settings')} accessibilityLabel="打开设置" />
 				</Appbar.Header>
 				<ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16 }}>
 
 			{/* user card */}
-						<Card style={{ marginTop: 8 }}>
-								<Card.Content>
-								<View style={styles.profileRow}>
+				<Card style={{ marginTop: 8 }}>
+					<Card.Content>
+					<View style={styles.profileRow}>
 					<Pressable
 						onPress={() => {
 							setAvatarDraft(profile?.avatarUrl ?? null);
@@ -88,61 +88,61 @@ export default function MyselfScreen() {
 						) : null}
 					</Pressable>
 					<View style={{ flex: 1, marginLeft: 12 }}>
-												<Text variant="titleMedium">{name}</Text>
-												{email ? <Text style={{ marginTop: 4, color: icon as string }}>{email}</Text> : null}
+						<Text variant="titleMedium">{name}</Text>
+						{email ? <Text style={{ marginTop: 4, color: icon as string }}>{email}</Text> : null}
 					</View>
-				</View>
-								</Card.Content>
-						</Card>
+					</View>
+					</Card.Content>
+				</Card>
 
 			{/* stats */}
 			<View style={{ height: 12 }} />
 			{profile ? (
-								<Card>
-										<Card.Content>
-										<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
+				<Card>
+					<Card.Content>
+					<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
 					<View style={styles.statsRow}>
-												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.postCount}</Text><Text style={styles.statLabel}>帖子</Text></View>
-												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.likeCount}</Text><Text style={styles.statLabel}>获赞</Text></View>
-												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.favoriteCount}</Text><Text style={styles.statLabel}>收藏</Text></View>
-												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followerCount}</Text><Text style={styles.statLabel}>粉丝</Text></View>
-												<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followingCount}</Text><Text style={styles.statLabel}>关注</Text></View>
+					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.postCount}</Text><Text style={styles.statLabel}>帖子</Text></View>
+					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.likeCount}</Text><Text style={styles.statLabel}>获赞</Text></View>
+					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.favoriteCount}</Text><Text style={styles.statLabel}>收藏</Text></View>
+					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followerCount}</Text><Text style={styles.statLabel}>粉丝</Text></View>
+					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followingCount}</Text><Text style={styles.statLabel}>关注</Text></View>
 					</View>
-										</Card.Content>
-								</Card>
+					</Card.Content>
+				</Card>
 			) : null}
 
 			{/* bio */}
 			<View style={{ height: 12 }} />
-						<Card>
-							<Card.Title title="个人简介" right={(props) => activeEdit !== 'bio' ? (
-								<IconButton {...props} icon="pencil-outline" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('bio'); }} />
-							) : null} />
-							<Card.Content>
-								{activeEdit !== 'bio' ? (
-									<Text style={{ color: icon as string }}>{(profile?.bio ?? '').trim() ? profile?.bio : '暂无'}</Text>
-								) : (
-									<>
-										<TextInput
-											mode="outlined"
-											value={bioDraft}
-											onChangeText={setBioDraft}
-											placeholder="填写你的个人简介"
-											multiline
-										/>
-										<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-											<Button mode="text" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('none'); }} style={{ marginRight: 8 }}>取消</Button>
-											<Button mode="contained" onPress={async () => {
-												if (!user?.id) return;
-												const updated = await usersService.updateUser(user.id, { bio: bioDraft });
-												setProfile(updated);
-												setActiveEdit('none');
-											}}>保存</Button>
-										</View>
-									</>
-								)}
-							</Card.Content>
-						</Card>
+				<Card>
+					<Card.Title title="个人简介" right={(props) => activeEdit !== 'bio' ? (
+						<IconButton {...props} icon="pencil-outline" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('bio'); }} />
+					) : null} />
+					<Card.Content>
+						{activeEdit !== 'bio' ? (
+							<Text style={{ color: icon as string }}>{(profile?.bio ?? '').trim() ? profile?.bio : '暂无'}</Text>
+						) : (
+						<>
+							<TextInput
+								mode="outlined"
+								value={bioDraft}
+								onChangeText={setBioDraft}
+								placeholder="填写你的个人简介"
+								multiline
+							/>
+							<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+								<Button mode="text" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('none'); }} style={{ marginRight: 8 }}>取消</Button>
+								<Button mode="contained" onPress={async () => {
+									if (!user?.id) return;
+									const updated = await usersService.updateUser(user.id, { bio: bioDraft });
+									setProfile(updated);
+									setActiveEdit('none');
+								}}>保存</Button>
+							</View>
+						</>
+					)}
+					</Card.Content>
+				</Card>
 
 			{/* username */}
 						<View style={{ height: 12 }} />
@@ -254,7 +254,7 @@ export default function MyselfScreen() {
             <View style={{ height: 16 }} />
 						<Button mode="contained" buttonColor={'#B71C1C'} onPress={() => signOut()}>登出</Button>
 				</ScrollView>
-				</View>
+			</View>
 	);
 }
 

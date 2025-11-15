@@ -41,8 +41,8 @@ export default function LoginScreen() {
     try {
       const { token } = await authService.login({ identifier, password });
       await signIn(token);
-      // jump to tabs root (index in tabs group resolves to "/")
-      router.replace('/');
+      // 直接跳到 tabs 的探索页，避免在 (auth) 栈内 REPLACE('index') 报错
+      router.replace('/explore');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || '登录失败，请重试');

@@ -47,7 +47,7 @@ export default function RegisterScreen() {
     try {
   const { token } = await authService.register({ email, password, name: username });
   await signIn(token);
-  router.replace('/');
+  router.replace('/explore');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || '注册失败，请重试');

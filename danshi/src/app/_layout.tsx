@@ -24,7 +24,7 @@ function Gate() {
     return isAuthRoute ? <Slot /> : <Redirect href="/login" />;
   }
   if (isAuthRoute) {
-    return <Redirect href="/" />;
+    return <Redirect href="/explore" />;
   }
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
