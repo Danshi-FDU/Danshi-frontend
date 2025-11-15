@@ -1,6 +1,6 @@
 # 项目架构说明（DanShi）
 
-> 最新修改日期：2025-11-14
+> 最新修改日期：2025-11-15
 >
 
 ---
@@ -66,6 +66,7 @@
 - `src/lib/http/client.ts`
   - 基础 HTTP 客户端封装：
     - 统一超时、JSON 解析、错误映射
+    - 通过检测 `AbortError` 名称处理超时，避免直接依赖浏览器特有的 `DOMException`
 - `src/lib/http/http_auth.ts`
   - 鉴权版 HTTP 客户端：
     - 自动在 Header 注入 Authorization（通过 token getter）
@@ -147,7 +148,7 @@
 - `src/context/auth_context.tsx`
   - 提供全局认证上下文与 `useAuth` Hook：
     - 状态：`userToken`（字符串）、`preview`（从 JWT 提取的 `name/avatarUrl`）、`user`（`/auth/me` 返回的完整用户信息）、`isLoading`。
-    - 方法：`signIn(token)`（保存 token → 立即解析并设置 `preview` → 后台请求 `/auth/me` 回填 `user`）、`signOut()`、`refreshUser()`（手动刷新 `/auth/me`）。
+    - 方法：`signIn(token)`（保存 token → 立即解析并设置 `preview` → 主动等待 `/auth/me` 回填完整 `user`）、`signOut()`、`refreshUser(token?)`（可选指定 token，便于在登录后立即刷新档案）。
   - 体验：登录后昵称与头像即刻显示，完整资料在后台获取成功后自动覆盖。
 - `src/context/waterfall_context.tsx`
   - 提供瀑布流布局参数（最小/最大高度等）与修改方法，供 Explore/瀑布流相关页面共享
@@ -239,9 +240,9 @@
 ### 2.9 app/
 
 - `src/app/_layout.tsx`：应用根布局（全局 Provider、主题与路由容器）
-- `src/app/index.tsx`：首页路由
-- `src/app/(auth)/_layout.tsx`：认证分组布局
-- `src/app/(tabs)/_layout.tsx`：底部标签页布局
+- `src/app/index.tsx`：首页路由（根据登录态重定向 `/login` 或 `/explore`，加载期间展示全屏进度）
+- `src/app/(auth)/_layout.tsx`：认证分组布局（已登录时自动跳转到探索页）
+- `src/app/(tabs)/_layout.tsx`：底部标签页布局（未登录时重定向到登录页）
 - `src/app/(tabs)/explore.tsx`、`post.tsx`：Tab 页入口
 - `src/app/(tabs)/myself/_layout.tsx`：”我的“分组的嵌套路由栈布局（Stack）
   - 头部采用品牌 `AppbarHeader`，不再使用透明头部策略。
@@ -254,10 +255,11 @@
 
 页面级组件，负责绑定 Service/Context，组织 UI 组件与业务交互：
 
-- `explore_screen.tsx`：探索页（瀑布流展示，列数与间距响应式）
+- `explore_screen.tsx`：探索页（瀑布流展示，列数与间距响应式；最新调整使筛选标签 Chip 间距/样式更紧凑，并补充价格/话题信息展示）
 - `login_screen.tsx`：登录页（表单校验与调用 `auth_service`）
 - `register_screen.tsx`：注册页（同上）
 - `post_screen.tsx`：发帖页（输入校验 + `posts_service`，并已响应式调整文本框高度、间距）
+- `post_detail_screen.tsx`：帖子详情页（统一展示话题标签与分享信息，保持与探索页信息一致，并针对分享类帖子增强摘要区块）
 - `myself_screen.tsx`：个人中心页（顶部标题 + 右上角设置入口）
 - `settings_screen.tsx`：设置页（主题切换、瀑布流高度参数；通过“我的”页进入；使用品牌 Appbar）。
 
@@ -506,11 +508,16 @@
 
 - app（路由入口）
   - `src/app/_layout.tsx`（根布局）与 `src/app/(tabs)/_layout.tsx`（Tab 分组）等。
-  - `src/app/(tabs)/myself/_layout.tsx`：“我的”分组 Stack；设置页头部透明仅返回箭头。
+  - `src/app/index.tsx`：依据登录态重定向 `/login` 或 `/explore`，加载时展示过渡。
+  - `src/app/(auth)/_layout.tsx`：若已登录则直接跳转探索页。
+  - `src/app/(tabs)/_layout.tsx`：未登录访问 Tab 时重定向到登录页。
+  - `src/app/(tabs)/myself/_layout.tsx`：“我的”分组 Stack。
   - `src/app/(tabs)/myself/index.tsx` / `settings.tsx`。
 
 - screens（页面）
-  - `src/screens/explore_screen.tsx`、`login_screen.tsx`、`register_screen.tsx`、`post_screen.tsx`。
+  - `src/screens/explore_screen.tsx`：探索页；瀑布流卡片与筛选标签收紧间距，补全价格/话题信息展示。
+  - `src/screens/post_detail_screen.tsx`：帖子详情；统一话题标签与分享信息呈现，增强分享摘要。
+  - `src/screens/login_screen.tsx`、`register_screen.tsx`、`post_screen.tsx`。
   - `src/screens/myself_screen.tsx`：个人中心（点击头像编辑、单一编辑受控）。
   - `src/screens/settings_screen.tsx`：设置页（主题切换/瀑布流参数；头部透明）。
 
