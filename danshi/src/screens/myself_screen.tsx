@@ -10,10 +10,19 @@ import type { UserProfile } from '@/src/repositories/users_repository';
 import { DEFAULT_HOMETOWN, HOMETOWN_OPTIONS } from '@/src/constants/selects';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { pickByBreakpoint } from '@/src/constants/breakpoints';
 
 export default function MyselfScreen() {
 	const { text, icon, card, effective } = useTheme();
 	const { user, preview, signOut } = useAuth();
+	const bp = useBreakpoint();
+	const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
+	const contentHorizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+	const headerTitleStyle = useMemo(() => ({
+		fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
+		fontWeight: '600' as const,
+	}), [bp]);
 
 	const [profile, setProfile] = useState<UserProfile | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -56,14 +65,17 @@ export default function MyselfScreen() {
 		const pTheme = usePaperTheme();
 		return (
 			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
-					<Appbar.Content title="个人中心" />
+				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+					<Appbar.Content title="个人中心" titleStyle={headerTitleStyle} />
 					<Appbar.Action icon="cog-outline" onPress={() => router.push('/myself/settings')} accessibilityLabel="打开设置" />
 				</Appbar.Header>
-				<ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16 }}>
+				<ScrollView
+					style={{ backgroundColor: pTheme.colors.background }}
+					contentContainerStyle={{ paddingTop: 12, paddingBottom: 24, paddingHorizontal: contentHorizontalPadding }}
+				>
 
 			{/* user card */}
-				<Card style={{ marginTop: 8 }}>
+					<Card>
 					<Card.Content>
 					<View style={styles.profileRow}>
 					<Pressable

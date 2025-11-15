@@ -183,6 +183,10 @@ export default function ExploreScreen() {
   const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
   const horizontalPadding = gap;
   const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
+  const headerTitleStyle = useMemo(() => ({
+    fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
+    fontWeight: '600' as const,
+  }), [bp]);
   const typeBarVerticalPadding = pickByBreakpoint(bp, { base: 3, sm: 4, md: 6, lg: 8, xl: 8 });
   const typeBarGap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 12, xl: 14 });
   const insets = useSafeAreaInsets();
@@ -392,7 +396,7 @@ export default function ExploreScreen() {
         statusBarHeight={insets.top}
         style={{ height: headerHeight }}
       >
-        <Appbar.Content title="社区" />
+        <Appbar.Content title="社区" titleStyle={headerTitleStyle} />
         <Appbar.Action icon="magnify" onPress={() => {}} accessibilityLabel="搜索帖子" />
       </Appbar.Header>
       <View

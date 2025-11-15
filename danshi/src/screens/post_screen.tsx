@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, View, ScrollView } from 'react-native';
 import { Button, Card, Text, TextInput, Appbar, useTheme as usePaperTheme } from 'react-native-paper';
 import { useTheme } from '@/src/context/theme_context';
@@ -12,6 +12,12 @@ export default function PostScreen() {
 	const maxWidth = pickByBreakpoint(bp, { base: 560, sm: 600, md: 640, lg: 720, xl: 800 });
 	const verticalGap = pickByBreakpoint(bp, { base: 10, sm: 12, md: 12, lg: 16, xl: 20 });
 	const contentHeight = pickByBreakpoint(bp, { base: 120, sm: 140, md: 160, lg: 200, xl: 240 });
+	const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
+	const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+	const headerTitleStyle = useMemo(() => ({
+		fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
+		fontWeight: '600' as const,
+	}), [bp]);
 	const { danger, icon } = useTheme();
 	const insets = useSafeAreaInsets();
   const pTheme = usePaperTheme();
@@ -55,14 +61,17 @@ export default function PostScreen() {
 	return (
 		<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: undefined })}>
 			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
-					<Appbar.Content title="发布帖子" />
+				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+					<Appbar.Content title="发布帖子" titleStyle={headerTitleStyle} />
 				</Appbar.Header>
-				<ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
+				<ScrollView
+					style={{ backgroundColor: pTheme.colors.background }}
+					contentContainerStyle={{ paddingTop: 12, paddingBottom: 24, paddingHorizontal: horizontalPadding, alignItems: 'center' }}
+				>
 					<View style={{ width: '100%', maxWidth }}>
 						<Card>
 							<Card.Content>
-								<Text variant="headlineSmall" style={{ marginBottom: 12 }}>新建帖子</Text>
+								<Text variant="titleMedium" style={{ marginBottom: 8 }}>新建帖子</Text>
 
 								{!!error && <Text style={{ color: danger, marginBottom: 8 }}>{error}</Text>}
 								{!!success && <Text style={{ color: '#16a34a', marginBottom: 8 }}>{success}</Text>}
