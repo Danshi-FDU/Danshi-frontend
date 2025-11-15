@@ -3,12 +3,8 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/src/context/auth_context';
 import { useTheme } from '@/src/context/theme_context';
-import Container from '@/src/components/ui/container';
 import { router } from 'expo-router';
-import Card from '@/src/components/ui/card';
-import { H2, Body } from '@/src/components/ui/typography';
-import Button from '@/src/components/ui/button';
-import Input from '@/src/components/ui/input';
+import { Button, Card, Text, TextInput } from 'react-native-paper';
 import { authService } from '@/src/services/auth_service';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
@@ -65,51 +61,62 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView style={[styles.container, { padding: pad }]} behavior={Platform.select({ ios: 'padding', android: undefined })}>
       <StatusBar style="auto" />
-      <Container maxWidth={maxWidth}>
-        <Card padded>
-          <H2 style={styles.title}>注册</H2>
-          {error ? <Body style={{ color: danger, marginBottom: 8 }}>{error}</Body> : null}
+      <View style={styles.centerWrap}>
+        <View style={{ width: '100%', maxWidth }}>
+          <Card>
+            <Card.Content>
+              <Text variant="headlineSmall" style={styles.title}>注册</Text>
+              {error ? <Text style={{ color: danger, marginBottom: 8 }}>{error}</Text> : null}
 
-          <View style={{ gap: 12 }}>
-            <Input
-              placeholder="用户名"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-            />
+              <View style={{ gap: 12 }}>
+                <TextInput
+                  label="用户名"
+                  mode="outlined"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
 
-            <Input
-              placeholder="邮箱"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
+                <TextInput
+                  label="邮箱"
+                  mode="outlined"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
 
-            <Input
-              placeholder="密码"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+                <TextInput
+                  label="密码"
+                  mode="outlined"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
 
-            <Input
-              placeholder="确认密码"
-              secureTextEntry
-              value={confirm}
-              onChangeText={setConfirm}
-            />
+                <TextInput
+                  label="确认密码"
+                  mode="outlined"
+                  secureTextEntry
+                  value={confirm}
+                  onChangeText={setConfirm}
+                />
+              </View>
 
-          </View>
+              <Button mode="contained" style={{ marginTop: 12 }} onPress={onSubmit} loading={loading}>
+                创建账号
+              </Button>
 
-          <Button title="创建账号" variant="primary" style={{ marginTop: 12 }} onPress={onSubmit} loading={loading} />
-
-          <View style={styles.row}>
-            <Body>已有账号？</Body>
-            <Button title="登录" variant="secondary" size="sm" onPress={() => router.push('/login')} style={{ marginLeft: 8 }} />
-          </View>
-        </Card>
-      </Container>
+              <View style={styles.row}>
+                <Text>已有账号？</Text>
+                <Button mode="text" onPress={() => router.push('/login')} style={{ marginLeft: 8 }}>
+                  登录
+                </Button>
+              </View>
+            </Card.Content>
+          </Card>
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -120,6 +127,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     backgroundColor: 'transparent',
+  },
+  centerWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,

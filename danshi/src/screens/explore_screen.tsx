@@ -1,15 +1,18 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Masonry from '@/src/components/ui/masonry';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import Masonry from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
-import Screen from '@/src/components/ui/screen';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { Appbar, Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
   const gap = pickByBreakpoint(bp, { base: 8, sm: 10, md: 12, lg: 16, xl: 20 });
+  const insets = useSafeAreaInsets();
+  const pTheme = usePaperTheme();
 
   // 演示数据
   const items = useMemo(() => {
@@ -23,26 +26,31 @@ export default function ExploreScreen() {
   }, []);
 
   return (
-    <Screen variant="scroll" title="瀑布流示例">
-      <Masonry
-        data={items}
-        columns={{ base: 2, md: 3, lg: 4 }}
-        gap={gap}
-        getItemHeight={(item) => Math.max(minHeight, Math.min(maxHeight, item.height))}
-        keyExtractor={(item) => item.id}
-        renderItem={(item) => (
-          <View
-            style={[
-              styles.block,
-              {
-                height: Math.max(minHeight, Math.min(maxHeight, item.height)),
-                backgroundColor: item.color,
-              },
-            ]}
-          />
-        )}
-      />
-    </Screen>
+    <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
+        <Appbar.Content title="瀑布流示例" />
+      </Appbar.Header>
+      <ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        <Masonry
+          data={items}
+          columns={{ base: 2, md: 3, lg: 4 }}
+          gap={gap}
+          getItemHeight={(item) => Math.max(minHeight, Math.min(maxHeight, item.height))}
+          keyExtractor={(item) => item.id}
+          renderItem={(item) => (
+            <View
+              style={[
+                styles.block,
+                {
+                  height: Math.max(minHeight, Math.min(maxHeight, item.height)),
+                  backgroundColor: item.color,
+                },
+              ]}
+            />
+          )}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
