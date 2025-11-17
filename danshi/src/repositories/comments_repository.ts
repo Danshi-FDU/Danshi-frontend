@@ -1,0 +1,325 @@
+import { API_ENDPOINTS, USE_MOCK } from '@/src/constants/app';
+import { http } from '@/src/lib/http/client';
+import { httpAuth } from '@/src/lib/http/http_auth';
+import { unwrapApiResponse } from '@/src/lib/http/response';
+import type {
+  Comment,
+  CommentAuthor,
+  CommentEntity,
+  CommentRepliesResponse,
+  CommentReply,
+  CommentsListResponse,
+  CommentSort,
+  CreateCommentInput,
+  MentionedUser,
+} from '@/src/models/Comment';
+
+export type CommentListParams = {
+  page?: number;
+  limit?: number;
+  sortBy?: CommentSort;
+};
+
+export type CommentRepliesParams = {
+  page?: number;
+  limit?: number;
+};
+
+export type CommentLikeResult = { isLiked: boolean; likeCount: number };
+
+export interface CommentsRepository {
+  listByPost(postId: string, params?: CommentListParams): Promise<CommentsListResponse>;
+  listReplies(commentId: string, params?: CommentRepliesParams): Promise<CommentRepliesResponse>;
+  create(postId: string, payload: CreateCommentInput): Promise<CommentEntity>;
+  like(commentId: string): Promise<CommentLikeResult>;
+  unlike(commentId: string): Promise<CommentLikeResult>;
+  delete(commentId: string): Promise<void>;
+}
+
+class ApiCommentsRepository implements CommentsRepository {
+  private buildQuery(params?: Record<string, unknown>) {
+    const qs = new URLSearchParams();
+    if (!params) return '';
+    Object.entries(params).forEach(([key, value]) => {
+      if (value == null) return;
+      qs.append(key, String(value));
+    });
+    const str = qs.toString();
+    return str ? `?${str}` : '';
+  }
+
+  async listByPost(postId: string, params: CommentListParams = {}): Promise<CommentsListResponse> {
+    const path = API_ENDPOINTS.COMMENTS.LIST_FOR_POST.replace(':postId', encodeURIComponent(postId));
+    const resp = await http.get(`${path}${this.buildQuery(params)}`);
+    return unwrapApiResponse<CommentsListResponse>(resp, 200);
+  }
+
+  async listReplies(commentId: string, params: CommentRepliesParams = {}): Promise<CommentRepliesResponse> {
+    const path = API_ENDPOINTS.COMMENTS.LIST_REPLIES.replace(':commentId', encodeURIComponent(commentId));
+    const resp = await http.get(`${path}${this.buildQuery(params)}`);
+    return unwrapApiResponse<CommentRepliesResponse>(resp, 200);
+  }
+
+  async create(postId: string, payload: CreateCommentInput): Promise<CommentEntity> {
+    const path = API_ENDPOINTS.COMMENTS.CREATE.replace(':postId', encodeURIComponent(postId));
+    const resp = await httpAuth.post(path, payload);
+    return unwrapApiResponse<CommentEntity>(resp, 200);
+  }
+
+  async like(commentId: string): Promise<CommentLikeResult> {
+    const path = API_ENDPOINTS.COMMENTS.LIKE.replace(':commentId', encodeURIComponent(commentId));
+    const resp = await httpAuth.post(path, {});
+    return unwrapApiResponse<CommentLikeResult>(resp, 200);
+  }
+
+  async unlike(commentId: string): Promise<CommentLikeResult> {
+    const path = API_ENDPOINTS.COMMENTS.UNLIKE.replace(':commentId', encodeURIComponent(commentId));
+    const resp = await httpAuth.delete(path);
+    return unwrapApiResponse<CommentLikeResult>(resp, 200);
+  }
+
+  async delete(commentId: string): Promise<void> {
+    const path = API_ENDPOINTS.COMMENTS.DELETE.replace(':commentId', encodeURIComponent(commentId));
+    const resp = await httpAuth.delete(path);
+    unwrapApiResponse<null>(resp, 200);
+  }
+}
+
+const MOCK_AUTHORS: CommentAuthor[] = [
+  { id: 'mock-user-01', name: '李四', avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces' },
+  { id: 'mock-user-02', name: '王五', avatarUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces' },
+  { id: 'mock-user-03', name: '赵六', avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces' },
+];
+
+const CURRENT_USER: CommentAuthor = {
+  id: 'mock-current-user',
+  name: '复旦吃货',
+  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces',
+};
+
+type StoredComment = Comment & { replies: CommentReply[] };
+
+function createSeedComments(): Record<string, StoredComment[]> {
+  const now = new Date('2025-11-15T12:00:00Z');
+  const postId = 'mock-share-001';
+  const comments: StoredComment[] = [
+    {
+      id: 'mock-comment-001',
+      content: '看起来真的很香，准备周末去试试！',
+      author: MOCK_AUTHORS[0],
+      mentionedUsers: [],
+      likeCount: 5,
+      isLiked: false,
+      isAuthor: false,
+      parentId: null,
+      replyTo: null,
+      createdAt: now.toISOString(),
+      replyCount: 2,
+      replies: [
+        {
+          id: 'mock-reply-001',
+          content: '去的时候记得早点排队，晚了要排很久。',
+          author: MOCK_AUTHORS[1],
+          mentionedUsers: [],
+          likeCount: 2,
+          isLiked: false,
+          isAuthor: false,
+          parentId: 'mock-comment-001',
+          replyTo: { id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name },
+          createdAt: new Date(now.getTime() + 1000 * 60).toISOString(),
+        },
+        {
+          id: 'mock-reply-002',
+          content: '确实，人多的时候排队体验不好。',
+          author: MOCK_AUTHORS[2],
+          mentionedUsers: [],
+          likeCount: 1,
+          isLiked: false,
+          isAuthor: false,
+          parentId: 'mock-comment-001',
+          replyTo: { id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name },
+          createdAt: new Date(now.getTime() + 1000 * 120).toISOString(),
+        },
+      ],
+    },
+    {
+      id: 'mock-comment-002',
+      content: '这个帖子完全被你种草了，今晚就冲！',
+      author: MOCK_AUTHORS[2],
+      mentionedUsers: [],
+      likeCount: 3,
+      isLiked: false,
+      isAuthor: true,
+      parentId: null,
+      replyTo: null,
+      createdAt: new Date(now.getTime() - 1000 * 60 * 30).toISOString(),
+      replyCount: 0,
+      replies: [],
+    },
+  ];
+  return { [postId]: comments };
+}
+
+class MockCommentsRepository implements CommentsRepository {
+  private store: Record<string, StoredComment[]> = createSeedComments();
+
+  private findComment(commentId: string): { parentList: StoredComment[]; comment?: StoredComment; reply?: CommentReply; parent?: StoredComment } {
+    for (const [, comments] of Object.entries(this.store)) {
+      const comment = comments.find((c) => c.id === commentId);
+      if (comment) {
+        return { parentList: comments, comment };
+      }
+      for (const c of comments) {
+        const reply = c.replies.find((r) => r.id === commentId);
+        if (reply) {
+          return { parentList: comments, reply, parent: c };
+        }
+      }
+    }
+    return { parentList: [] };
+  }
+
+  private paginate<T>(items: T[], page = 1, limit = 20) {
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+    const total = items.length;
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const start = (safePage - 1) * safeLimit;
+    return {
+      data: items.slice(start, start + safeLimit),
+      pagination: { page: safePage, limit: safeLimit, total, totalPages },
+    };
+  }
+
+  private cloneComment(comment: StoredComment): StoredComment {
+    return {
+      ...comment,
+      replies: comment.replies.map((r) => ({ ...r })),
+    };
+  }
+
+  async listByPost(postId: string, params: CommentListParams = {}): Promise<CommentsListResponse> {
+    const comments = this.store[postId] ?? [];
+    const sorted = [...comments].sort((a, b) => {
+      if (params.sortBy === 'hot') return b.likeCount - a.likeCount;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const { data, pagination } = this.paginate(sorted, params.page, params.limit ?? 20);
+
+    const trimmedReplies = data.map((comment) => {
+      const clone = this.cloneComment(comment);
+      clone.replies = clone.replies.slice(0, 3);
+      return clone;
+    });
+
+    return { comments: trimmedReplies, pagination };
+  }
+
+  async listReplies(commentId: string, params: CommentRepliesParams = {}): Promise<CommentRepliesResponse> {
+    const { comment, reply, parent } = this.findComment(commentId);
+    let source: CommentReply[] | undefined;
+    if (comment) {
+      source = comment.replies;
+    } else if (reply && parent) {
+      source = parent.replies;
+    }
+    if (!source) throw new Error('评论不存在');
+
+    const { data, pagination } = this.paginate(source, params.page, params.limit ?? 10);
+    return { replies: data.map((r) => ({ ...r })), pagination };
+  }
+
+  async create(postId: string, payload: CreateCommentInput): Promise<CommentEntity> {
+    const content = payload.content.trim();
+    const mentionedUsers: MentionedUser[] = (payload.mentionedUserIds ?? []).map((id) => ({
+      id,
+      name: `用户${id.slice(-4)}`,
+    }));
+    const createdAt = new Date().toISOString();
+    const id = `mock-comment-${Date.now()}`;
+
+    if (!payload.parentId) {
+      const comment: StoredComment = {
+        id,
+        content,
+        author: CURRENT_USER,
+        mentionedUsers,
+        likeCount: 0,
+        isLiked: false,
+        isAuthor: false,
+        parentId: null,
+        replyTo: null,
+        createdAt,
+        replyCount: 0,
+        replies: [],
+      };
+      this.store[postId] = [comment, ...(this.store[postId] ?? [])];
+      return this.cloneComment(comment);
+    }
+
+    const { comment: parentComment } = this.findComment(payload.parentId);
+    if (!parentComment) throw new Error('父评论不存在');
+
+    const replyTo: MentionedUser | null = payload.replyToUserId
+      ? { id: payload.replyToUserId, name: `用户${payload.replyToUserId.slice(-4)}` }
+      : null;
+
+    const reply: CommentReply = {
+      id,
+      content,
+      author: CURRENT_USER,
+      mentionedUsers,
+      likeCount: 0,
+      isLiked: false,
+      isAuthor: false,
+      parentId: payload.parentId,
+      replyTo,
+      createdAt,
+    };
+    parentComment.replies.unshift(reply);
+    parentComment.replyCount = parentComment.replies.length;
+    return { ...reply };
+  }
+
+  async like(commentId: string): Promise<CommentLikeResult> {
+    const { comment, reply } = this.findComment(commentId);
+    const target = comment ?? reply;
+    if (!target) throw new Error('评论不存在');
+    if (!target.isLiked) {
+      target.isLiked = true;
+      target.likeCount += 1;
+    }
+    return { isLiked: true, likeCount: target.likeCount };
+  }
+
+  async unlike(commentId: string): Promise<CommentLikeResult> {
+    const { comment, reply } = this.findComment(commentId);
+    const target = comment ?? reply;
+    if (!target) throw new Error('评论不存在');
+    if (target.isLiked) {
+      target.isLiked = false;
+      target.likeCount = Math.max(0, target.likeCount - 1);
+    }
+    return { isLiked: false, likeCount: target.likeCount };
+  }
+
+  async delete(commentId: string): Promise<void> {
+    const { parentList, comment, reply, parent } = this.findComment(commentId);
+    if (comment) {
+      const idx = parentList.findIndex((c) => c.id === comment.id);
+      if (idx >= 0) parentList.splice(idx, 1);
+      return;
+    }
+    if (reply && parent) {
+      parent.replies = parent.replies.filter((r) => r.id !== reply.id);
+      parent.replyCount = parent.replies.length;
+      return;
+    }
+    throw new Error('评论不存在');
+  }
+}
+
+export const commentsRepository: CommentsRepository = USE_MOCK
+  ? new MockCommentsRepository()
+  : new ApiCommentsRepository();

@@ -8,10 +8,6 @@ import { useAuth } from '@/src/context/auth_context';
 export default function TabsLayout() {
   const theme = useTheme();
   const { userToken, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (!userToken) {
-    return <Redirect href="/login" />;
-  }
   const screenOptions = React.useMemo(
     () => ({
       headerShown: false,
@@ -29,6 +25,11 @@ export default function TabsLayout() {
     }),
     [theme.card, theme.tint, theme.icon, theme.background]
   );
+
+  if (isLoading) return null;
+  if (!userToken) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs initialRouteName="explore" screenOptions={screenOptions}>

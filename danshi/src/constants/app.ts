@@ -36,6 +36,14 @@ export const API_ENDPOINTS = {
     UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
     CHANGEPOSTSTATUS: '/api/v1/posts/:postId/companion-status', // PUT
   },
+  COMMENTS: {
+    LIST_FOR_POST: '/api/v1/posts/:postId/comments',
+    LIST_REPLIES: '/api/v1/comments/:commentId/replies',
+    CREATE: '/api/v1/posts/:postId/comments',
+    LIKE: '/api/v1/comments/:commentId/like',
+    UNLIKE: '/api/v1/comments/:commentId/like',
+    DELETE: '/api/v1/comments/:commentId',
+  },
   CONFIG: {
     CANTEENS: '/api/v1/config/canteens',
     CUISINES: '/api/v1/config/cuisines',
