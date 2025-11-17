@@ -50,6 +50,14 @@ export const API_ENDPOINTS = {
     FLAVORS: '/api/v1/config/flavors',
     POST_TYPES: '/api/v1/config/post-types',
   },
+  UPLOAD: {
+    IMAGE: '/api/v1/upload/image',
+    IMAGES: '/api/v1/upload/images',
+  },
+  STATS: {
+    PLATFORM: '/api/v1/stats/platform',
+    USER: '/api/v1/stats/user/:userId',
+  },
 } as const;
 
 // Role literals and their order (low -> high privilege)

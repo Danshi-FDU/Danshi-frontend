@@ -6,6 +6,8 @@ import { useTheme } from '@/src/context/theme_context';
 import { useAuth } from '@/src/context/auth_context';
 import { Appbar, Button, Card, IconButton, Text, TextInput, useTheme as usePaperTheme } from 'react-native-paper';
 import { usersService } from '@/src/services/users_service';
+import { statsService } from '@/src/services/stats_service';
+import type { UserAggregateStats } from '@/src/models/Stats';
 import type { UserProfile } from '@/src/repositories/users_repository';
 import { DEFAULT_HOMETOWN, HOMETOWN_OPTIONS } from '@/src/constants/selects';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
@@ -25,6 +27,7 @@ export default function MyselfScreen() {
 	}), [bp]);
 
 	const [profile, setProfile] = useState<UserProfile | null>(null);
+	const [stats, setStats] = useState<UserAggregateStats | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [err, setErr] = useState('');
 	const [editingBio, setEditingBio] = useState(false); 
@@ -45,10 +48,14 @@ export default function MyselfScreen() {
 			setLoading(true);
 			setErr('');
 			try {
-				const p = await usersService.getUser(user.id);
+				const [p, aggregates] = await Promise.all([
+					usersService.getUser(user.id),
+					statsService.getUserStats(user.id),
+				]);
 				if (mounted) {
 					setProfile(p);
 					setBioDraft(p.bio ?? '');
+					setStats(aggregates);
 				}
 			} catch (e) {
 				if (mounted) setErr(e instanceof Error ? e.message : String(e));
@@ -109,16 +116,20 @@ export default function MyselfScreen() {
 
 			{/* stats */}
 			<View style={{ height: 12 }} />
-			{profile ? (
+			{stats ? (
 				<Card>
 					<Card.Content>
 					<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
 					<View style={styles.statsRow}>
-					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.postCount}</Text><Text style={styles.statLabel}>帖子</Text></View>
-					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.likeCount}</Text><Text style={styles.statLabel}>获赞</Text></View>
-					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.favoriteCount}</Text><Text style={styles.statLabel}>收藏</Text></View>
-					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followerCount}</Text><Text style={styles.statLabel}>粉丝</Text></View>
-					<View style={styles.statItem}><Text variant="titleMedium">{profile.stats.followingCount}</Text><Text style={styles.statLabel}>关注</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.postCount ?? '--'}</Text><Text style={styles.statLabel}>帖子</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalLikes ?? '--'}</Text><Text style={styles.statLabel}>获赞</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalFavorites ?? '--'}</Text><Text style={styles.statLabel}>收藏</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.commentCount ?? '--'}</Text><Text style={styles.statLabel}>评论</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalViews ?? '--'}</Text><Text style={styles.statLabel}>浏览</Text></View>
+					</View>
+					<View style={[styles.statsRow, { marginTop: 8 }]}>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.followerCount ?? '--'}</Text><Text style={styles.statLabel}>粉丝</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{stats?.followingCount ?? '--'}</Text><Text style={styles.statLabel}>关注</Text></View>
 					</View>
 					</Card.Content>
 				</Card>

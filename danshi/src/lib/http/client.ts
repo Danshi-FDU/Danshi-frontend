@@ -23,9 +23,18 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
   const baseUrl = opts.baseUrl ?? config.apiBaseUrl;
   const timeoutMs = opts.timeoutMs ?? config.requestTimeoutMs;
   const defaultHeaders = {
-    'Content-Type': 'application/json',
     ...(opts.defaultHeaders ?? {}),
   } as Record<string, string>;
+
+  const isBodyInit = (value: unknown): value is BodyInit => {
+    if (value == null) return false;
+    if (typeof value === 'string') return true;
+    if (typeof FormData !== 'undefined' && value instanceof FormData) return true;
+    if (typeof Blob !== 'undefined' && value instanceof Blob) return true;
+    if (typeof URLSearchParams !== 'undefined' && value instanceof URLSearchParams) return true;
+    if (typeof ArrayBuffer !== 'undefined' && (value instanceof ArrayBuffer || ArrayBuffer.isView(value))) return true;
+    return false;
+  };
 
   async function request<T>(method: HttpMethod, path: string, body?: any, init?: RequestInit): Promise<T> {
     const controller = new AbortController();
@@ -34,14 +43,26 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
     try {
       const token = await opts.getAuthToken?.();
       const headers: Record<string, string> = { ...defaultHeaders, ...(init?.headers as any) };
+      const bodyIsBodyInit = isBodyInit(body);
+      const payload: BodyInit | undefined = body == null ? undefined : bodyIsBodyInit ? (body as BodyInit) : JSON.stringify(body);
+
+      if (bodyIsBodyInit) {
+        const isMultipart = typeof FormData !== 'undefined' && body instanceof FormData;
+        if (isMultipart) delete headers['Content-Type'];
+      } else if (body != null) {
+        headers['Content-Type'] = headers['Content-Type'] ?? 'application/json';
+      }
+
       if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const { headers: _ignoredHeaders, ...restInit } = init ?? {};
 
       const res = await fetch(`${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`, {
         method,
         headers,
-        body: body != null ? JSON.stringify(body) : undefined,
+        body: payload,
         signal: controller.signal,
-        ...init,
+        ...restInit,
       });
 
       const contentType = res.headers.get('content-type') || '';
