@@ -181,6 +181,7 @@ export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
   const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
+  const verticalGap = gap + 6;
   const horizontalPadding = gap;
   const verticalPadding = gap;
   const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
@@ -491,6 +492,7 @@ export default function ExploreScreen() {
             data={content}
             columns={{ base: 2, md: 2, lg: 3, xl: 4 }}
             gap={gap}
+            verticalGap={verticalGap}
             getItemHeight={(item) => estimateHeight(item)}
             keyExtractor={(item) => item.id}
             renderItem={(item) => <PostCard post={item} onPress={onPress} />}

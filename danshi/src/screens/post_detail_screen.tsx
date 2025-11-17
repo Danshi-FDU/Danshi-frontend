@@ -23,7 +23,6 @@ import {
   Text,
   IconButton,
   Badge,
-  TextInput,
   useTheme as usePaperTheme,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +34,10 @@ import type {
   SeekingPost,
   SharePost,
 } from '@/src/models/Post';
+import type { Comment, CommentReply, CommentsPagination } from '@/src/models/Comment';
+import { CommentItem } from '@/src/components/comments/comment_item';
+import { CommentComposer } from '@/src/components/comments/comment_composer';
+import { commentsService } from '@/src/services/comments_service';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 
 const TYPE_LABEL: Record<Post['postType'], string> = {
@@ -59,70 +62,6 @@ const CONTACT_LABEL: Record<'comment' | 'wechat' | 'other', string> = {
   wechat: '微信',
   other: '其他方式',
 };
-
-type CommentItem = {
-  id: string;
-  author: string;
-  avatarUrl?: string;
-  content: string;
-  createdAt: string;
-};
-
-const COMMENT_SEEDS: Record<Post['postType'] | 'default', Array<Omit<CommentItem, 'id' | 'createdAt'>>> = {
-  share: [
-    {
-      author: '赵一凡',
-      avatarUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=80&h=80&crop=faces',
-      content: '感谢分享！椒麻鸡看起来好馋人，下次去南区必须试试。',
-    },
-    {
-      author: '宋瑶',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&crop=faces',
-      content: '同感！推荐搭配他们家的酸梅汤，超级解腻。',
-    },
-  ],
-  seeking: [
-    {
-      author: '徐晨',
-      avatarUrl: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=80&h=80&crop=faces',
-      content: '江湾一楼的清粥小菜不错，建议早上 8 点前去人少。',
-    },
-    {
-      author: '韩子墨',
-      content: '可以试试豆浆摊的全麦包子，很清爽。',
-    },
-  ],
-  companion: [
-    {
-      author: '顾明远',
-      avatarUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=80&h=80&crop=faces',
-      content: '已私信，周五一起！',
-    },
-    {
-      author: '冯琳',
-      content: '能不能顺便试试隔壁的烤冷面？',
-    },
-  ],
-  default: [
-    {
-      author: '校园吃货',
-      content: '赞！已经收藏。',
-    },
-  ],
-};
-
-function buildMockComments(post: Post): CommentItem[] {
-  const baseTime = post.updatedAt ?? post.createdAt ?? new Date().toISOString();
-  const baseMs = new Date(baseTime).getTime() || Date.now();
-  const seeds = COMMENT_SEEDS[post.postType] ?? COMMENT_SEEDS.default;
-  return seeds.map((seed, index) => ({
-    id: `${post.id}-comment-${index + 1}`,
-    author: seed.author,
-    avatarUrl: seed.avatarUrl,
-    content: seed.content,
-    createdAt: new Date(baseMs - (index + 1) * 3600 * 1000).toISOString(),
-  }));
-}
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -267,16 +206,43 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState({ like: false, favorite: false });
   const [actionError, setActionError] = useState<string | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentSort, setCommentSort] = useState<'latest' | 'hot'>('latest');
+  const [commentPagination, setCommentPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentReplies, setCommentReplies] = useState<Record<string, CommentReply[]>>({});
+  const [commentRepliesPagination, setCommentRepliesPagination] = useState<Record<string, CommentsPagination>>({});
+  const [commentRepliesLoading, setCommentRepliesLoading] = useState<Record<string, boolean>>({});
+  const [commentRepliesExpanded, setCommentRepliesExpanded] = useState<Record<string, boolean>>({});
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
   const [commentInput, setCommentInput] = useState('');
+  const [commentReplyTarget, setCommentReplyTarget] = useState<Comment | CommentReply | null>(null);
   const [imageViewer, setImageViewer] = useState<{ visible: boolean; index: number }>({ visible: false, index: 0 });
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const commentSortRef = useRef<'latest' | 'hot'>(commentSort);
   const scrollRef = useRef<ScrollView | null>(null);
   const commentsOffsetRef = useRef(0);
   const viewerScrollRef = useRef<ScrollView | null>(null);
   const windowWidth = useWindowDimensions().width;
+
+  const fetchComments = useCallback(
+    async (postIdValue: string, sort: 'latest' | 'hot') => {
+      setCommentLoading(true);
+      try {
+        const res = await commentsService.listByPost(postIdValue, { sortBy: sort, limit: 10 });
+        setComments(res.comments);
+        setCommentPagination(res.pagination);
+        setCommentReplies({});
+        setCommentRepliesPagination({});
+        setCommentRepliesExpanded({});
+      } catch (e) {
+        console.warn('load comments failed', e);
+      } finally {
+        setCommentLoading(false);
+      }
+    },
+    []
+  );
 
   const fetchPost = useCallback(
     async (mode: LoaderState = 'initial') => {
@@ -284,21 +250,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       if (mode !== 'refresh') setError(null);
       try {
         const data = await postsService.get(postId);
-        const seededComments = buildMockComments(data);
-        let nextComments: CommentItem[] = [];
-        setComments((prev) => {
-          const next = mode === 'initial' ? seededComments : prev.length ? prev : seededComments;
-          nextComments = next;
-          return next;
-        });
+        await fetchComments(data.id, commentSortRef.current);
         setPost({
           ...data,
-          stats: { ...(data.stats ?? {}), commentCount: nextComments.length },
+          stats: { ...(data.stats ?? {}), commentCount: data.stats?.commentCount ?? 0 },
         });
         setActionError(null);
         setActionLoading({ like: false, favorite: false });
         setShareSheetVisible(false);
-        if (mode === 'initial') setIsFollowing(false);
         if (mode === 'initial') setCommentInput('');
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
@@ -307,12 +266,21 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         setLoader('idle');
       }
     },
-    [postId]
+    [postId, fetchComments]
   );
 
   useEffect(() => {
     fetchPost('initial');
   }, [fetchPost]);
+
+  useEffect(() => {
+    commentSortRef.current = commentSort;
+  }, [commentSort]);
+
+  useEffect(() => {
+    if (!post?.id) return;
+    fetchComments(post.id, commentSort);
+  }, [post?.id, commentSort, fetchComments]);
 
   const refreshing = loader === 'refresh';
   const isInitialLoading = loader === 'initial';
@@ -371,10 +339,6 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     }
   }, [post?.id, post?.isFavorited]);
 
-  const handleToggleFollow = useCallback(() => {
-    setIsFollowing((prev) => !prev);
-  }, []);
-
   const hasImages = post?.images?.length;
 
   const tags = useMemo(() => post?.tags ?? [], [post?.tags]);
@@ -411,7 +375,116 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const likeCount = post?.stats?.likeCount ?? 0;
   const favoriteCount = post?.stats?.favoriteCount ?? 0;
   const viewCount = post?.stats?.viewCount ?? 0;
-  const commentCount = post?.stats?.commentCount ?? comments.length;
+  const commentCount = post?.stats?.commentCount ?? commentPagination.total;
+  const commentSortLabel = commentSort === 'latest' ? '按最新排序' : '按热度排序';
+
+  const handleCycleCommentSort = useCallback(() => {
+    setCommentSort((prev) => (prev === 'latest' ? 'hot' : 'latest'));
+  }, []);
+
+  const patchCommentEntity = useCallback(
+    (targetId: string, patch: Partial<Comment | CommentReply>) => {
+      setComments((prev) => {
+        let updated = false;
+        const next = prev.map((comment) => {
+          if (comment.id === targetId) {
+            updated = true;
+            return { ...comment, ...patch } as Comment;
+          }
+          if (!comment.replies?.length) return comment;
+          let repliesChanged = false;
+          const replies = comment.replies.map((reply) => {
+            if (reply.id === targetId) {
+              repliesChanged = true;
+              updated = true;
+              return { ...reply, ...patch } as CommentReply;
+            }
+            return reply;
+          });
+          return repliesChanged ? { ...comment, replies } : comment;
+        });
+        return updated ? next : prev;
+      });
+
+      setCommentReplies((prev) => {
+        let updated = false;
+        const next: Record<string, CommentReply[]> = {};
+        for (const [parentId, list] of Object.entries(prev)) {
+          let changed = false;
+          const replies = list.map((reply) => {
+            if (reply.id === targetId) {
+              changed = true;
+              updated = true;
+              return { ...reply, ...patch } as CommentReply;
+            }
+            return reply;
+          });
+          next[parentId] = changed ? replies : list;
+        }
+        return updated ? next : prev;
+      });
+    },
+    []
+  );
+
+  const handleToggleCommentLike = useCallback(
+    async (entity: Comment | CommentReply) => {
+      try {
+        const result = entity.isLiked
+          ? await commentsService.unlike(entity.id)
+          : await commentsService.like(entity.id);
+        patchCommentEntity(entity.id, { isLiked: result.isLiked, likeCount: result.likeCount });
+      } catch (e) {
+        Alert.alert('操作失败', (e as Error)?.message ?? '暂时无法完成点赞操作');
+      }
+    },
+    [patchCommentEntity]
+  );
+
+  const handleOpenCommentSheet = useCallback(() => {
+    setCommentSheetVisible(true);
+  }, []);
+
+  const handleReplyToComment = useCallback((entity: Comment | CommentReply) => {
+    setCommentReplyTarget(entity);
+    setCommentSheetVisible(true);
+  }, []);
+
+  const handleCancelReply = useCallback(() => {
+    setCommentReplyTarget(null);
+  }, []);
+
+  const handleCloseCommentSheet = useCallback(() => {
+    setCommentSheetVisible(false);
+    setCommentReplyTarget(null);
+  }, []);
+
+  const handleChangeCommentSort = useCallback((value: string) => {
+    if (value === 'latest' || value === 'hot') {
+      setCommentSort(value);
+    }
+  }, []);
+
+  const handleToggleReplies = useCallback(
+    async (commentId: string, expand: boolean) => {
+      if (!expand) {
+        setCommentRepliesExpanded((prev) => ({ ...prev, [commentId]: false }));
+        return;
+      }
+      setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: true }));
+      try {
+        const res = await commentsService.listReplies(commentId, { limit: 20 });
+        setCommentReplies((prev) => ({ ...prev, [commentId]: res.replies }));
+        setCommentRepliesPagination((prev) => ({ ...prev, [commentId]: res.pagination }));
+        setCommentRepliesExpanded((prev) => ({ ...prev, [commentId]: true }));
+      } catch (e) {
+        Alert.alert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
+      } finally {
+        setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
+      }
+    },
+    []
+  );
 
   const handleScrollToComments = useCallback(() => {
     if (!scrollRef.current) return;
@@ -424,6 +497,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const handleCloseImageViewer = useCallback(() => {
     setImageViewer((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleOpenShareSheet = useCallback(() => {
+    setShareSheetVisible(true);
   }, []);
 
   const handleViewerMomentum = useCallback(
@@ -479,34 +556,47 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     try {
       await Share.share({ message: `楼层 ID：${post.id}` });
       Alert.alert('已复制', '楼层 ID 已通过系统分享面板可复制');
-    } catch (error) {
+    } catch {
       Alert.alert('复制失败', `请手动复制楼层 ID：${post.id}`);
     }
   }, [post]);
 
-  const handleSubmitComment = useCallback(() => {
+  const handleSubmitComment = useCallback(async () => {
     if (!post) return;
     const content = commentInput.trim();
     if (!content) return;
-    const now = new Date().toISOString();
-    const newComment: CommentItem = {
-      id: `${post.id}-comment-${Date.now()}`,
-      author: '我',
-      content,
-      createdAt: now,
-    };
-    setComments((prev) => [newComment, ...prev]);
-    setPost((prev) =>
-      prev
-        ? {
-            ...prev,
-            stats: { ...(prev.stats ?? {}), commentCount: (prev.stats?.commentCount ?? 0) + 1 },
-          }
-        : prev
-    );
-    setCommentInput('');
-    setCommentSheetVisible(false);
-  }, [commentInput, post]);
+    try {
+      await commentsService.create(post.id, {
+        content,
+        parentId: commentReplyTarget?.parentId ?? commentReplyTarget?.id,
+        replyToUserId: commentReplyTarget?.author?.id,
+      });
+      setCommentInput('');
+      setCommentReplyTarget(null);
+      setCommentSheetVisible(false);
+      await fetchComments(post.id, commentSort);
+      setPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              stats: { ...(prev.stats ?? {}), commentCount: (prev.stats?.commentCount ?? 0) + 1 },
+            }
+          : prev
+      );
+      if (commentReplyTarget) {
+        setTimeout(() => {
+          const targetCommentId = commentReplyTarget.parentId ?? commentReplyTarget.id;
+          const targetIndex = comments.findIndex((c) => c.id === targetCommentId);
+          const scrollY = targetIndex >= 0 ? commentsOffsetRef.current + targetIndex * 120 : commentsOffsetRef.current;
+          scrollRef.current?.scrollTo({ y: scrollY, animated: true });
+        }, 300);
+      } else {
+        scrollRef.current?.scrollTo({ y: commentsOffsetRef.current, animated: true });
+      }
+    } catch (e) {
+      Alert.alert('评论失败', (e as Error)?.message ?? '暂时无法发表评论');
+    }
+  }, [commentInput, commentReplyTarget, post, fetchComments, commentSort, comments]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -524,65 +614,47 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                 <Text variant="titleMedium" numberOfLines={1}>
                   {post.author?.name ?? '匿名用户'}
                 </Text>
-                <Text
-                  variant="bodySmall"
-                  numberOfLines={1}
-                  style={[styles.appbarAuthorSubtitle, { color: theme.colors.onSurfaceVariant }]}
-                >
-                  发布于 {formatDate(post.createdAt) || '未知'}
-                </Text>
               </View>
             </View>
             <View style={styles.appbarActions}>
-              <Button
-                mode={isFollowing ? 'contained-tonal' : 'outlined'}
-                compact
-                onPress={handleToggleFollow}
-              >
-                {isFollowing ? '已关注' : '关注'}
-              </Button>
+              <Chip compact mode="outlined" icon={post.postType === 'share' ? 'food' : 'account'}>
+                {TYPE_LABEL[post.postType]}
+              </Chip>
               <IconButton
                 icon="share-variant"
-                onPress={() => setShareSheetVisible(true)}
+                size={20}
+                onPress={handleOpenShareSheet}
                 accessibilityLabel="分享帖子"
               />
             </View>
           </View>
         ) : (
-          <View style={styles.appbarMain} />
+          <Appbar.Content title="帖子详情" />
         )}
       </Appbar.Header>
 
-      {isInitialLoading ? (
-        <View style={styles.loaderWrapper}>
-          <ActivityIndicator />
-          <Text style={[styles.loaderText, { color: theme.colors.onSurfaceVariant }]}>加载中…</Text>
-        </View>
-      ) : null}
-
       <ScrollView
         ref={scrollRef}
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 160, gap: 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.primary}
-            colors={[theme.colors.primary]}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]}
       >
-        {error && !isInitialLoading ? (
-          <View style={styles.errorWrapper}>
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-            <Chip icon="refresh" mode="outlined" onPress={() => fetchPost('initial')}>
-              重新加载
-            </Chip>
+        {isInitialLoading ? (
+          <View style={styles.loaderWrapper}>
+            <ActivityIndicator />
+            <Text variant="bodyMedium" style={styles.loaderText}>
+              正在加载帖子…
+            </Text>
           </View>
-        ) : null}
-
-        {post ? (
+        ) : error ? (
+          <View style={styles.errorWrapper}>
+            <Text variant="bodyLarge" style={styles.errorText}>
+              {error}
+            </Text>
+            <Button mode="contained-tonal" onPress={() => fetchPost('initial')}>
+              重试
+            </Button>
+          </View>
+        ) : post ? (
           <>
             <View style={styles.postContainer}>
               <View style={styles.headerSection}>
@@ -659,63 +731,86 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               }}
             >
               <View style={styles.commentsHeader}>
-                <Text variant="titleMedium">评论</Text>
-                <View style={styles.commentsHeaderBadges}>
-                  <Chip compact icon="message-outline" mode="outlined">
-                    共 {commentCount}
-                  </Chip>
-                  <Chip compact icon="eye-outline" mode="outlined">
-                    浏览 {viewCount}
-                  </Chip>
-                </View>
+                <Text variant="titleMedium">共 {commentCount} 条评论</Text>
+                <Pressable
+                  style={[styles.sortToggle]}
+                  onPress={handleCycleCommentSort}
+                >
+                  <IconButton
+                    icon="swap-vertical"
+                    size={18}
+                    iconColor={theme.colors.onSecondaryContainer}
+                    containerColor="transparent"
+                    style={styles.sortToggleIcon}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.sortToggleText, { color: theme.colors.onSecondaryContainer }]}
+                  >
+                    {commentSortLabel}
+                  </Text>
+                </Pressable>
               </View>
+              <Text variant="bodySmall" style={[styles.commentsMeta, { color: theme.colors.onSurfaceVariant }]}>
+                浏览 {viewCount}
+              </Text>
               {actionError ? (
-                <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }]}>
+                <Text variant="bodySmall" style={[styles.actionErrorText, { color: theme.colors.error }]}> 
                   {actionError}
                 </Text>
               ) : null}
-              {comments.length ? (
+              {commentLoading ? (
+                <View style={styles.commentsLoading}>
+                  <ActivityIndicator />
+                  <Text variant="bodySmall" style={[styles.emptyCommentText, { color: theme.colors.onSurfaceVariant }] }>
+                    正在载入评论…
+                  </Text>
+                </View>
+              ) : comments.length ? (
                 <View style={styles.commentsList}>
-                  {comments.map((item) => (
-                    <View key={item.id} style={styles.commentItem}>
-                      {item.avatarUrl ? (
-                        <Avatar.Image size={40} source={{ uri: item.avatarUrl }} />
-                      ) : (
-                        <Avatar.Text size={40} label={item.author.slice(0, 1)} />
-                      )}
-                      <View style={styles.commentBody}>
-                        <View style={styles.commentHeaderRow}>
-                          <Text variant="labelLarge">{item.author}</Text>
-                          <Text variant="bodySmall" style={[styles.commentTimestamp, { color: theme.colors.onSurfaceVariant }]}>
-                            {formatDate(item.createdAt)}
-                          </Text>
-                        </View>
-                        <Text variant="bodyMedium" style={styles.commentContent}>
-                          {item.content}
-                        </Text>
+                  {comments.map((item) => {
+                    const expanded = !!commentRepliesExpanded[item.id];
+                    const repliesPreview = expanded
+                      ? commentReplies[item.id] ?? []
+                      : (item.replies ?? []).slice(0, 2);
+                    const replyTotal = commentRepliesPagination[item.id]?.total ?? item.replyCount ?? repliesPreview.length;
+                    const hasReplies = replyTotal > 0;
+                    return (
+                      <View key={item.id} style={styles.commentCard}>
+                        <CommentItem
+                          comment={item}
+                          replyPreview={hasReplies ? repliesPreview : undefined}
+                          replyTotal={hasReplies ? replyTotal : undefined}
+                          repliesExpanded={expanded}
+                          onLike={handleToggleCommentLike}
+                          onReply={handleReplyToComment}
+                          onToggleReplies={handleToggleReplies}
+                          loadingReplies={!!commentRepliesLoading[item.id]}
+                        />
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
                 <View style={styles.emptyComments}>
                   <Text variant="bodyMedium" style={[styles.emptyCommentText, { color: theme.colors.onSurfaceVariant }] }>
                     还没有评论，快来抢沙发吧～
                   </Text>
+                  <Button mode="outlined" onPress={handleOpenCommentSheet}>
+                    抢个沙发
+                  </Button>
                 </View>
               )}
             </View>
           </>
-        ) : null}
-
-        {!post && !error && !isInitialLoading ? (
+        ) : (
           <View style={styles.emptyWrapper}>
             <Text variant="bodyLarge">帖子不存在或已被删除</Text>
             <Text variant="bodyMedium" style={[styles.meta, { color: theme.colors.onSurfaceVariant }] }>
               尝试刷新或返回探索页
             </Text>
           </View>
-        ) : null}
+        )}
       </ScrollView>
 
       <View
@@ -731,7 +826,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       >
         <Pressable
           style={[styles.commentTrigger, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}
-          onPress={() => setCommentSheetVisible(true)}
+          onPress={handleOpenCommentSheet}
         >
           <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }]}>
             写评论…
@@ -800,29 +895,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Button>
         </View>
       </BottomSheet>
-      <BottomSheet visible={commentSheetVisible} onClose={() => setCommentSheetVisible(false)} height={280}>
-        <View style={styles.commentSheetContent}>
-          <Text variant="titleMedium">写评论</Text>
-          <Text variant="bodySmall" style={[styles.commentSheetHint, { color: theme.colors.onSurfaceVariant }]}>
-            分享你的想法吧～
-          </Text>
-          <TextInput
-            mode="outlined"
-            multiline
-            numberOfLines={4}
-            placeholder="说点什么..."
-            value={commentInput}
-            onChangeText={setCommentInput}
-          />
-          <View style={styles.commentSheetActions}>
-            <Button mode="text" onPress={() => setCommentSheetVisible(false)}>
-              取消
-            </Button>
-            <Button mode="contained" onPress={handleSubmitComment} disabled={!commentInput.trim()}>
-              发送
-            </Button>
-          </View>
-        </View>
+      <BottomSheet visible={commentSheetVisible} onClose={handleCloseCommentSheet} height={360}>
+        <CommentComposer
+          value={commentInput}
+          onChange={setCommentInput}
+          onSubmit={handleSubmitComment}
+          replyTarget={commentReplyTarget?.author?.name}
+          onCancelReply={handleCancelReply}
+        />
       </BottomSheet>
       <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={handleCloseImageViewer}>
         <View style={styles.viewerOverlay}>
@@ -895,7 +975,6 @@ const styles = StyleSheet.create({
   appbarAuthorMeta: {
     flexShrink: 1,
   },
-  appbarAuthorSubtitle: {},
   appbarActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -914,6 +993,11 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   errorText: {},
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 24,
+  },
   postContainer: {
     gap: 16,
   },
@@ -952,18 +1036,15 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   image: {
-    width: 220,
-    height: 160,
+    width: 180,
+    height: 120,
     borderRadius: 12,
   },
   imageHint: {
-    alignSelf: 'flex-end',
+    textAlign: 'right',
   },
   content: {
     lineHeight: 22,
-  },
-  actionErrorText: {
-    marginTop: -4,
   },
   tagsText: {
     marginTop: 4,
@@ -1023,19 +1104,63 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingTop: 8,
     paddingBottom: 8,
+    paddingHorizontal: 0,
   },
   commentsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  commentsHeaderBadges: {
+  commentsMeta: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+  },
+  sortToggle: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 999,
+    gap: 4,
+    borderColor: 'transparent',
+  },
+  sortToggleIcon: {
+    margin: 0,
+  },
+  sortToggleActive: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  sortToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  sortPanel: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  commentsToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 12,
+    flexWrap: 'wrap',
   },
   commentsList: {
     gap: 16,
+  },
+  commentsLoading: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 24,
+  },
+  actionErrorText: {
+    marginBottom: -8,
+  },
+  commentCard: {
+    gap: 12,
+    paddingVertical: 8,
+    paddingLeft: 0,
   },
   commentItem: {
     flexDirection: 'row',
@@ -1058,6 +1183,7 @@ const styles = StyleSheet.create({
   emptyComments: {
     alignItems: 'center',
     paddingVertical: 24,
+    gap: 12,
   },
   emptyCommentText: {
     textAlign: 'center',

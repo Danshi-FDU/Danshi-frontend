@@ -9,6 +9,7 @@ export type MasonryProps<T> = ViewProps & {
   data: T[]
   columns?: ColumnsConfig
   gap?: number
+  verticalGap?: number
   renderItem: (item: T, index: number) => React.ReactNode
   getItemHeight: (item: T, index: number) => number
   keyExtractor?: (item: T, index: number) => string
@@ -35,6 +36,7 @@ export function Masonry<T>({
   data,
   columns: columnsConfig = 2,
   gap = 12,
+  verticalGap,
   renderItem,
   getItemHeight,
   keyExtractor,
@@ -43,6 +45,7 @@ export function Masonry<T>({
 }: MasonryProps<T>) {
   const { current } = useResponsive()
   const columns = pickColumns(columnsConfig, current as Breakpoint)
+  const itemGap = typeof verticalGap === 'number' ? verticalGap : gap
 
   const distributed = useMemo(() => {
     const colItems: { items: Array<{ item: T; index: number }>; height: number }[] = Array.from(
@@ -56,10 +59,10 @@ export function Masonry<T>({
       }
       const h = Math.max(0, getItemHeight(item, index))
       colItems[minIdx].items.push({ item, index })
-      colItems[minIdx].height += (colItems[minIdx].items.length === 1 ? 0 : gap) + h
+      colItems[minIdx].height += (colItems[minIdx].items.length === 1 ? 0 : itemGap) + h
     })
     return colItems.map(c => c.items)
-  }, [data, columns, gap, getItemHeight])
+  }, [data, columns, getItemHeight, itemGap])
 
   return (
     <View
@@ -74,7 +77,10 @@ export function Masonry<T>({
       {distributed.map((col, colIdx) => (
         <View key={`col-${colIdx}`} style={{ flex: 1, paddingLeft: gap }}>
           {col.map(({ item, index }, i) => (
-            <View key={keyExtractor ? keyExtractor(item, index) : `${colIdx}-${index}`} style={{ marginTop: i === 0 ? 0 : gap }}>
+            <View
+              key={keyExtractor ? keyExtractor(item, index) : `${colIdx}-${index}`}
+              style={{ marginTop: i === 0 ? 0 : itemGap }}
+            >
               {renderItem(item, index)}
             </View>
           ))}
