@@ -51,25 +51,49 @@ export default function LoginScreen() {
     }
   };
 
-  const { danger } = useTheme();
+  const { danger, colors } = useTheme();
+  const palette = colors as unknown as Record<string, string>;
+  const surfaceContainerLow = palette.surfaceContainerLow ?? colors.background;
+  const cardBorderColor = palette.outlineVariant ?? colors.outline;
+  const rowPromptColor = palette.onSurfaceVariant ?? colors.onSurface;
+  const inputTheme = { roundness: 10 };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { padding: pad }]} behavior={Platform.select({ ios: 'padding', android: undefined })}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingHorizontal: pad, backgroundColor: surfaceContainerLow }]}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+    >
       <StatusBar style="auto" />
-      <View style={[styles.centerWrap, { padding: pad }]}> 
+      <View style={styles.centerWrap}> 
         <View style={{ width: '100%', maxWidth }}>
-          <Card style={styles.card}>
+          <Card
+            mode="outlined"
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surface,
+                borderColor: cardBorderColor,
+                borderWidth: 1,
+              },
+            ]}
+          >
             <Card.Content>
-              <Text variant="headlineSmall" style={styles.title}>登录</Text>
+              <Text variant="headlineSmall" style={[styles.title, { color: colors.onSurface }]}>
+                登录
+              </Text>
               {error ? <Text style={{ color: danger, marginBottom: 8 }}>{error}</Text> : null}
 
-              <View style={{ gap: 12 }}>
+              <View style={{ gap: 20 }}>
                 <TextInput
                   label="邮箱或用户名"
                   mode="outlined"
                   autoCapitalize="none"
                   value={identifier}
                   onChangeText={setIdentifier}
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
 
                 <TextInput
@@ -78,16 +102,35 @@ export default function LoginScreen() {
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
               </View>
 
-              <Button mode="contained" style={{ marginTop: 12 }} onPress={onSubmit} loading={loading}>
+              <Button
+                mode="contained"
+                style={{ marginTop: 35, borderRadius: 12 }}
+                contentStyle={{ height: 48 }}
+                onPress={onSubmit}
+                loading={loading}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+              >
                 登录
               </Button>
 
               <View style={styles.row}>
-                <Text>没有账号？</Text>
-                <Button mode="text" onPress={() => router.push('/register')} style={{ marginLeft: 8 }}>
+                <Text style={[styles.rowPrompt, { color: rowPromptColor }]}>没有账号？</Text>
+                <Button
+                  mode="text"
+                  compact
+                  onPress={() => router.push('/register')}
+                  style={[styles.rowLink, { borderColor: colors.outline, borderRadius: 10 }]}
+                  contentStyle={styles.rowLinkContent}
+                  textColor={colors.primary}
+                >
                   注册
                 </Button>
               </View>
@@ -123,5 +166,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
+  },
+  rowPrompt: {
+    fontSize: 15,
+    lineHeight: 36,
+  },
+  rowLink: {
+    marginLeft: 0,
+    alignSelf: 'center',
+  },
+  rowLinkContent: {
+    height: 36,
   },
 });

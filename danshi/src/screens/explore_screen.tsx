@@ -78,8 +78,8 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string; description: string
   { value: 'trending', label: '趋势', description: '综合热度并考虑时间衰减' },
   { value: 'hot', label: '热度', description: '点赞、收藏和浏览更高' },
   { value: 'latest', label: '最新', description: '按发布时间倒序' },
-  { value: 'price-asc', label: '价格·低到高', description: '分享帖按价格从低到高排序' },
-  { value: 'price-desc', label: '价格·高到低', description: '分享帖按价格从高到低排序' },
+  { value: 'price-asc', label: '价格·低到高', description: '按价格从低到高排序' },
+  { value: 'price-desc', label: '价格·高到低', description: '按价格从高到低排序' },
 ];
 
 function sortPostsByPrice(list: Post[], direction: 'asc' | 'desc'): Post[] {
@@ -120,7 +120,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onPress, style }) => {
 
   return (
     <Card
-      mode="outlined"
+      mode="elevated"
       onPress={() => onPress(post.id)}
       style={[styles.card, style]}
       accessibilityLabel={`查看帖子 ${post.title}`}
@@ -182,6 +182,7 @@ export default function ExploreScreen() {
   const bp = useBreakpoint();
   const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
   const horizontalPadding = gap;
+  const verticalPadding = gap;
   const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const headerTitleStyle = useMemo(() => ({
     fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
@@ -435,7 +436,12 @@ export default function ExploreScreen() {
       </View>
       <ScrollView
         style={{ backgroundColor: pTheme.colors.background }}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 24, paddingHorizontal: horizontalPadding, gap: 12 }}
+        contentContainerStyle={{
+          paddingHorizontal: horizontalPadding,
+          paddingTop: verticalPadding,
+          paddingBottom: verticalPadding,
+          gap,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -574,41 +580,57 @@ export default function ExploreScreen() {
             <Text variant="labelLarge" style={styles.filterTitle}>
               进阶筛选
             </Text>
-            <View style={styles.chipsRow}>
-              <Chip
-                selected={!filters.canteenName}
-                onPress={() => setFilters((prev) => ({ ...prev, canteenName: undefined }))}
-                mode={!filters.canteenName ? 'flat' : 'outlined'}
+            <View style={styles.advancedGroup}>
+              <Text
+                variant="labelMedium"
+                style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}
               >
-                全部食堂
-              </Chip>
-              {config.canteens.map((item) => (
+                食堂 / 校区
+              </Text>
+              <View style={styles.chipsRow}>
                 <Chip
-                  key={item.id}
-                  selected={filters.canteenName === item.name}
-                  onPress={() => setFilters((prev) => ({ ...prev, canteenName: item.name }))}
-                  mode={filters.canteenName === item.name ? 'flat' : 'outlined'}
+                  selected={!filters.canteenName}
+                  onPress={() => setFilters((prev) => ({ ...prev, canteenName: undefined }))}
+                  mode={!filters.canteenName ? 'flat' : 'outlined'}
                 >
-                  {item.campus ? `${item.name}（${item.campus}）` : item.name}
+                  全部食堂
                 </Chip>
-              ))}
+                {config.canteens.map((item) => (
+                  <Chip
+                    key={item.id}
+                    selected={filters.canteenName === item.name}
+                    onPress={() => setFilters((prev) => ({ ...prev, canteenName: item.name }))}
+                    mode={filters.canteenName === item.name ? 'flat' : 'outlined'}
+                  >
+                    {item.campus ? `${item.name}（${item.campus}）` : item.name}
+                  </Chip>
+                ))}
+              </View>
             </View>
 
-            <View style={styles.subFilterRow}>
-              {[
-                { label: '全部分区', value: 'all' as const },
-                { label: '美食', value: 'food' as const },
-                { label: '食谱', value: 'recipe' as const },
-              ].map((option) => (
-                <Chip
-                  key={option.value}
-                  selected={filters.category === option.value}
-                  onPress={() => setFilters((prev) => ({ ...prev, category: option.value }))}
-                  mode={filters.category === option.value ? 'flat' : 'outlined'}
-                >
-                  {option.label}
-                </Chip>
-              ))}
+            <View style={styles.advancedGroup}>
+              <Text
+                variant="labelMedium"
+                style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}
+              >
+                内容分区
+              </Text>
+              <View style={styles.subFilterRow}>
+                {[
+                  { label: '全部分区', value: 'all' as const },
+                  { label: '美食', value: 'food' as const },
+                  { label: '食谱', value: 'recipe' as const },
+                ].map((option) => (
+                  <Chip
+                    key={option.value}
+                    selected={filters.category === option.value}
+                    onPress={() => setFilters((prev) => ({ ...prev, category: option.value }))}
+                    mode={filters.category === option.value ? 'flat' : 'outlined'}
+                  >
+                    {option.label}
+                  </Chip>
+                ))}
+              </View>
             </View>
 
             {configLoading ? (
@@ -755,6 +777,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  advancedGroup: {
+    gap: 8,
+  },
+  subSectionTitle: {
+    fontWeight: '600',
+    fontSize: 13,
   },
   segmentButton: {
     minWidth: 0,

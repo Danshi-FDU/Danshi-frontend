@@ -44,11 +44,10 @@ const POST_TYPES_FALLBACK: PostTypeConfig[] = [
   {
     type: 'share',
     name: '美食分享/避雷',
-    icon: '📸',
     description: '分享你的美食体验，为他人提供参考',
     subTypes: [
-      { value: 'recommend', label: '推荐', icon: '👍' },
-      { value: 'warning', label: '避雷', icon: '⚠️' },
+      { value: 'recommend', label: '推荐' },
+      { value: 'warning', label: '避雷' },
     ],
     requiredFields: ['title', 'content', 'images', 'category'],
     recommendedFields: ['canteen', 'cuisine', 'flavors', 'price', 'tags'],
@@ -56,7 +55,6 @@ const POST_TYPES_FALLBACK: PostTypeConfig[] = [
   {
     type: 'seeking',
     name: '求美食推荐',
-    icon: '🔍',
     description: '寻求他人的美食推荐和建议',
     subTypes: [],
     requiredFields: ['title', 'content', 'category'],
@@ -65,7 +63,6 @@ const POST_TYPES_FALLBACK: PostTypeConfig[] = [
   {
     type: 'companion',
     name: '找搭子/约饭',
-    icon: '👥',
     description: '寻找一起用餐的伙伴',
     subTypes: [],
     requiredFields: ['title', 'content', 'category'],

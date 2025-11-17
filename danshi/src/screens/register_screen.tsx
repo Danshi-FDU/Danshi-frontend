@@ -56,25 +56,46 @@ export default function RegisterScreen() {
     }
   };
 
-  const { danger } = useTheme();
+  const { danger, colors } = useTheme();
+  const palette = colors as unknown as Record<string, string>;
+  const surfaceContainerLow = palette.surfaceContainerLow ?? colors.background;
+  const cardBorderColor = palette.outlineVariant ?? colors.outline;
+  const rowPromptColor = palette.onSurfaceVariant ?? colors.onSurface;
+  const inputTheme = { roundness: 10 };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { padding: pad }]} behavior={Platform.select({ ios: 'padding', android: undefined })}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingHorizontal: pad, backgroundColor: surfaceContainerLow }]}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+    >
       <StatusBar style="auto" />
       <View style={styles.centerWrap}>
         <View style={{ width: '100%', maxWidth }}>
-          <Card>
+          <Card
+            mode="outlined"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: cardBorderColor,
+              borderWidth: 1,
+            }}
+          >
             <Card.Content>
-              <Text variant="headlineSmall" style={styles.title}>注册</Text>
+              <Text variant="headlineSmall" style={[styles.title, { color: colors.onSurface }]}>
+                注册
+              </Text>
               {error ? <Text style={{ color: danger, marginBottom: 8 }}>{error}</Text> : null}
 
-              <View style={{ gap: 12 }}>
+              <View style={{ gap: 20 }}>
                 <TextInput
                   label="用户名"
                   mode="outlined"
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
 
                 <TextInput
@@ -84,6 +105,10 @@ export default function RegisterScreen() {
                   autoCapitalize="none"
                   value={email}
                   onChangeText={setEmail}
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
 
                 <TextInput
@@ -92,6 +117,10 @@ export default function RegisterScreen() {
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
 
                 <TextInput
@@ -100,16 +129,35 @@ export default function RegisterScreen() {
                   secureTextEntry
                   value={confirm}
                   onChangeText={setConfirm}
+                  outlineColor={colors.surfaceVariant}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.onSurface}
+                  theme={inputTheme}
                 />
               </View>
 
-              <Button mode="contained" style={{ marginTop: 12 }} onPress={onSubmit} loading={loading}>
+              <Button
+                mode="contained"
+                style={{ marginTop: 35, borderRadius: 12 }}
+                contentStyle={{ height: 48 }}
+                onPress={onSubmit}
+                loading={loading}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+              >
                 创建账号
               </Button>
 
               <View style={styles.row}>
-                <Text>已有账号？</Text>
-                <Button mode="text" onPress={() => router.push('/login')} style={{ marginLeft: 8 }}>
+                <Text style={[styles.rowPrompt, { color: rowPromptColor }]}>已有账号？</Text>
+                <Button
+                  mode="text"
+                  compact
+                  onPress={() => router.push('/login')}
+                  style={[styles.rowLink, { borderColor: colors.outline, borderRadius: 10 }]}
+                  contentStyle={styles.rowLinkContent}
+                  textColor={colors.primary}
+                >
                   登录
                 </Button>
               </View>
@@ -144,5 +192,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
+  },
+  rowPrompt: {
+    fontSize: 15,
+    lineHeight: 36,
+  },
+  rowLink: {
+    marginLeft: 0,
+    alignSelf: 'center',
+  },
+  rowLinkContent: {
+    height: 36,
   },
 });
