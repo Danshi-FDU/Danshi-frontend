@@ -9,7 +9,6 @@ import {
   Text,
   useTheme as usePaperTheme,
   ActivityIndicator,
-  Card,
   Chip,
   SegmentedButtons,
   Button,
@@ -24,7 +23,7 @@ import { configService, type ExploreConfig, type PostTypeSubType } from '@/src/s
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -32,23 +31,6 @@ type PostCardProps = {
   post: Post;
   onPress: (postId: string) => void;
   style?: ViewStyle;
-};
-
-const TYPE_LABEL: Record<Post['postType'], string> = {
-  share: '分享',
-  seeking: '求助',
-  companion: '拼单/搭子',
-};
-
-const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
-  recommend: '推荐',
-  warning: '避雷',
-};
-
-const COMPANION_STATUS_LABEL: Record<'open' | 'full' | 'closed', string> = {
-  open: '招募中',
-  full: '已满员',
-  closed: '已结束',
 };
 
 type SortValue = 'latest' | 'hot' | 'trending' | 'price-asc' | 'price-desc';
@@ -91,91 +73,6 @@ function sortPostsByPrice(list: Post[], direction: 'asc' | 'desc'): Post[] {
     return (aPrice - bPrice) * factor;
   });
 }
-
-const PostCard: React.FC<PostCardProps> = ({ post, onPress, style }) => {
-  const theme = usePaperTheme();
-  const firstImage = post.images?.[0];
-  const priceLabel =
-    post.postType === 'share' && post.shareType === 'recommend' && typeof post.price === 'number'
-      ? `￥${post.price.toFixed(2)}`
-      : null;
-  const statusLabel =
-    post.postType === 'companion' && post.meetingInfo?.status
-      ? COMPANION_STATUS_LABEL[post.meetingInfo.status]
-      : null;
-
-  const chipItems: Array<{ key: string; label: string; mode: 'flat' | 'outlined' }> = [
-    { key: 'type', label: TYPE_LABEL[post.postType], mode: 'flat' },
-  ];
-
-  if (post.postType === 'share' && post.shareType) {
-    chipItems.push({ key: 'share', label: SHARE_LABEL[post.shareType], mode: 'outlined' });
-  }
-
-  chipItems.push({ key: 'category', label: post.category === 'recipe' ? '食谱' : '美食', mode: 'outlined' });
-
-  if (post.canteen) {
-    chipItems.push({ key: 'canteen', label: post.canteen, mode: 'outlined' });
-  }
-
-  return (
-    <Card
-      mode="elevated"
-      onPress={() => onPress(post.id)}
-      style={[styles.card, style]}
-      accessibilityLabel={`查看帖子 ${post.title}`}
-    >
-      {firstImage ? <Card.Cover source={{ uri: firstImage }} style={styles.cardCover} /> : null}
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.tagRow}>
-          {chipItems.map((chip) => (
-            <Chip
-              key={chip.key}
-              compact
-              mode={chip.mode}
-              style={styles.tagChip}
-              textStyle={styles.tagChipText}
-            >
-              {chip.label}
-            </Chip>
-          ))}
-        </View>
-        <Text variant="titleMedium" numberOfLines={2} style={styles.cardTitle}>
-          {post.title}
-        </Text>
-        <View style={styles.authorRow}>
-          <Text
-            variant="bodySmall"
-            numberOfLines={1}
-            style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}
-          >
-            {post.author?.name ?? '匿名用户'}
-          </Text>
-          {priceLabel ? (
-            <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.primary }]}>
-              {priceLabel}
-            </Text>
-          ) : null}
-          {statusLabel && !priceLabel ? (
-            <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.tertiary }]}>
-              {statusLabel}
-            </Text>
-          ) : null}
-          <View style={styles.likesRow}>
-            <Ionicons
-              name={post.isLiked ? 'heart' : 'heart-outline'}
-              size={16}
-              color={post.isLiked ? theme.colors.error : theme.colors.onSurfaceVariant}
-            />
-            <Text variant="bodySmall" style={[styles.likeCount, { color: theme.colors.onSurfaceVariant }] }>
-              {post.stats?.likeCount ?? 0}
-            </Text>
-          </View>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-};
 
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
@@ -248,9 +145,10 @@ export default function ExploreScreen() {
         const sortForRequest: SortBy = rawSort === 'price-asc' || rawSort === 'price-desc' ? 'price' : (rawSort as SortBy);
         const listFilters = { ...(params as Record<string, unknown>), sortBy: sortForRequest } as PostListFilters;
         const { posts: result } = await postsService.list(listFilters);
-        const processed = rawSort === 'price-asc' || rawSort === 'price-desc'
-          ? sortPostsByPrice(result, rawSort === 'price-desc' ? 'desc' : 'asc')
-          : result;
+        const processed =
+          rawSort === 'price-asc' || rawSort === 'price-desc'
+            ? sortPostsByPrice(result, rawSort === 'price-desc' ? 'desc' : 'asc')
+            : result;
         setPosts(processed);
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
@@ -275,25 +173,7 @@ export default function ExploreScreen() {
 
   const estimateHeight = useCallback(
     (post: Post) => {
-      const base = post.images?.length ? 260 : 190;
-      const titleExtra = Math.min(140, (post.title?.length ?? 0) * 2.2);
-      const chipCount =
-        1 +
-        (post.postType === 'share' && post.shareType ? 1 : 0) +
-        (post.category ? 1 : 0) +
-        (post.canteen ? 1 : 0);
-      const chipExtra = chipCount * 14;
-      const middleExtra =
-        post.postType === 'share' && post.shareType === 'recommend' && typeof post.price === 'number'
-          ? 26
-          : post.postType === 'companion' && post.meetingInfo?.status
-          ? 22
-          : 14;
-      const idSeed = post.id
-        ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 48
-        : 0;
-      const raw = base + titleExtra + chipExtra + middleExtra + idSeed;
-      return Math.max(minHeight, Math.min(maxHeight, raw));
+      return estimatePostCardHeight(post, minHeight, maxHeight);
     },
     [maxHeight, minHeight]
   );
@@ -399,7 +279,11 @@ export default function ExploreScreen() {
         style={{ height: headerHeight }}
       >
         <Appbar.Content title="社区" titleStyle={headerTitleStyle} />
-        <Appbar.Action icon="magnify" onPress={() => {}} accessibilityLabel="搜索帖子" />
+        <Appbar.Action
+          icon="magnify"
+          onPress={() => router.push('/search')}
+          accessibilityLabel="搜索帖子"
+        />
       </Appbar.Header>
       <View
         style={[styles.typeBarContainer, { paddingHorizontal: horizontalPadding, paddingVertical: typeBarVerticalPadding, gap: typeBarGap }]}
@@ -667,58 +551,6 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  cardCover: {
-    height: 190,
-  },
-  cardContent: {
-    gap: 8,
-    paddingTop: 10,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 2,
-  },
-  tagChip: {
-    borderRadius: 4,
-    minHeight: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  tagChipText: {
-    fontSize: 10,
-    lineHeight: 10,
-  },
-  cardTitle: {
-    fontWeight: '600',
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  authorName: {
-    flex: 1,
-    minWidth: 0,
-  },
-  middleMeta: {
-    marginHorizontal: 8,
-    fontWeight: '600',
-    flexShrink: 0,
-  },
-  likesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  likeCount: {
-    minWidth: 20,
-    textAlign: 'right',
-  },
   loadingWrapper: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -54,6 +54,10 @@ export const API_ENDPOINTS = {
     IMAGE: '/api/v1/upload/image',
     IMAGES: '/api/v1/upload/images',
   },
+  SEARCH: {
+    POSTS: '/api/v1/search/posts',
+    USERS: '/api/v1/search/users',
+  },
   STATS: {
     PLATFORM: '/api/v1/stats/platform',
     USER: '/api/v1/stats/user/:userId',
