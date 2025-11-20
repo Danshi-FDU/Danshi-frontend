@@ -379,7 +379,7 @@ export default function ExploreScreen() {
             verticalGap={verticalGap}
             getItemHeight={(item) => estimateHeight(item)}
             keyExtractor={(item) => item.id}
-            renderItem={(item) => <PostCard post={item} onPress={onPress} />}
+            renderItem={(item) => <PostCard post={item} onPress={onPress} appearance="flat" />}
           />
         ) : null}
       </ScrollView>

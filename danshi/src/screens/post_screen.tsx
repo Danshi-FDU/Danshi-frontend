@@ -43,6 +43,16 @@ export default function PostScreen() {
 	const { danger, icon } = useTheme();
 	const insets = useSafeAreaInsets();
 	const pTheme = usePaperTheme();
+	const flatCardStyle = useMemo(
+		() => ({
+			backgroundColor: pTheme.colors.surface,
+			borderWidth: 0,
+			borderColor: 'transparent',
+			elevation: 0,
+			shadowColor: 'transparent',
+		}),
+		[pTheme.colors.surface],
+	);
 
 	const [title, setTitle] = useState('');
 	const [content, setContent] = useState('');
@@ -253,7 +263,7 @@ export default function PostScreen() {
 					contentContainerStyle={{ paddingTop: 12, paddingBottom: 24, paddingHorizontal: horizontalPadding, alignItems: 'center' }}
 				>
 					<View style={{ width: '100%', maxWidth }}>
-						<Card>
+						<Card mode="contained" style={flatCardStyle}>
 							<Card.Content>
 								<Text variant="titleMedium" style={{ marginBottom: 8 }}>
 									新建帖子

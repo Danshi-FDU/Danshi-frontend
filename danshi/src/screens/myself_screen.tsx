@@ -15,6 +15,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 
+const formatCount = (value?: number | null) => {
+	if (value == null) return '--';
+	if (value < 1000) return String(value);
+	if (value < 10000) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+	return `${(value / 10000).toFixed(1).replace(/\.0$/, '')}w`;
+};
+
 export default function MyselfScreen() {
 	const { text, icon, card, effective } = useTheme();
 	const { user, preview, signOut } = useAuth();
@@ -70,6 +77,23 @@ export default function MyselfScreen() {
 		const insets = useSafeAreaInsets();
 
 		const pTheme = usePaperTheme();
+		const flatCardStyle = useMemo(
+			() => ({
+				backgroundColor: pTheme.colors.surface,
+				borderWidth: 0,
+				borderColor: 'transparent',
+				elevation: 0,
+				shadowColor: 'transparent',
+			}),
+			[pTheme.colors.surface],
+		);
+
+		const handleNavigate = (
+			path: '/(tabs)/myself/posts' | '/(tabs)/myself/followers' | '/(tabs)/myself/following',
+		) => {
+			if (!user?.id) return;
+			router.push(path);
+		};
 		return (
 			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
 				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
@@ -82,7 +106,7 @@ export default function MyselfScreen() {
 				>
 
 			{/* user card */}
-					<Card>
+					<Card mode="contained" style={flatCardStyle}>
 					<Card.Content>
 					<View style={styles.profileRow}>
 					<Pressable
@@ -106,30 +130,59 @@ export default function MyselfScreen() {
 							</View>
 						) : null}
 					</Pressable>
-					<View style={{ flex: 1, marginLeft: 12 }}>
+					<View style={styles.profileMeta}>
 						<Text variant="titleMedium">{name}</Text>
 						{email ? <Text style={{ marginTop: 4, color: icon as string }}>{email}</Text> : null}
 					</View>
 					</View>
+					{stats ? (
+						<View style={styles.profileStatsRow}>
+							{[
+								{ label: '帖子', value: stats?.postCount, route: '/(tabs)/myself/posts' as const },
+								{ label: '粉丝', value: stats?.followerCount, route: '/(tabs)/myself/followers' as const },
+								{ label: '关注', value: stats?.followingCount, route: '/(tabs)/myself/following' as const },
+							].map((item) => (
+								<Pressable
+									key={item.label}
+									onPress={() => handleNavigate(item.route)}
+									android_ripple={{ color: pTheme.colors.surfaceDisabled }}
+									style={({ pressed }) => [
+										styles.profileStat,
+										{ backgroundColor: pTheme.colors.surfaceVariant },
+										pressed && { opacity: 0.8 },
+									]}
+								>
+									<Text variant="titleMedium" style={styles.profileStatValue}>
+										{formatCount(item.value)}
+									</Text>
+									<Text style={[styles.profileStatLabel, { color: icon as string }]}>{item.label}</Text>
+								</Pressable>
+							))}
+						</View>
+					) : (
+						<View style={styles.profileStatsRow}>
+							{['帖子', '粉丝', '关注'].map((label) => (
+								<View key={label} style={[styles.profileStat, { backgroundColor: pTheme.colors.surfaceVariant }]}>
+									<Text variant="titleMedium" style={styles.profileStatValue}>--</Text>
+									<Text style={[styles.profileStatLabel, { color: icon as string }]}>{label}</Text>
+								</View>
+							))}
+						</View>
+					)}
 					</Card.Content>
 				</Card>
 
 			{/* stats */}
 			<View style={{ height: 12 }} />
 			{stats ? (
-				<Card>
+				<Card mode="contained" style={flatCardStyle}>
 					<Card.Content>
 					<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
 					<View style={styles.statsRow}>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.postCount ?? '--'}</Text><Text style={styles.statLabel}>帖子</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalLikes ?? '--'}</Text><Text style={styles.statLabel}>获赞</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalFavorites ?? '--'}</Text><Text style={styles.statLabel}>收藏</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.commentCount ?? '--'}</Text><Text style={styles.statLabel}>评论</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.totalViews ?? '--'}</Text><Text style={styles.statLabel}>浏览</Text></View>
-					</View>
-					<View style={[styles.statsRow, { marginTop: 8 }]}>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.followerCount ?? '--'}</Text><Text style={styles.statLabel}>粉丝</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{stats?.followingCount ?? '--'}</Text><Text style={styles.statLabel}>关注</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalLikes)}</Text><Text style={styles.statLabel}>获赞</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalFavorites)}</Text><Text style={styles.statLabel}>收藏</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.commentCount)}</Text><Text style={styles.statLabel}>评论</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalViews)}</Text><Text style={styles.statLabel}>浏览</Text></View>
 					</View>
 					</Card.Content>
 				</Card>
@@ -137,7 +190,7 @@ export default function MyselfScreen() {
 
 			{/* bio */}
 			<View style={{ height: 12 }} />
-				<Card>
+				<Card mode="contained" style={flatCardStyle}>
 					<Card.Title title="个人简介" right={(props) => activeEdit !== 'bio' ? (
 						<IconButton {...props} icon="pencil-outline" onPress={() => { setBioDraft(profile?.bio ?? ''); setActiveEdit('bio'); }} />
 					) : null} />
@@ -169,7 +222,7 @@ export default function MyselfScreen() {
 
 			{/* username */}
 						<View style={{ height: 12 }} />
-						<Card>
+						<Card mode="contained" style={flatCardStyle}>
 							<Card.Title title="昵称" right={(props) => activeEdit !== 'name' ? (
 								<IconButton {...props} icon="pencil-outline" onPress={() => { setActiveEdit('name'); }} />
 							) : null} />
@@ -200,7 +253,7 @@ export default function MyselfScreen() {
 
 			{/* hometown */}
 						<View style={{ height: 12 }} />
-						<Card>
+						<Card mode="contained" style={flatCardStyle}>
 							<Card.Title title="家乡" right={(props) => activeEdit !== 'hometown' ? (
 								<IconButton {...props} icon="pencil-outline" onPress={() => { setActiveEdit('hometown'); }} />
 							) : null} />
@@ -286,6 +339,11 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 	},
+	profileMeta: {
+		flex: 1,
+		marginLeft: 12,
+		justifyContent: 'center',
+	},
 	avatar: {
 		height: 72,
 		width: 72,
@@ -306,6 +364,26 @@ const styles = StyleSheet.create({
 	avatarImg: {
 		height: '100%',
 		width: '100%',
+	},
+	profileStatsRow: {
+		flexDirection: 'row',
+		marginTop: 16,
+		marginHorizontal: -4,
+	},
+	profileStat: {
+		flex: 1,
+		alignItems: 'center',
+		paddingVertical: 8,
+		marginHorizontal: 4,
+		borderRadius: 12,
+	},
+	profileStatValue: {
+		fontWeight: '600',
+	},
+	profileStatLabel: {
+		marginTop: 4,
+		fontSize: 12,
+		opacity: 0.7,
 	},
 	statsRow: {
 		flexDirection: 'row',

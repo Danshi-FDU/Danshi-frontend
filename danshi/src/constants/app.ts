@@ -23,6 +23,11 @@ export const API_ENDPOINTS = {
   },
   USERS: {
     ROOT: '/api/v1/users', // GET /:userId, PUT /:userId
+    POSTS: '/api/v1/users/:userId/posts',
+    FAVORITES: '/api/v1/users/:userId/favorites',
+    FOLLOWING: '/api/v1/users/:userId/following',
+    FOLLOWERS: '/api/v1/users/:userId/followers',
+    FOLLOW: '/api/v1/users/:userId/follow',
   },
   POSTS: {
     GETPOSTPRE: '/api/v1/posts',  // GET

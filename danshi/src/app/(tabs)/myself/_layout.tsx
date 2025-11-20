@@ -23,6 +23,24 @@ export default function MyselfStackLayout() {
           headerTransparent: true,
         }}
       />
+      <Stack.Screen
+        name="posts"
+        options={{
+          title: '我的帖子',
+        }}
+      />
+      <Stack.Screen
+        name="followers"
+        options={{
+          title: '我的粉丝',
+        }}
+      />
+      <Stack.Screen
+        name="following"
+        options={{
+          title: '我的关注',
+        }}
+      />
     </Stack>
   );
 }

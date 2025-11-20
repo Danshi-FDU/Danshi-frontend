@@ -219,6 +219,7 @@ export default function SearchScreen() {
                     <PostCard
                       post={item}
                       onPress={handlePostPress}
+                      appearance="flat"
                       footer={
                         item.highlight?.title || item.highlight?.content ? (
                           <View style={styles.highlightFooter}>

@@ -26,9 +26,10 @@ type PostCardProps = {
   onPress?: (postId: string) => void;
   style?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
+  appearance?: 'flat' | 'elevated';
 };
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer, appearance = 'flat' }) => {
   const theme = usePaperTheme();
   const firstImage = post.images?.[0];
   const priceLabel =
@@ -60,9 +61,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer
 
   return (
     <Card
-      mode="elevated"
+      mode={appearance === 'flat' ? 'contained' : 'elevated'}
       onPress={handlePress}
-      style={[styles.card, style]}
+      style={[
+        styles.card,
+        appearance === 'flat' ? [styles.flatCard, { backgroundColor: theme.colors.surface }] : null,
+        style,
+      ]}
       accessibilityLabel={`查看帖子 ${post.title}`}
       accessibilityRole={onPress ? 'button' : undefined}
     >
@@ -139,6 +144,12 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     overflow: 'hidden',
+  },
+  flatCard: {
+    elevation: 0,
+    shadowColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   cardCover: {
     height: 160,
