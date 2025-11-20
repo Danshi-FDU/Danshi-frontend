@@ -60,14 +60,6 @@ const POST_TYPES_FALLBACK: PostTypeConfig[] = [
     requiredFields: ['title', 'content', 'category'],
     recommendedFields: ['canteen', 'cuisine', 'budgetRange', 'preferences', 'tags'],
   },
-  {
-    type: 'companion',
-    name: '找搭子/约饭',
-    description: '寻找一起用餐的伙伴',
-    subTypes: [],
-    requiredFields: ['title', 'content', 'category'],
-    recommendedFields: ['canteen', 'meetingInfo', 'contact', 'tags'],
-  },
 ];
 
 const CANTEENS_FALLBACK: CanteenConfig[] = [

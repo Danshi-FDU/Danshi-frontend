@@ -52,7 +52,6 @@ export const API_ENDPOINTS = {
     UNLIKEPOST: '/api/v1/posts/:postId/like',  // DELETE
     FAVORITEPOST: '/api/v1/posts/:postId/favorite',  // POST
     UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
-    CHANGEPOSTSTATUS: '/api/v1/posts/:postId/companion-status', // PUT
   },
   COMMENTS: {
     LIST_FOR_POST: '/api/v1/posts/:postId/comments',

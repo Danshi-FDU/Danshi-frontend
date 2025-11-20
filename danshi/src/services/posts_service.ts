@@ -1,5 +1,5 @@
 import { postsRepository } from '@/src/repositories/posts_repository';
-import type { PostCreateInput, PostCreateResult, CompanionPost } from '@/src/models/Post';
+import type { PostCreateInput, PostCreateResult } from '@/src/models/Post';
 import type { PostListFilters, PostsListResponse } from '@/src/repositories/posts_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 
@@ -45,22 +45,6 @@ function validate(input: PostCreateInput) {
         const { min, max } = input.budgetRange;
         if (min < 0 || max < 0) throw new AppError('预算不能为负数');
         if (max < min) throw new AppError('预算上限需大于等于下限');
-      }
-      break;
-    }
-    case 'companion': {
-      if (input.images && input.images.length > 9) throw new AppError('最多上传 9 张图片');
-      ensureHttpUrls(input.images, '图片 URL');
-      if (input.meetingInfo) {
-        const { maxPeople, currentPeople } = input.meetingInfo;
-        if (typeof maxPeople !== 'undefined' && maxPeople <= 0) throw new AppError('人数上限需大于 0');
-        if (
-          typeof maxPeople !== 'undefined' &&
-          typeof currentPeople !== 'undefined' &&
-          currentPeople > maxPeople
-        ) {
-          throw new AppError('当前人数不可超过人数上限');
-        }
       }
       break;
     }
@@ -143,13 +127,5 @@ export const postsService = {
   async unfavorite(postId: string) {
     if (!postId?.trim()) throw new AppError('缺少帖子 ID');
     return postsRepository.unfavorite(postId.trim());
-  },
-
-  async updateCompanionStatus(postId: string, payload: { status: 'open' | 'full' | 'closed'; currentPeople?: number }) {
-    if (!postId?.trim()) throw new AppError('缺少帖子 ID');
-    const { status, currentPeople } = payload ?? {} as any;
-    if (!['open', 'full', 'closed'].includes(status)) throw new AppError('状态不合法（open/full/closed）');
-    if (typeof currentPeople !== 'undefined' && currentPeople < 0) throw new AppError('人数不能为负数');
-    return postsRepository.updateCompanionStatus(postId.trim(), payload);
   },
 };

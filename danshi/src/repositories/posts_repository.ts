@@ -6,7 +6,6 @@ import type {
   Post,
   PostCreateInput,
   PostCreateResult,
-  CompanionPost,
   ShareType,
   PostType,
   PostAuthor,
@@ -22,7 +21,6 @@ export interface PostsRepository {
   unlike(postId: string): Promise<{ isLiked: boolean; likeCount: number }>;
   favorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }>;
   unfavorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }>;
-  updateCompanionStatus(postId: string, payload: { status: 'open' | 'full' | 'closed'; currentPeople?: number }): Promise<{ meetingInfo: Required<CompanionPost>['meetingInfo'] }>;
 }
 
 export type SortBy = 'latest' | 'hot' | 'trending' | 'price';
@@ -111,11 +109,6 @@ class ApiPostsRepository implements PostsRepository {
     return unwrapApiResponse<{ isFavorited: boolean; favoriteCount: number }>(resp, 200);
   }
 
-  async updateCompanionStatus(postId: string, payload: { status: 'open' | 'full' | 'closed'; currentPeople?: number }): Promise<{ meetingInfo: Required<CompanionPost>['meetingInfo'] }> {
-    const path = API_ENDPOINTS.POSTS.CHANGEPOSTSTATUS.replace(':postId', encodeURIComponent(postId));
-    const resp = await httpAuth.put(path, payload);
-    return unwrapApiResponse<{ meetingInfo: Required<CompanionPost>['meetingInfo'] }>(resp, 200);
-  }
 }
 
 const MOCK_AUTHORS: PostAuthor[] = [
@@ -192,34 +185,6 @@ function seedMockPosts(): Post[] {
       isFavorited: false,
       createdAt: weekAgo,
       updatedAt: weekAgo,
-    },
-    {
-      id: 'mock-companion-001',
-      postType: 'companion',
-      title: '周五晚春晖烤鱼拼单有人吗',
-      content: '想约三四个同学一起拼单春晖三楼的小青椒烤鱼，人均 35 左右，顺便聊聊课程。',
-      category: 'food',
-      canteen: '邯郸校区春晖食堂',
-      tags: ['拼单', '周五晚上'],
-      images: [
-        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop',
-      ],
-      meetingInfo: {
-        date: '2025-11-15',
-        time: '18:30',
-        location: '春晖三楼烤鱼档口',
-        maxPeople: 4,
-        currentPeople: 2,
-        costSharing: 'AA制',
-        status: 'open',
-      },
-      contact: { method: 'wechat', note: '加我微信备注“烤鱼”即可' },
-      author: MOCK_AUTHORS[3],
-      stats: { likeCount: 44, favoriteCount: 17, commentCount: 11, viewCount: 522 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: earlier,
-      updatedAt: earlier,
     },
     {
       id: 'mock-share-003',
@@ -299,9 +264,6 @@ class MockPostsRepository implements PostsRepository {
     } else if (input.postType === 'seeking') {
       base.budgetRange = (input as any).budgetRange;
       base.preferences = (input as any).preferences;
-    } else if (input.postType === 'companion') {
-      base.meetingInfo = (input as any).meetingInfo ?? { status: 'open' };
-      base.contact = (input as any).contact;
     }
     this.store.unshift(base as Post);
     return { id, postType: input.postType, status: 'pending' };
@@ -352,9 +314,6 @@ class MockPostsRepository implements PostsRepository {
     } else if (input.postType === 'seeking') {
       merged.budgetRange = (input as any).budgetRange;
       merged.preferences = (input as any).preferences;
-    } else if (input.postType === 'companion') {
-      merged.meetingInfo = (input as any).meetingInfo ?? merged.meetingInfo;
-      merged.contact = (input as any).contact;
     }
     this.store[idx] = merged as Post;
     return { id: postId, status: 'pending' };
@@ -404,17 +363,6 @@ class MockPostsRepository implements PostsRepository {
     return { isFavorited: false, favoriteCount: p.stats.favoriteCount ?? 0 };
   }
 
-  async updateCompanionStatus(postId: string, payload: { status: 'open' | 'full' | 'closed'; currentPeople?: number }): Promise<{ meetingInfo: Required<CompanionPost>['meetingInfo'] }> {
-    const p = this.store.find((x) => x.id === postId) as any;
-    if (!p) throw new Error('未找到帖子');
-    if (p.postType !== 'companion') throw new Error('非搭子帖子不能更新状态');
-    p.meetingInfo = {
-      ...(p.meetingInfo ?? {}),
-      status: payload.status,
-      currentPeople: payload.currentPeople ?? p.meetingInfo?.currentPeople,
-    };
-    return { meetingInfo: p.meetingInfo };
-  }
 }
 
 export const postsRepository: PostsRepository = USE_MOCK

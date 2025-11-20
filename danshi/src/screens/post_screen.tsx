@@ -19,7 +19,6 @@ import { postsService } from '@/src/services/posts_service';
 import type {
 	Category,
 	CommonCreateBase,
-	CompanionPostCreateInput,
 	PostCreateInput,
 	PostType,
 	SharePostCreateInput,
@@ -69,14 +68,6 @@ export default function PostScreen() {
 	const [budgetMax, setBudgetMax] = useState('');
 	const [preferFlavors, setPreferFlavors] = useState('');
 	const [avoidFlavors, setAvoidFlavors] = useState('');
-	const [meetingDate, setMeetingDate] = useState('');
-	const [meetingTime, setMeetingTime] = useState('');
-	const [meetingLocation, setMeetingLocation] = useState('');
-	const [meetingMaxPeople, setMeetingMaxPeople] = useState('');
-	const [meetingCurrentPeople, setMeetingCurrentPeople] = useState('');
-	const [meetingCostSharing, setMeetingCostSharing] = useState('');
-	const [contactMethod, setContactMethod] = useState<'comment' | 'wechat' | 'other'>('comment');
-	const [contactNote, setContactNote] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
@@ -122,14 +113,6 @@ export default function PostScreen() {
 		setBudgetMax('');
 		setPreferFlavors('');
 		setAvoidFlavors('');
-		setMeetingDate('');
-		setMeetingTime('');
-		setMeetingLocation('');
-		setMeetingMaxPeople('');
-		setMeetingCurrentPeople('');
-		setMeetingCostSharing('');
-		setContactMethod('comment');
-		setContactNote('');
 	};
 
 	const validate = (): string => {
@@ -148,19 +131,6 @@ export default function PostScreen() {
 			}
 			if (budgetMin && budgetMax && Number(budgetMax) < Number(budgetMin)) {
 				return '预算上限需大于等于下限';
-			}
-		}
-		if (postType === 'companion') {
-			if (!meetingDate.trim() || !meetingTime.trim() || !meetingLocation.trim()) {
-				return '请填写约饭的日期、时间与地点';
-			}
-			if (meetingMaxPeople && Number(meetingMaxPeople) <= 0) return '人数上限需大于 0';
-			if (
-				meetingMaxPeople &&
-				meetingCurrentPeople &&
-				Number(meetingCurrentPeople) > Number(meetingMaxPeople)
-			) {
-				return '当前人数不可超过人数上限';
 			}
 		}
 		return '';
@@ -196,7 +166,7 @@ export default function PostScreen() {
 					images: filteredImages.slice(0, 9),
 				};
 				payload = sharePayload;
-			} else if (postType === 'seeking') {
+			} else {
 				const toNumber = (value: string) => {
 					const parsed = Number.parseFloat(value);
 					return Number.isFinite(parsed) ? parsed : undefined;
@@ -221,24 +191,6 @@ export default function PostScreen() {
 							}
 							: undefined,
 				};
-			} else {
-				const companionPayload: CompanionPostCreateInput = {
-					postType: 'companion',
-					...commonFields,
-					meetingInfo: {
-						date: meetingDate || undefined,
-						time: meetingTime || undefined,
-						location: meetingLocation || undefined,
-						maxPeople: meetingMaxPeople ? Number(meetingMaxPeople) : undefined,
-						currentPeople: meetingCurrentPeople ? Number(meetingCurrentPeople) : undefined,
-						costSharing: meetingCostSharing || undefined,
-					},
-					contact: {
-						method: contactMethod,
-						note: contactNote || undefined,
-					},
-				};
-				payload = companionPayload;
 			}
 			const result = await postsService.create(payload);
 			setSuccess(`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`);
@@ -277,7 +229,6 @@ export default function PostScreen() {
 										buttons={[
 											{ value: 'share', label: '美食分享' },
 											{ value: 'seeking', label: '求推荐' },
-											{ value: 'companion', label: '找搭子' },
 										]}
 									/>
 									<SegmentedButtons
@@ -401,77 +352,6 @@ export default function PostScreen() {
 												value={avoidFlavors}
 												onChangeText={setAvoidFlavors}
 												placeholder="特辣, 油炸"
-											/>
-										</View>
-									) : null}
-									{postType === 'companion' ? (
-										<View style={{ gap: 12 }}>
-											<Text variant="labelLarge">约饭信息</Text>
-											<View style={{ flexDirection: 'row', gap: 12 }}>
-												<TextInput
-													style={{ flex: 1 }}
-													label="日期 (YYYY-MM-DD)"
-													mode="outlined"
-													value={meetingDate}
-													onChangeText={setMeetingDate}
-													placeholder="2025-11-20"
-												/>
-												<TextInput
-													style={{ flex: 1 }}
-													label="时间 (HH:mm)"
-													mode="outlined"
-													value={meetingTime}
-													onChangeText={setMeetingTime}
-													placeholder="18:30"
-												/>
-											</View>
-											<TextInput
-												label="地点"
-												mode="outlined"
-												value={meetingLocation}
-												onChangeText={setMeetingLocation}
-												placeholder="春晖三楼烤鱼档"
-											/>
-											<View style={{ flexDirection: 'row', gap: 12 }}>
-												<TextInput
-													style={{ flex: 1 }}
-													label="人数上限"
-													mode="outlined"
-													value={meetingMaxPeople}
-													onChangeText={setMeetingMaxPeople}
-													keyboardType="numeric"
-												/>
-												<TextInput
-													style={{ flex: 1 }}
-													label="当前人数"
-													mode="outlined"
-													value={meetingCurrentPeople}
-													onChangeText={setMeetingCurrentPeople}
-													keyboardType="numeric"
-												/>
-											</View>
-											<TextInput
-												label="费用分摊"
-												mode="outlined"
-												value={meetingCostSharing}
-												onChangeText={setMeetingCostSharing}
-												placeholder="AA / 请客 / 其他"
-											/>
-											<SegmentedButtons
-												value={contactMethod}
-												onValueChange={(value) => setContactMethod((value as 'comment' | 'wechat' | 'other') ?? 'comment')}
-												buttons={[
-													{ value: 'comment', label: '评论联系' },
-													{ value: 'wechat', label: '微信' },
-													{ value: 'other', label: '其他' },
-												]}
-											/>
-											<TextInput
-												label="联系方式说明"
-												mode="outlined"
-												value={contactNote}
-												onChangeText={setContactNote}
-												placeholder="例：加我微信备注“烤鱼”"
 											/>
 										</View>
 									) : null}

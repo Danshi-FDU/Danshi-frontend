@@ -1,6 +1,6 @@
 import type { User } from '@/src/models/User';
 
-export type PostType = 'share' | 'seeking' | 'companion';
+export type PostType = 'share' | 'seeking';
 export type ShareType = 'recommend' | 'warning';
 
 export type Category = 'food' | 'recipe';
@@ -46,21 +46,7 @@ export interface SeekingPost extends PostBase {
   preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
 }
 
-export interface CompanionPost extends PostBase {
-  postType: 'companion';
-  meetingInfo?: {
-    date?: string; // YYYY-MM-DD
-    time?: string; // HH:mm
-    location?: string;
-    maxPeople?: number;
-    currentPeople?: number;
-    costSharing?: string;
-    status?: 'open' | 'full' | 'closed';
-  };
-  contact?: { method?: 'comment' | 'wechat' | 'other'; note?: string };
-}
-
-export type Post = SharePost | SeekingPost | CompanionPost;
+export type Post = SharePost | SeekingPost;
 
 // Create inputs mirror domain fields, without server-generated ones
 export type CommonCreateBase = {
@@ -88,16 +74,9 @@ export type SeekingPostCreateInput = CommonCreateBase & {
   preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
 };
 
-export type CompanionPostCreateInput = CommonCreateBase & {
-  postType: 'companion';
-  meetingInfo?: CompanionPost['meetingInfo'];
-  contact?: CompanionPost['contact'];
-};
-
 export type PostCreateInput =
   | SharePostCreateInput
-  | SeekingPostCreateInput
-  | CompanionPostCreateInput;
+  | SeekingPostCreateInput;
 
 export type PostCreateResult = {
   id: string;

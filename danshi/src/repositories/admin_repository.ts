@@ -258,7 +258,7 @@ class MockAdminRepository implements AdminRepository {
     title: `待审核帖子 ${idx + 1}`,
     content: `这是一条待审核的帖子内容示例 ${idx + 1}`,
     category: idx % 2 === 0 ? 'food' : 'recipe',
-    postType: idx % 3 === 0 ? 'companion' : idx % 2 === 0 ? 'share' : 'seeking',
+    postType: idx % 2 === 0 ? 'share' : 'seeking',
     images: ['https://images.unsplash.com/photo-1525755662778-989d0524087e?w=800&auto=format&fit=crop'],
     author: {
       id: `author-${idx + 1}`,

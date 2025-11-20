@@ -28,12 +28,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { postsService } from '@/src/services/posts_service';
-import type {
-  CompanionPost,
-  Post,
-  SeekingPost,
-  SharePost,
-} from '@/src/models/Post';
+import type { Post, SeekingPost, SharePost } from '@/src/models/Post';
 import type { Comment, CommentReply, CommentsPagination } from '@/src/models/Comment';
 import { CommentItem } from '@/src/components/comments/comment_item';
 import { CommentComposer } from '@/src/components/comments/comment_composer';
@@ -43,24 +38,11 @@ import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 const TYPE_LABEL: Record<Post['postType'], string> = {
   share: '分享',
   seeking: '求助',
-  companion: '拼单/搭子',
 };
 
 const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   recommend: '推荐',
   warning: '避雷',
-};
-
-const COMPANION_STATUS_LABEL: Record<'open' | 'full' | 'closed', string> = {
-  open: '招募中',
-  full: '已满员',
-  closed: '已结束',
-};
-
-const CONTACT_LABEL: Record<'comment' | 'wechat' | 'other', string> = {
-  comment: '评论交流',
-  wechat: '微信',
-  other: '其他方式',
 };
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
@@ -153,49 +135,6 @@ function SeekingDetails({ post }: { post: SeekingPost }) {
   );
 }
 
-function CompanionDetails({ post }: { post: CompanionPost }) {
-  const meeting = post.meetingInfo;
-  const contact = post.contact;
-  const statusLabel = meeting?.status ? COMPANION_STATUS_LABEL[meeting.status] : undefined;
-  const statusChip = meeting?.status ? (
-    <Chip
-      compact
-      mode="outlined"
-      style={
-        meeting.status === 'open'
-          ? styles.statusChipOpen
-          : meeting.status === 'full'
-          ? styles.statusChipFull
-          : styles.statusChipClosed
-      }
-    >
-      {statusLabel}
-    </Chip>
-  ) : null;
-  const methodLabel = contact?.method ? CONTACT_LABEL[contact.method] ?? CONTACT_LABEL.other : undefined;
-  const timeValue = [meeting?.date, meeting?.time].filter(Boolean).join(' ');
-  const peopleValue =
-    typeof meeting?.maxPeople === 'number'
-      ? `${meeting.currentPeople ?? 0}/${meeting.maxPeople}`
-      : undefined;
-
-  return (
-    <View style={styles.detailSection}>
-      <Text variant="titleSmall" style={styles.sectionTitle}>
-        拼单/搭子信息
-      </Text>
-      <View style={styles.sectionBody}>
-        <InfoItem label="时间" value={timeValue || undefined} />
-        <InfoItem label="地点" value={meeting?.location} />
-        <InfoItem label="人数" value={peopleValue} />
-        <InfoItem label="费用分摊" value={meeting?.costSharing} />
-        <InfoItem label="当前状态" value={statusChip} />
-        <InfoItem label="沟通方式" value={methodLabel} />
-        <InfoItem label="备注" value={contact?.note} />
-      </View>
-    </View>
-  );
-}
 
 const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const router = useRouter();

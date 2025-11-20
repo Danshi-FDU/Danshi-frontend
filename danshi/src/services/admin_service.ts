@@ -33,7 +33,7 @@ const isValidRole = (role: string): role is typeof ROLES[keyof typeof ROLES] => 
 };
 
 const VALID_POST_STATUS = new Set(['pending', 'approved', 'rejected', 'draft']);
-const VALID_POST_TYPES = new Set(['share', 'seeking', 'companion']);
+const VALID_POST_TYPES = new Set(['share', 'seeking']);
 
 export const adminService = {
   async getPendingPosts(params: AdminPostListParams = {}): Promise<AdminPendingPostsResponse> {
