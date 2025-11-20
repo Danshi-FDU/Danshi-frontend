@@ -29,6 +29,19 @@ export const API_ENDPOINTS = {
     FOLLOWERS: '/api/v1/users/:userId/followers',
     FOLLOW: '/api/v1/users/:userId/follow',
   },
+  ADMIN: {
+    POSTS_PENDING: '/api/v1/admin/posts/pending',
+    POST_REVIEW: '/api/v1/admin/posts/:postId/review',
+    POSTS: '/api/v1/admin/posts',
+    POST_DELETE: '/api/v1/admin/posts/:postId',
+    USERS: '/api/v1/admin/users',
+    USER_ROLE: '/api/v1/admin/users/:userId/role',
+    USER_STATUS: '/api/v1/admin/users/:userId/status',
+    ADMINS: '/api/v1/admin/admins',
+    SUPER_ADMINS: '/api/v1/admin/super-admins',
+    COMMENTS: '/api/v1/admin/comments',
+    COMMENT_DELETE: '/api/v1/admin/comments/:commentId',
+  },
   POSTS: {
     GETPOSTPRE: '/api/v1/posts',  // GET
     GETPOSTALL: '/api/v1/posts/:postId',  // GET
