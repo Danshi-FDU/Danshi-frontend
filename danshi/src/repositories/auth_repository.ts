@@ -61,7 +61,7 @@ export class MockAuthRepository implements AuthRepository {
     name: 'knd',
     gender: 'male',
     hometown: 'Shanghai',
-    role: 'user',
+    role: 'admin', // 改为管理员以便访问管理界面
     avatarUrl: null,
   };
   private mockPassword: string = 'password123';

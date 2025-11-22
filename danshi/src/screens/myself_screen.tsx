@@ -14,6 +14,7 @@ import BottomSheet from '@/src/components/overlays/bottom_sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { isAdmin } from '@/src/lib/auth/roles';
 
 const formatCount = (value?: number | null) => {
 	if (value == null) return '--';
@@ -285,6 +286,39 @@ export default function MyselfScreen() {
 							</Card.Content>
 						</Card>
 
+			{/* admin entrance */}
+			{user && isAdmin(user.role) && (
+				<>
+					<View style={{ height: 12 }} />
+					<Card mode="contained" style={flatCardStyle}>
+						<Card.Content>
+							<Pressable
+								onPress={() => router.push('/myself/admin')}
+								android_ripple={{ color: pTheme.colors.surfaceDisabled }}
+								style={({ pressed }) => [
+									styles.adminButton,
+									{ backgroundColor: pTheme.colors.primaryContainer },
+									pressed && { opacity: 0.9 }
+								]}
+							>
+								<View style={styles.adminButtonContent}>
+									<View style={[styles.adminIcon, { backgroundColor: pTheme.colors.primary + '20' }]}>
+										<Ionicons name="shield-checkmark" size={24} color={pTheme.colors.primary} />
+									</View>
+									<View style={{ flex: 1, marginLeft: 12 }}>
+										<Text variant="titleMedium" style={{ fontWeight: '600' }}>管理中心</Text>
+										<Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant, marginTop: 2 }}>
+											管理帖子、用户和评论
+										</Text>
+									</View>
+									<Ionicons name="chevron-forward" size={20} color={pTheme.colors.onSurfaceVariant} />
+								</View>
+							</Pressable>
+						</Card.Content>
+					</Card>
+				</>
+			)}
+
 			{/* avatar */}
 			<BottomSheet visible={avatarOpen} onClose={() => setAvatarOpen(false)}>
 								<Text style={{ marginBottom: 8 }}>修改头像</Text>
@@ -395,5 +429,22 @@ const styles = StyleSheet.create({
 	},
 	statLabel: {
 		opacity: 0.7,
+	},
+	adminButton: {
+		borderRadius: 12,
+		overflow: 'hidden',
+	},
+	adminButtonContent: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 12,
+		paddingHorizontal: 8,
+	},
+	adminIcon: {
+		width: 48,
+		height: 48,
+		borderRadius: 24,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 });
