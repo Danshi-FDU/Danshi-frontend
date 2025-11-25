@@ -22,13 +22,28 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type {
 	Category,
 	CommonCreateBase,
+	Post,
 	PostCreateInput,
 	PostType,
 	SharePostCreateInput,
 	ShareType,
 } from '@/src/models/Post';
 
-export default function PostScreen() {
+type PostScreenProps = {
+	editMode?: boolean;
+	editPostId?: string;
+	initialData?: Post | null;
+	loading?: boolean;
+	onUpdateSuccess?: () => void;
+};
+
+export default function PostScreen({
+	editMode = false,
+	editPostId,
+	initialData,
+	loading: initialLoading = false,
+	onUpdateSuccess,
+}: PostScreenProps = {}) {
 	const bp = useBreakpoint();
 	const maxWidth = pickByBreakpoint(bp, { base: 560, sm: 600, md: 640, lg: 720, xl: 800 });
 	const verticalGap = pickByBreakpoint(bp, { base: 10, sm: 12, md: 12, lg: 16, xl: 20 });
@@ -74,6 +89,35 @@ export default function PostScreen() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+
+	// 编辑模式：从initialData初始化表单
+	React.useEffect(() => {
+		if (editMode && initialData && !initialLoading) {
+			setTitle(initialData.title || '');
+			setContent(initialData.content || '');
+			setPostType(initialData.post_type || 'share');
+			if (initialData.post_type === 'share') {
+				setShareType(initialData.share_type || 'recommend');
+				setCuisine(initialData.cuisine || '');
+				setFlavorsInput(initialData.flavors?.join(', ') || '');
+				setPrice(initialData.price?.toString() || '');
+			}
+			setCategory(initialData.category || 'food');
+			setCanteen(initialData.canteen || '');
+			setTagsInput(initialData.tags?.join(', ') || '');
+			setImages(initialData.images?.length ? [...initialData.images, ''] : ['']);
+			if (initialData.post_type === 'seeking') {
+				if (initialData.budget_range) {
+					setBudgetMin(initialData.budget_range.min?.toString() || '');
+					setBudgetMax(initialData.budget_range.max?.toString() || '');
+				}
+				if (initialData.preferences) {
+					setPreferFlavors(initialData.preferences.prefer_flavors?.join(', ') || '');
+					setAvoidFlavors(initialData.preferences.avoid_flavors?.join(', ') || '');
+				}
+			}
+		}
+	}, [editMode, initialData, initialLoading]);
 
 	const parseList = (value: string) =>
 		value
@@ -198,9 +242,18 @@ export default function PostScreen() {
 							: undefined,
 				};
 			}
-			const result = await postsService.create(payload);
-			setSuccess(`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`);
-			resetForm();
+			
+			if (editMode && editPostId) {
+				// 编辑模式：更新帖子
+				await postsService.update(editPostId, payload);
+				setSuccess('更新成功，等待审核');
+				onUpdateSuccess?.();
+			} else {
+				// 创建模式：创建新帖子
+				const result = await postsService.create(payload);
+				setSuccess(`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`);
+				resetForm();
+			}
 		} catch (err) {
 			setError((err as Error)?.message ?? '发布失败，请稍后重试');
 		} finally {
@@ -208,13 +261,20 @@ export default function PostScreen() {
 		}
 	};
 
-	const content_count = content.trim().length;
+		const content_count = content.trim().length;
 
-	return (
+		// 编辑模式加载中状态
+		if (editMode && initialLoading) {
+			return (
+				<View style={{ flex: 1, backgroundColor: pTheme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+					<Text>正在加载帖子数据...</Text>
+				</View>
+			);
+		}	return (
 		<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: undefined })}>
 			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
 				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
-					<Appbar.Content title="发布帖子" titleStyle={headerTitleStyle} />
+					<Appbar.Content title={editMode ? '编辑帖子' : '发布帖子'} titleStyle={headerTitleStyle} />
 				</Appbar.Header>
 				<ScrollView
 					style={{ backgroundColor: pTheme.colors.background }}
@@ -515,11 +575,11 @@ export default function PostScreen() {
 							mode="contained" 
 							loading={loading} 
 							onPress={onSubmit}
-							icon="send"
+							icon={editMode ? "content-save" : "send"}
 							contentStyle={styles.submitButton}
 							labelStyle={styles.submitButtonLabel}
 						>
-							发布帖子
+							{editMode ? '保存修改' : '发布帖子'}
 						</Button>
 					</View>
 				</ScrollView>

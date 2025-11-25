@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
-import { Card, Chip, Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { Card, Chip, Text, useTheme as usePaperTheme, IconButton, Menu } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
 import { UserAvatar } from '@/src/components/user_avatar';
@@ -32,10 +32,23 @@ type PostCardProps = {
   style?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
   appearance?: 'flat' | 'elevated';
+  showActions?: boolean;
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
 };
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer, appearance = 'flat' }) => {
+export const PostCard: React.FC<PostCardProps> = ({ 
+  post, 
+  onPress, 
+  style, 
+  footer, 
+  appearance = 'flat',
+  showActions = false,
+  onEdit,
+  onDelete
+}) => {
   const theme = usePaperTheme();
+  const [menuVisible, setMenuVisible] = useState(false);
   const firstImage = post.images?.[0];
   const companionInfo = getCompanionInfo(post);
   const priceLabel =
@@ -86,9 +99,43 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer
             </Chip>
           ))}
         </View>
-        <Text variant="titleMedium" numberOfLines={2} style={styles.cardTitle}>
-          {post.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text variant="titleMedium" numberOfLines={2} style={[styles.cardTitle, showActions && styles.cardTitleWithActions]}>
+            {post.title}
+          </Text>
+          {showActions && (
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <IconButton
+                  icon="dots-vertical"
+                  size={20}
+                  onPress={() => setMenuVisible(true)}
+                  style={styles.actionButton}
+                />
+              }
+            >
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(false);
+                  onEdit?.(post.id);
+                }}
+                title="编辑"
+                leadingIcon="pencil"
+              />
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(false);
+                  onDelete?.(post.id);
+                }}
+                title="删除"
+                leadingIcon="delete"
+                titleStyle={{ color: theme.colors.error }}
+              />
+            </Menu>
+          )}
+        </View>
         <View style={styles.authorRow}>
           {post.author ? (
             <UserAvatar
@@ -189,8 +236,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   cardTitle: {
     fontWeight: '600',
+    flex: 1,
+  },
+  cardTitleWithActions: {
+    paddingRight: 8,
+  },
+  actionButton: {
+    margin: 0,
+    marginTop: -8,
+    marginRight: -8,
   },
   authorRow: {
     flexDirection: 'row',

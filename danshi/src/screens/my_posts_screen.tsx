@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
-import { ActivityIndicator, Text, useTheme as usePaperTheme, Chip, FAB } from 'react-native-paper';
+import { StyleSheet, View, RefreshControl, ScrollView, Alert } from 'react-native';
+import { ActivityIndicator, Text, useTheme as usePaperTheme, Chip, FAB, Dialog, Portal, Button } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
+import { postsService } from '@/src/services/posts_service';
 import type { UserPostListItem } from '@/src/repositories/users_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 import { Masonry } from '@/src/components/md3/masonry';
@@ -54,6 +55,9 @@ export const MyPostsScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
 
@@ -115,6 +119,44 @@ export const MyPostsScreen: React.FC = () => {
     router.push('/post');
   }, [router]);
 
+  const handleEditPost = useCallback(
+    (postId: string) => {
+      // 跳转到编辑页面
+      const href: Href = { pathname: '/post/edit/[postId]', params: { postId } } as const;
+      router.push(href);
+    },
+    [router]
+  );
+
+  const handleDeletePost = useCallback((postId: string) => {
+    setPostToDelete(postId);
+    setDeleteDialogVisible(true);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!postToDelete) return;
+    
+    setDeleting(true);
+    try {
+      await postsService.remove(postToDelete);
+      // 从列表中移除该帖子
+      setPosts(prev => prev.filter(p => p.id !== postToDelete));
+      setDeleteDialogVisible(false);
+      setPostToDelete(null);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof AppError ? err.message : '删除失败，请稍后重试';
+      setError(message);
+    } finally {
+      setDeleting(false);
+    }
+  }, [postToDelete]);
+
+  const cancelDelete = useCallback(() => {
+    setDeleteDialogVisible(false);
+    setPostToDelete(null);
+  }, []);
+
   const content = useMemo(() => posts, [posts]);
 
   const renderPostCard = useCallback(
@@ -125,6 +167,9 @@ export const MyPostsScreen: React.FC = () => {
           post={post}
           onPress={handlePostPress}
           appearance="flat"
+          showActions={true}
+          onEdit={handleEditPost}
+          onDelete={handleDeletePost}
           footer={
             item.status && item.status !== 'approved' ? (
               <View style={styles.statusFooter}>
@@ -158,7 +203,7 @@ export const MyPostsScreen: React.FC = () => {
         />
       );
     },
-    [handlePostPress, theme]
+    [handlePostPress, handleEditPost, handleDeletePost, theme]
   );
 
   if (!user?.id) {
@@ -224,6 +269,18 @@ export const MyPostsScreen: React.FC = () => {
         onPress={handleCreatePost}
         label="发帖"
       />
+      <Portal>
+        <Dialog visible={deleteDialogVisible} onDismiss={cancelDelete}>
+          <Dialog.Title>删除帖子</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">确定要删除这篇帖子吗？此操作不可恢复。</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={cancelDelete} disabled={deleting}>取消</Button>
+            <Button onPress={confirmDelete} loading={deleting} buttonColor={theme.colors.error}>删除</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 };
