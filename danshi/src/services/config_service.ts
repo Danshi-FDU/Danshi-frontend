@@ -111,16 +111,17 @@ const FLAVORS_FALLBACK: string[] = [
 ];
 
 async function fetchOrFallback<T>(path: string, fallback: T): Promise<T> {
-  if (USE_MOCK) return fallback;
-  try {
-    const resp = await http.get(path);
-    const data = unwrapApiResponse<T | null>(resp, 200);
-    if (!data) return fallback;
-    return data;
-  } catch (error) {
-    console.warn('[config_service] fallback triggered for', path, error);
-    return fallback;
-  }
+  // if (USE_MOCK) return fallback;
+  // try {
+  //   const resp = await http.get(path);
+  //   const data = unwrapApiResponse<T | null>(resp, 200);
+  //   if (!data) return fallback;
+  //   return data;
+  // } catch (error) {
+  //   console.warn('[config_service] fallback triggered for', path, error);
+  //   return fallback;
+  // }
+  return fallback;
 }
 
 function withCache<T>(entry: CacheEntry<T>, force = false): Fetcher<T> {
@@ -134,22 +135,22 @@ function withCache<T>(entry: CacheEntry<T>, force = false): Fetcher<T> {
 
 const postTypesEntry: CacheEntry<PostTypeConfig[]> = {
   value: null,
-  fetcher: () => fetchOrFallback<PostTypeConfig[]>(API_ENDPOINTS.CONFIG.POST_TYPES, POST_TYPES_FALLBACK),
+  fetcher: async () => POST_TYPES_FALLBACK,
 };
 
 const canteensEntry: CacheEntry<CanteenConfig[]> = {
   value: null,
-  fetcher: () => fetchOrFallback<CanteenConfig[]>(API_ENDPOINTS.CONFIG.CANTEENS, CANTEENS_FALLBACK),
+  fetcher: async () => CANTEENS_FALLBACK,
 };
 
 const cuisinesEntry: CacheEntry<string[]> = {
   value: null,
-  fetcher: () => fetchOrFallback<string[]>(API_ENDPOINTS.CONFIG.CUISINES, CUISINES_FALLBACK),
+  fetcher: async () => CUISINES_FALLBACK,
 };
 
 const flavorsEntry: CacheEntry<string[]> = {
   value: null,
-  fetcher: () => fetchOrFallback<string[]>(API_ENDPOINTS.CONFIG.FLAVORS, FLAVORS_FALLBACK),
+  fetcher: async () => FLAVORS_FALLBACK,
 };
 
 export const configService = {

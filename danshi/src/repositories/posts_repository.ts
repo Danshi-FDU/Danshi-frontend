@@ -9,6 +9,7 @@ import type {
   ShareType,
   PostType,
   PostAuthor,
+  CompanionStatusUpdateRequest,
 } from '@/src/models/Post';
 
 export interface PostsRepository {
@@ -17,25 +18,16 @@ export interface PostsRepository {
   get(postId: string): Promise<Post>;
   update(postId: string, input: PostCreateInput): Promise<{ id: string; status: 'pending' | 'approved' | 'rejected' }>;
   delete(postId: string): Promise<void>;
-  like(postId: string): Promise<{ isLiked: boolean; likeCount: number }>;
-  unlike(postId: string): Promise<{ isLiked: boolean; likeCount: number }>;
-  favorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }>;
-  unfavorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }>;
+  like(postId: string): Promise<{ is_liked: boolean; like_count: number }>;
+  unlike(postId: string): Promise<{ is_liked: boolean; like_count: number }>;
+  favorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }>;
+  unfavorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }>;
+  // updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void>;
 }
 
-export type SortBy = 'latest' | 'hot' | 'trending' | 'price';
-export type Category = 'food' | 'recipe';
+export type SortBy = 'latest' | 'hot' | 'trending';
 
 export type PostListFilters = {
-  postType?: PostType;
-  shareType?: ShareType;
-  category?: Category;
-  canteen?: string;
-  cuisine?: string;
-  flavors?: string[]; // 多选
-  tags?: string[]; // 多选
-  minPrice?: number;
-  maxPrice?: number;
   sortBy?: SortBy;
   page?: number;
   limit?: number;
@@ -43,7 +35,7 @@ export type PostListFilters = {
 
 export type PostsListResponse = {
   posts: Post[];
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+  pagination: { page: number; limit: number; total: number; total_pages: number };
 };
 
 class ApiPostsRepository implements PostsRepository {
@@ -56,6 +48,8 @@ class ApiPostsRepository implements PostsRepository {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
       if (v == null) continue;
+      if (!['page', 'limit', 'sortBy'].includes(k)) continue;
+
       if (Array.isArray(v)) {
         if (v.length) qs.set(k, v.join(','));
       } else {
@@ -85,48 +79,53 @@ class ApiPostsRepository implements PostsRepository {
     unwrapApiResponse<null>(resp, 200);
   }
 
-  async like(postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  async like(postId: string): Promise<{ is_liked: boolean; like_count: number }> {
     const path = API_ENDPOINTS.POSTS.LIKEPOST.replace(':postId', encodeURIComponent(postId));
     const resp = await httpAuth.post(path, {});
-    return unwrapApiResponse<{ isLiked: boolean; likeCount: number }>(resp, 200);
+    return unwrapApiResponse<{ is_liked: boolean; like_count: number }>(resp, 200);
   }
 
-  async unlike(postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  async unlike(postId: string): Promise<{ is_liked: boolean; like_count: number }> {
     const path = API_ENDPOINTS.POSTS.UNLIKEPOST.replace(':postId', encodeURIComponent(postId));
     const resp = await httpAuth.delete(path);
-    return unwrapApiResponse<{ isLiked: boolean; likeCount: number }>(resp, 200);
+    return unwrapApiResponse<{ is_liked: boolean; like_count: number }>(resp, 200);
   }
 
-  async favorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }> {
+  async favorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }> {
     const path = API_ENDPOINTS.POSTS.FAVORITEPOST.replace(':postId', encodeURIComponent(postId));
     const resp = await httpAuth.post(path, {});
-    return unwrapApiResponse<{ isFavorited: boolean; favoriteCount: number }>(resp, 200);
+    return unwrapApiResponse<{ is_favorited: boolean; favorite_count: number }>(resp, 200);
   }
 
-  async unfavorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }> {
+  async unfavorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }> {
     const path = API_ENDPOINTS.POSTS.UNFAVORITEPOST.replace(':postId', encodeURIComponent(postId));
     const resp = await httpAuth.delete(path);
-    return unwrapApiResponse<{ isFavorited: boolean; favoriteCount: number }>(resp, 200);
+    return unwrapApiResponse<{ is_favorited: boolean; favorite_count: number }>(resp, 200);
   }
 
+  // async updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void> {
+  //   const path = API_ENDPOINTS.POSTS.COMPANION_STATUS.replace(':postId', encodeURIComponent(postId));
+  //   const resp = await httpAuth.put(path, input);
+  //   unwrapApiResponse<void>(resp, 200);
+  // }
 }
 
 const MOCK_AUTHORS: PostAuthor[] = [
-  { id: 'mock-user-01', name: '王若琳', avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces' },
-  { id: 'mock-user-02', name: '陈嘉', avatarUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces' },
-  { id: 'mock-user-03', name: '李云鹏', avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces' },
-  { id: 'mock-user-04', name: '周琪', avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces' },
+  { id: 'mock-user-01', name: '王若琳', avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces' },
+  { id: 'mock-user-02', name: '陈嘉', avatar_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces' },
+  { id: 'mock-user-03', name: '李云鹏', avatar_url: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces' },
+  { id: 'mock-user-04', name: '周琪', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces' },
 ];
 
-function seedMockPosts(): Post[] {
+export function seedMockPosts(): Post[] {
   const now = '2025-11-12T08:00:00.000Z';
   const earlier = '2025-11-09T09:45:00.000Z';
   const weekAgo = '2025-11-05T13:20:00.000Z';
   return [
     {
       id: 'mock-share-001',
-      postType: 'share',
-      shareType: 'recommend',
+      post_type: 'share',
+      share_type: 'recommend',
       title: '南区食堂的椒麻鸡惊艳到我',
       content: '邯郸南区二楼的椒麻鸡真的香，外酥里嫩，花椒的香气特别提神，还可以免费加一点酸菜一起拌着吃。',
       category: 'food',
@@ -140,16 +139,16 @@ function seedMockPosts(): Post[] {
       flavors: ['麻辣', '香辣'],
       price: 18.5,
       author: MOCK_AUTHORS[0],
-      stats: { likeCount: 132, favoriteCount: 47, commentCount: 23, viewCount: 1045 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: now,
-      updatedAt: now,
+      stats: { like_count: 132, favorite_count: 47, comment_count: 23, view_count: 1045 },
+      is_liked: false,
+      is_favorited: false,
+      created_at: now,
+      updated_at: now,
     },
     {
       id: 'mock-share-002',
-      postType: 'share',
-      shareType: 'warning',
+      post_type: 'share',
+      share_type: 'warning',
       title: '春晖食堂的黑椒牛排有点踩雷',
       content: '黑椒没有香味，肉质偏柴，配菜也比较随意，价格却涨到了 28 元，感觉性价比不高，建议谨慎尝试。',
       category: 'food',
@@ -162,34 +161,34 @@ function seedMockPosts(): Post[] {
       flavors: ['黑椒', '偏咸'],
       price: 28,
       author: MOCK_AUTHORS[1],
-      stats: { likeCount: 56, favoriteCount: 9, commentCount: 14, viewCount: 612 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: earlier,
-      updatedAt: earlier,
+      stats: { like_count: 56, favorite_count: 9, comment_count: 14, view_count: 612 },
+      is_liked: false,
+      is_favorited: false,
+      created_at: earlier,
+      updated_at: earlier,
     },
     {
       id: 'mock-seeking-001',
-      postType: 'seeking',
+      post_type: 'seeking',
       title: '求推荐江湾食堂的清淡早餐',
       content: '最近早上胃口不好，想找一些清淡又不油腻的早餐，有没有同学推荐江湾食堂的靠谱摊位？',
       category: 'food',
       canteen: '江湾校区食堂',
       tags: ['早餐', '清淡'],
       images: [],
-      budgetRange: { min: 6, max: 15 },
-      preferences: { preferFlavors: ['清淡'], avoidFlavors: ['油炸'] },
+      budget_range: { min: 6, max: 15 },
+      preferences: { prefer_flavors: ['清淡'], avoid_flavors: ['油炸'] },
       author: MOCK_AUTHORS[2],
-      stats: { likeCount: 21, favoriteCount: 5, commentCount: 18, viewCount: 389 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: weekAgo,
-      updatedAt: weekAgo,
+      stats: { like_count: 21, favorite_count: 5, comment_count: 18, view_count: 389 },
+      is_liked: false,
+      is_favorited: false,
+      created_at: weekAgo,
+      updated_at: weekAgo,
     },
     {
       id: 'mock-share-003',
-      postType: 'share',
-      shareType: 'recommend',
+      post_type: 'share',
+      share_type: 'recommend',
       title: '邯郸北区的番茄牛腩面好暖胃',
       content: '这碗番茄牛腩面汤底特别鲜，酸甜开胃，牛腩给得也很足，适合秋天晚上吃一碗暖暖身。',
       category: 'food',
@@ -202,16 +201,16 @@ function seedMockPosts(): Post[] {
       flavors: ['鲜', '清爽'],
       price: 16,
       author: MOCK_AUTHORS[2],
-      stats: { likeCount: 88, favoriteCount: 31, commentCount: 19, viewCount: 745 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: '2025-11-10T11:15:00.000Z',
-      updatedAt: '2025-11-10T11:15:00.000Z',
+      stats: { like_count: 88, favorite_count: 31, comment_count: 19, view_count: 745 },
+      is_liked: false,
+      is_favorited: false,
+      created_at: '2025-11-10T11:15:00.000Z',
+      updated_at: '2025-11-10T11:15:00.000Z',
     },
     {
       id: 'mock-recipe-001',
-      postType: 'share',
-      shareType: 'recommend',
+      post_type: 'share',
+      share_type: 'recommend',
       title: '寝室快手番茄蛋包饭教程',
       content: '用微波炉也能做出松软的蛋包饭，番茄酱煮一下更好吃，附带详细步骤和时间安排，适合宿舍党。',
       category: 'recipe',
@@ -224,17 +223,23 @@ function seedMockPosts(): Post[] {
       flavors: ['酸甜', '柔软'],
       price: 12,
       author: MOCK_AUTHORS[0],
-      stats: { likeCount: 201, favoriteCount: 96, commentCount: 54, viewCount: 1520 },
-      isLiked: false,
-      isFavorited: false,
-      createdAt: '2025-11-08T07:30:00.000Z',
-      updatedAt: '2025-11-08T07:30:00.000Z',
+      stats: { like_count: 201, favorite_count: 96, comment_count: 54, view_count: 1520 },
+      is_liked: false,
+      is_favorited: false,
+      created_at: '2025-11-08T07:30:00.000Z',
+      updated_at: '2025-11-08T07:30:00.000Z',
     },
   ];
 }
 
 class MockPostsRepository implements PostsRepository {
   private store: Post[] = seedMockPosts();
+
+  private getTimestamp(value?: string) {
+    if (!value) return 0;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  }
 
   async create(input: PostCreateInput): Promise<PostCreateResult> {
     // 仅返回最小结果，模拟“创建成功，待审核”
@@ -243,50 +248,61 @@ class MockPostsRepository implements PostsRepository {
     // 构造最简 Post 入库，便于随后的列表/详情模拟
     const base: any = {
       id,
-      postType: input.postType,
+      post_type: input.post_type,
       title: input.title,
       content: input.content,
       category: input.category,
       canteen: input.canteen,
       tags: input.tags,
       images: input.images,
-      createdAt: now,
-      updatedAt: now,
-      stats: { likeCount: 0, favoriteCount: 0, commentCount: 0, viewCount: 0 },
-      isLiked: false,
-      isFavorited: false,
+      created_at: now,
+      updated_at: now,
+      stats: { like_count: 0, favorite_count: 0, comment_count: 0, view_count: 0 },
+      is_liked: false,
+      is_favorited: false,
     };
-    if (input.postType === 'share') {
-      base.shareType = (input as any).shareType;
+    if (input.post_type === 'share') {
+      base.share_type = (input as any).share_type;
       base.cuisine = (input as any).cuisine;
       base.flavors = (input as any).flavors;
       base.price = (input as any).price;
-    } else if (input.postType === 'seeking') {
-      base.budgetRange = (input as any).budgetRange;
+    } else if (input.post_type === 'seeking') {
+      base.budget_range = (input as any).budget_range;
       base.preferences = (input as any).preferences;
     }
     this.store.unshift(base as Post);
-    return { id, postType: input.postType, status: 'pending' };
+    return { id, post_type: input.post_type, status: 'pending' };
   }
 
   async list(filters: PostListFilters = {}): Promise<PostsListResponse> {
     const page = Math.max(1, Math.floor(filters.page ?? 1));
     const limit = Math.min(50, Math.max(1, Math.floor(filters.limit ?? 20)));
     let arr = [...this.store];
-    if (filters.postType) arr = arr.filter((p) => p.postType === filters.postType);
-    if (filters.shareType) arr = arr.filter((p: any) => p.postType === 'share' && p.shareType === filters.shareType);
+
+    arr.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'hot':
+          return (b.stats?.like_count ?? 0) - (a.stats?.like_count ?? 0);
+        case 'trending':
+          return this.getTimestamp(b.updated_at ?? b.created_at) - this.getTimestamp(a.updated_at ?? a.created_at);
+        case 'latest':
+        default:
+          return this.getTimestamp(b.created_at) - this.getTimestamp(a.created_at);
+      }
+    });
+
     const total = arr.length;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const total_pages = Math.max(1, Math.ceil(total / limit));
     const start = (page - 1) * limit;
     const posts = arr.slice(start, start + limit);
-    return { posts, pagination: { page, limit, total, totalPages } };
+    return { posts, pagination: { page, limit, total, total_pages } };
   }
 
   async get(postId: string): Promise<Post> {
     const found = this.store.find((p) => p.id === postId);
     if (!found) throw new Error('未找到帖子');
     // 模拟浏览量 +1
-    (found.stats ||= {}).viewCount = (found.stats?.viewCount ?? 0) + 1;
+    (found.stats ||= {}).view_count = (found.stats?.view_count ?? 0) + 1;
     return { ...found };
   }
 
@@ -297,22 +313,22 @@ class MockPostsRepository implements PostsRepository {
     const old = this.store[idx] as any;
     const merged: any = {
       ...old,
-      postType: input.postType,
+      post_type: input.post_type,
       title: input.title,
       content: input.content,
       category: input.category,
       canteen: input.canteen,
       tags: input.tags,
       images: input.images,
-      updatedAt: now,
+      updated_at: now,
     };
-    if (input.postType === 'share') {
-      merged.shareType = (input as any).shareType;
+    if (input.post_type === 'share') {
+      merged.share_type = (input as any).share_type;
       merged.cuisine = (input as any).cuisine;
       merged.flavors = (input as any).flavors;
       merged.price = (input as any).price;
-    } else if (input.postType === 'seeking') {
-      merged.budgetRange = (input as any).budgetRange;
+    } else if (input.post_type === 'seeking') {
+      merged.budget_range = (input as any).budget_range;
       merged.preferences = (input as any).preferences;
     }
     this.store[idx] = merged as Post;
@@ -323,44 +339,48 @@ class MockPostsRepository implements PostsRepository {
     this.store = this.store.filter((p) => p.id !== postId);
   }
 
-  async like(postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  async like(postId: string): Promise<{ is_liked: boolean; like_count: number }> {
     const p = this.store.find((x) => x.id === postId) as any;
     if (!p) throw new Error('未找到帖子');
-    if (!p.isLiked) {
-      p.isLiked = true;
-      p.stats.likeCount = (p.stats?.likeCount ?? 0) + 1;
+    if (!p.is_liked) {
+      p.is_liked = true;
+      p.stats.like_count = (p.stats?.like_count ?? 0) + 1;
     }
-    return { isLiked: true, likeCount: p.stats.likeCount ?? 0 };
+    return { is_liked: true, like_count: p.stats.like_count ?? 0 };
   }
 
-  async unlike(postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  async unlike(postId: string): Promise<{ is_liked: boolean; like_count: number }> {
     const p = this.store.find((x) => x.id === postId) as any;
     if (!p) throw new Error('未找到帖子');
-    if (p.isLiked) {
-      p.isLiked = false;
-      p.stats.likeCount = Math.max(0, (p.stats?.likeCount ?? 0) - 1);
+    if (p.is_liked) {
+      p.is_liked = false;
+      p.stats.like_count = Math.max(0, (p.stats?.like_count ?? 0) - 1);
     }
-    return { isLiked: false, likeCount: p.stats.likeCount ?? 0 };
+    return { is_liked: false, like_count: p.stats.like_count ?? 0 };
   }
 
-  async favorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }> {
+  async favorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }> {
     const p = this.store.find((x) => x.id === postId) as any;
     if (!p) throw new Error('未找到帖子');
-    if (!p.isFavorited) {
-      p.isFavorited = true;
-      p.stats.favoriteCount = (p.stats?.favoriteCount ?? 0) + 1;
+    if (!p.is_favorited) {
+      p.is_favorited = true;
+      p.stats.favorite_count = (p.stats?.favorite_count ?? 0) + 1;
     }
-    return { isFavorited: true, favoriteCount: p.stats.favoriteCount ?? 0 };
+    return { is_favorited: true, favorite_count: p.stats.favorite_count ?? 0 };
   }
 
-  async unfavorite(postId: string): Promise<{ isFavorited: boolean; favoriteCount: number }> {
+  async unfavorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }> {
     const p = this.store.find((x) => x.id === postId) as any;
     if (!p) throw new Error('未找到帖子');
-    if (p.isFavorited) {
-      p.isFavorited = false;
-      p.stats.favoriteCount = Math.max(0, (p.stats?.favoriteCount ?? 0) - 1);
+    if (p.is_favorited) {
+      p.is_favorited = false;
+      p.stats.favorite_count = Math.max(0, (p.stats?.favorite_count ?? 0) - 1);
     }
-    return { isFavorited: false, favoriteCount: p.stats.favoriteCount ?? 0 };
+    return { is_favorited: false, favorite_count: p.stats.favorite_count ?? 0 };
+  }
+
+  async updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void> {
+    // Mock implementation: do nothing
   }
 
 }
@@ -368,3 +388,6 @@ class MockPostsRepository implements PostsRepository {
 export const postsRepository: PostsRepository = USE_MOCK
   ? new MockPostsRepository()
   : new ApiPostsRepository();
+
+
+

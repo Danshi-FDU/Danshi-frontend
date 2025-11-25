@@ -23,12 +23,7 @@ export default function AdminScreen() {
   const { current } = useResponsive();
   const { user } = useAuth();
 
-  const headerHeight = pickByBreakpoint(current, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
-  const headerTitleStyle = {
-    fontSize: pickByBreakpoint(current, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-    fontWeight: '600' as const,
-  };
 
   // 检查权限
   if (!user || !isAdmin(user.role)) {
@@ -54,20 +49,20 @@ export default function AdminScreen() {
       route: '/myself/admin/users',
       color: pTheme.colors.secondary,
     },
-    {
-      title: '评论管理',
-      description: '查看、删除评论',
-      icon: 'chatbox',
-      route: '/myself/admin/comments',
-      color: pTheme.colors.tertiary,
-    },
+    // {
+    //   title: '评论管理',
+    //   description: '查看、删除评论',
+    //   icon: 'chatbox',
+    //   route: '/myself/admin/comments',
+    //   color: pTheme.colors.tertiary,
+    // },
   ];
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="管理中心" titleStyle={headerTitleStyle} />
+        <Appbar.Content title="管理中心" />
       </Appbar.Header>
 
       <ScrollView

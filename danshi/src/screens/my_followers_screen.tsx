@@ -67,24 +67,24 @@ const createFollowListScreen = (type: ListType) => {
         left={() => (
           <Avatar.Image
             size={48}
-            source={{ uri: item.avatarUrl ?? 'https://api.dicebear.com/7.x/identicon/png?seed=danshi' }}
+            source={{ uri: item.avatar_url ?? 'https://api.dicebear.com/7.x/identicon/png?seed=danshi' }}
           />
         )}
         right={() => (
           <View style={styles.followMeta}>
             <Text variant="labelSmall">
-              帖子 {formatCount(item.stats?.postCount)}
+              帖子 {formatCount(item.stats?.post_count)}
             </Text>
             <Text variant="labelSmall">
-              粉丝 {formatCount(item.stats?.followerCount)}
+              粉丝 {formatCount(item.stats?.follower_count)}
             </Text>
             {type === 'followers' ? (
               <Text variant="labelSmall" style={{ color: theme.colors.primary }}>
-                {item.isFollowing ? '已互关' : '未回关'}
+                {item.is_following ? '已互关' : '未回关'}
               </Text>
             ) : (
               <Text variant="labelSmall" style={{ color: theme.colors.primary }}>
-                {item.isFollowing ? '已关注' : '未关注'}
+                {item.is_following ? '已关注' : '未关注'}
               </Text>
             )}
           </View>

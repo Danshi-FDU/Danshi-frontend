@@ -17,9 +17,9 @@ export const authService = {
     const username = !email && isUsername(identifier) ? identifier : undefined;
     if (!email && !username) throw new AppError('请输入有效的邮箱或用户名');
     if (!password) throw new AppError('请输入密码');
-    const { token, refreshToken, user } = await authRepository.login({ email, username, password });
+    const { token, refresh_token, user } = await authRepository.login({ email, username, password });
     await AuthStorage.setToken(token);
-    if (refreshToken) await AuthStorage.setRefreshToken(refreshToken);
+    if (refresh_token) await AuthStorage.setRefreshToken(refresh_token);
     return { token, user };
   },
 
@@ -27,9 +27,9 @@ export const authService = {
     if (!input.name || !input.name.trim()) throw new AppError('用户名不能为空');
     if (!input.email || !isEmail(input.email)) throw new AppError('邮箱格式不正确');
     if (!input.password || input.password.length < 8 || input.password.length > 64) throw new AppError('密码长度需 8-64');
-    const { token, refreshToken, user } = await authRepository.register(input);
+    const { token, refresh_token, user } = await authRepository.register(input);
     await AuthStorage.setToken(token);
-    if (refreshToken) await AuthStorage.setRefreshToken(refreshToken);
+    if (refresh_token) await AuthStorage.setRefreshToken(refresh_token);
     return { token, user };
   },
 
@@ -47,9 +47,9 @@ export const authService = {
   async refresh(): Promise<{ token: string; refreshToken?: string }> {
     const rt = await AuthStorage.getRefreshToken();
     if (!rt) throw new AppError('缺少刷新令牌');
-    const { token, refreshToken } = await authRepository.refresh(rt);
+    const { token, refresh_token } = await authRepository.refresh(rt);
     await AuthStorage.setToken(token);
-    if (refreshToken) await AuthStorage.setRefreshToken(refreshToken);
-    return { token, refreshToken };
+    if (refresh_token) await AuthStorage.setRefreshToken(refresh_token);
+    return { token, refreshToken: refresh_token };
   },
 };

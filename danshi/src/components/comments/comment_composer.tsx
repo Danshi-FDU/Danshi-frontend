@@ -31,8 +31,8 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
 
   return (
     <View style={[styles.container, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface }]}>
-      {currentUser?.avatarUrl ? (
-        <Avatar.Image size={40} source={{ uri: currentUser.avatarUrl }} />
+      {currentUser?.avatar_url ? (
+        <Avatar.Image size={40} source={{ uri: currentUser.avatar_url }} />
       ) : (
         <Avatar.Text size={40} label={currentUser?.name?.slice(0, 1) ?? '我'} />
       )}

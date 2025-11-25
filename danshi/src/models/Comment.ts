@@ -2,8 +2,8 @@ import type { User } from '@/src/models/User';
 
 export type CommentSort = 'latest' | 'hot';
 
-export type CommentAuthor = Pick<User, 'id' | 'name' | 'avatarUrl'> & {
-  isFollowing?: boolean;
+export type CommentAuthor = Pick<User, 'id' | 'name' | 'avatar_url'> & {
+  is_following?: boolean;
 };
 
 export interface MentionedUser {
@@ -15,19 +15,19 @@ export interface CommentBase {
   id: string;
   content: string;
   author: CommentAuthor;
-  mentionedUsers?: MentionedUser[];
-  likeCount: number;
-  isLiked?: boolean;
-  isAuthor?: boolean;
-  parentId?: string | null;
-  replyTo?: MentionedUser | null;
-  createdAt: string; // ISO string
+  mentioned_users?: MentionedUser[];
+  like_count: number;
+  is_liked?: boolean;
+  is_author?: boolean;
+  parent_id?: string | null;
+  reply_to?: MentionedUser | null;
+  created_at: string; // ISO string
 }
 
 export type CommentReply = CommentBase;
 
 export interface Comment extends CommentBase {
-  replyCount: number;
+  reply_count: number;
   replies?: CommentReply[];
 }
 
@@ -37,7 +37,7 @@ export interface CommentsPagination {
   page: number;
   limit: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 }
 
 export interface CommentsListResponse {
@@ -52,7 +52,7 @@ export interface CommentRepliesResponse {
 
 export type CreateCommentInput = {
   content: string;
-  parentId?: string | null;
-  replyToUserId?: string | null;
-  mentionedUserIds?: string[];
+  parent_id?: string | null;
+  reply_to_user_id?: string | null;
+  mentioned_user_ids?: string[];
 };

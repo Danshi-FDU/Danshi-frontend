@@ -1,12 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, List, Text, useTheme } from 'react-native-paper';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
+import { ActivityIndicator, Text, useTheme as usePaperTheme, Chip, FAB } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
 import type { UserPostListItem } from '@/src/repositories/users_repository';
 import { AppError } from '@/src/lib/errors/app_error';
+import { Masonry } from '@/src/components/md3/masonry';
+import { useWaterfallSettings } from '@/src/context/waterfall_context';
+import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
+import type { Post } from '@/src/models/Post';
 
 const formatCount = (value?: number) => {
   if (value == null) return '--';
@@ -15,14 +23,46 @@ const formatCount = (value?: number) => {
   return `${(value / 10000).toFixed(1).replace(/\.0$/, '')}w`;
 };
 
+// 将 UserPostListItem 转换为 Post 类型以便使用 PostCard
+const convertToPost = (item: UserPostListItem): Post => ({
+  id: item.id,
+  title: item.title,
+  content: '',
+  post_type: 'share',
+  share_type: 'recommend',
+  category: (item.category as 'food' | 'recipe') || 'food',
+  images: item.cover_image ? [item.cover_image] : [],
+  tags: [],
+  canteen: '',
+  author: undefined,
+  created_at: item.created_at || new Date().toISOString(),
+  updated_at: item.created_at || new Date().toISOString(),
+  stats: {
+    like_count: item.like_count || 0,
+    view_count: item.view_count || 0,
+    comment_count: item.comment_count || 0,
+    favorite_count: 0,
+  },
+  is_liked: false,
+  is_favorited: false,
+});
+
 export const MyPostsScreen: React.FC = () => {
   const { user } = useAuth();
+  const router = useRouter();
   const [posts, setPosts] = useState<UserPostListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
+  const theme = usePaperTheme();
+
+  const { minHeight, maxHeight } = useWaterfallSettings();
+  const bp = useBreakpoint();
+  const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
+  const verticalGap = gap + 6;
+  const horizontalPadding = gap;
+  const verticalPadding = gap;
 
   const loadPosts = useCallback(
     async (isRefresh = false) => {
@@ -54,36 +94,76 @@ export const MyPostsScreen: React.FC = () => {
     loadPosts();
   }, [loadPosts]);
 
-  const renderItem = ({ item }: { item: UserPostListItem }) => (
-    <List.Item
-      title={item.title}
-      description={`点赞 ${formatCount(item.likeCount)} · 评论 ${formatCount(item.commentCount)} · 浏览 ${formatCount(item.viewCount)}`}
-      left={(props) => (
-        <List.Icon {...props} icon="file-document-outline" />
-      )}
-      right={(props) => (
-        <View style={styles.metaContainer}>
-          {item.status ? (
-            <Text
-              variant="labelSmall"
-              style={[styles.statusChip, { backgroundColor: theme.colors.secondaryContainer, color: theme.colors.onSecondaryContainer }]}
-            >
-              {item.status === 'approved' ? '已发布' : item.status === 'pending' ? '审核中' : item.status === 'rejected' ? '未通过' : '草稿'}
-            </Text>
-          ) : null}
-          {item.createdAt ? (
-            <Text variant="labelSmall" style={styles.createdAt}>
-              {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
-          ) : null}
-        </View>
-      )}
-    />
+  const estimateHeight = useCallback(
+    (item: UserPostListItem) => {
+      const post = convertToPost(item);
+      return estimatePostCardHeight(post, minHeight, maxHeight);
+    },
+    [maxHeight, minHeight]
+  );
+
+  const handlePostPress = useCallback(
+    (postId: string) => {
+      // 跳转到编辑页面（这里暂时跳转到详情页，后续可以改为编辑页）
+      const href: Href = { pathname: '/post/[postId]', params: { postId } } as const;
+      router.push(href);
+    },
+    [router]
+  );
+
+  const handleCreatePost = useCallback(() => {
+    router.push('/post');
+  }, [router]);
+
+  const content = useMemo(() => posts, [posts]);
+
+  const renderPostCard = useCallback(
+    (item: UserPostListItem) => {
+      const post = convertToPost(item);
+      return (
+        <PostCard
+          post={post}
+          onPress={handlePostPress}
+          appearance="flat"
+          footer={
+            item.status && item.status !== 'approved' ? (
+              <View style={styles.statusFooter}>
+                <Chip
+                  compact
+                  style={[
+                    styles.statusChip,
+                    {
+                      backgroundColor:
+                        item.status === 'pending'
+                          ? theme.colors.secondaryContainer
+                          : item.status === 'rejected'
+                          ? theme.colors.errorContainer
+                          : theme.colors.surfaceVariant,
+                    },
+                  ]}
+                  textStyle={{
+                    color:
+                      item.status === 'pending'
+                        ? theme.colors.onSecondaryContainer
+                        : item.status === 'rejected'
+                        ? theme.colors.onErrorContainer
+                        : theme.colors.onSurfaceVariant,
+                  }}
+                >
+                  {item.status === 'pending' ? '审核中' : item.status === 'rejected' ? '未通过' : '草稿'}
+                </Chip>
+              </View>
+            ) : null
+          }
+        />
+      );
+    },
+    [handlePostPress, theme]
   );
 
   if (!user?.id) {
     return (
-      <View style={[styles.centered, { paddingTop: insets.top + 48 }]}>
+      <View style={[styles.centered, { paddingTop: insets.top + 48, backgroundColor: theme.colors.background }]}>
         <Text variant="bodyMedium">请先登录后再查看我的帖子</Text>
       </View>
     );
@@ -97,24 +177,39 @@ export const MyPostsScreen: React.FC = () => {
         <View style={styles.centered}>
           <ActivityIndicator animating size="large" />
         </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={posts.length === 0 ? styles.emptyListContent : undefined}
+      ) : posts.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
             />
           }
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Text variant="bodyMedium">还没有发布过帖子</Text>
-            </View>
+        >
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+            还没有发布过帖子
+          </Text>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingVertical: verticalPadding }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadPosts(true)}
+            />
           }
-        />
+        >
+          <Masonry<UserPostListItem>
+            data={content}
+            getItemHeight={estimateHeight}
+            renderItem={renderPostCard}
+            keyExtractor={(item) => item.id}
+            gap={gap}
+            verticalGap={verticalGap}
+          />
+        </ScrollView>
       )}
       {error ? (
         <View style={styles.errorContainer}>
@@ -123,6 +218,12 @@ export const MyPostsScreen: React.FC = () => {
           </Text>
         </View>
       ) : null}
+      <FAB
+        icon="plus"
+        style={[styles.fab, { bottom: insets.bottom + 16 }]}
+        onPress={handleCreatePost}
+        label="发帖"
+      />
     </View>
   );
 };
@@ -137,26 +238,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  emptyListContent: {
+  emptyContainer: {
     flexGrow: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  metaContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 4,
+  statusFooter: {
+    marginTop: 8,
   },
   statusChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  createdAt: {
-    color: '#666',
+    alignSelf: 'flex-start',
   },
   errorContainer: {
-    padding: 16,
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
   },
 });
 

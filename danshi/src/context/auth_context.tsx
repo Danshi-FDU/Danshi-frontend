@@ -44,7 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const me = await authService.me();
           setUser(me);
         } catch {
-          // ignore
+          await AuthStorage.clearToken();
+          setUserToken(null);
+          setPreview(null);
         }
       }
     } finally {
@@ -64,7 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const me = await authService.me();
       setUser(me);
     } catch {
-      // ignore
+      await AuthStorage.clearToken();
+      setUserToken(null);
+      setPreview(null);
     }
   };
 

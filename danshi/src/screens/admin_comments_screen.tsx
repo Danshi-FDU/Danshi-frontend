@@ -22,12 +22,7 @@ export default function AdminCommentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const headerHeight = pickByBreakpoint(current, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
-  const headerTitleStyle = {
-    fontSize: pickByBreakpoint(current, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-    fontWeight: '600' as const,
-  };
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -44,8 +39,10 @@ export default function AdminCommentsScreen() {
     setError('');
     
     try {
-      const result = await adminService.getComments({});
-      setComments(result.comments);
+      // const result = await adminService.getComments({});
+      // setComments(result.comments);
+      setComments([]);
+      setError('评论管理功能暂未开放');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -60,8 +57,9 @@ export default function AdminCommentsScreen() {
 
   const handleDelete = async (commentId: string) => {
     try {
-      await adminService.deleteComment(commentId);
-      setComments(comments.filter(c => c.id !== commentId));
+      // await adminService.deleteComment(commentId);
+      // setComments(comments.filter(c => c.id !== commentId));
+      Alert.alert('提示', '删除功能暂未开放');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -84,9 +82,9 @@ export default function AdminCommentsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="评论管理" titleStyle={headerTitleStyle} />
+        <Appbar.Content title="评论管理" />
       </Appbar.Header>
 
       <ScrollView
@@ -136,7 +134,7 @@ export default function AdminCommentsScreen() {
                       <Text variant="titleSmall" style={styles.authorName}>
                         {comment.author.name}
                       </Text>
-                      {comment.parentId && (
+                        {comment.parent_id && (
                         <View style={[styles.replyBadge, { backgroundColor: pTheme.colors.tertiaryContainer }]}>
                           <Ionicons name="return-down-forward" size={10} color={pTheme.colors.onTertiaryContainer} />
                           <Text style={{ fontSize: 10, color: pTheme.colors.onTertiaryContainer, marginLeft: 2 }}>
@@ -166,24 +164,24 @@ export default function AdminCommentsScreen() {
                   <View style={styles.statsRow}>
                     <Ionicons name="heart-outline" size={14} color={pTheme.colors.onSurfaceVariant} />
                     <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                      {comment.likeCount || 0}
+                      {comment.like_count || 0}
                     </Text>
                     <Ionicons name="chatbox-outline" size={14} color={pTheme.colors.onSurfaceVariant} style={{ marginLeft: 12 }} />
                     <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                      {comment.replyCount || 0}
+                      {comment.reply_count || 0}
                     </Text>
                   </View>
                   <View style={styles.metaRow}>
                     <Button 
                       mode="text" 
                       compact 
-                      onPress={() => router.push(`/post/${comment.postId}`)}
+                      onPress={() => router.push(`/post/${comment.post_id}`)}
                       style={{ marginRight: 8 }}
                     >
                       查看帖子
                     </Button>
                     <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-                      {new Date(comment.createdAt).toLocaleString('zh-CN')}
+                      {new Date(comment.created_at).toLocaleString('zh-CN')}
                     </Text>
                   </View>
                 </View>

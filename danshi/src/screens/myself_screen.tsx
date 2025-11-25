@@ -56,14 +56,25 @@ export default function MyselfScreen() {
 			setLoading(true);
 			setErr('');
 			try {
-				const [p, aggregates] = await Promise.all([
-					usersService.getUser(user.id),
-					statsService.getUserStats(user.id),
-				]);
+				// const [p, aggregates] = await Promise.all([
+				// 	usersService.getUser(user.id),
+				// 	statsService.getUserStats(user.id),
+				// ]);
+				const p = await usersService.getUser(user.id);
 				if (mounted) {
 					setProfile(p);
 					setBioDraft(p.bio ?? '');
-					setStats(aggregates);
+					// setStats(aggregates);
+					if (p.stats) {
+						setStats({
+							post_count: p.stats.post_count,
+							follower_count: p.stats.follower_count,
+							following_count: p.stats.following_count,
+							total_likes: 0,
+							total_favorites: 0,
+							total_views: 0,
+						});
+					}
 				}
 			} catch (e) {
 				if (mounted) setErr(e instanceof Error ? e.message : String(e));
@@ -139,9 +150,9 @@ export default function MyselfScreen() {
 					{stats ? (
 						<View style={styles.profileStatsRow}>
 							{[
-								{ label: '帖子', value: stats?.postCount, route: '/(tabs)/myself/posts' as const },
-								{ label: '粉丝', value: stats?.followerCount, route: '/(tabs)/myself/followers' as const },
-								{ label: '关注', value: stats?.followingCount, route: '/(tabs)/myself/following' as const },
+								{ label: '帖子', value: stats?.post_count, route: '/(tabs)/myself/posts' as const },
+								{ label: '粉丝', value: stats?.follower_count, route: '/(tabs)/myself/followers' as const },
+								{ label: '关注', value: stats?.following_count, route: '/(tabs)/myself/following' as const },
 							].map((item) => (
 								<Pressable
 									key={item.label}
@@ -180,10 +191,10 @@ export default function MyselfScreen() {
 					<Card.Content>
 					<Text variant="titleSmall" style={{ marginBottom: 8 }}>数据概览</Text>
 					<View style={styles.statsRow}>
-						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalLikes)}</Text><Text style={styles.statLabel}>获赞</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalFavorites)}</Text><Text style={styles.statLabel}>收藏</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.commentCount)}</Text><Text style={styles.statLabel}>评论</Text></View>
-						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.totalViews)}</Text><Text style={styles.statLabel}>浏览</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.total_likes)}</Text><Text style={styles.statLabel}>获赞</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.total_favorites)}</Text><Text style={styles.statLabel}>收藏</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.comment_count)}</Text><Text style={styles.statLabel}>评论</Text></View>
+						<View style={styles.statItem}><Text variant="titleMedium">{formatCount(stats?.total_views)}</Text><Text style={styles.statLabel}>浏览</Text></View>
 					</View>
 					</Card.Content>
 				</Card>

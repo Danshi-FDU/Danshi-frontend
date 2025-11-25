@@ -69,14 +69,16 @@ function normalizeSource(source: UploadSource, index: number): UploadFilePayload
 
 export const uploadService = {
   async uploadImage(source: UploadSource): Promise<UploadImageResult> {
-    const payload = normalizeSource(source, 0);
-    return uploadsRepository.uploadImage(payload);
+    // const payload = normalizeSource(source, 0);
+    // return uploadsRepository.uploadImage(payload);
+    throw new AppError('上传功能暂未开放');
   },
 
   async uploadImages(sources: UploadSource[]): Promise<UploadImageResult[]> {
-    if (!sources.length) throw new AppError('请至少选择 1 张图片');
-    if (sources.length > MAX_BATCH_COUNT) throw new AppError('单次最多上传 9 张图片');
-    const payloads = sources.map((src, index) => normalizeSource(src, index));
-    return uploadsRepository.uploadImages(payloads);
+    // if (!sources.length) throw new AppError('请至少选择 1 张图片');
+    // if (sources.length > MAX_BATCH_COUNT) throw new AppError('单次最多上传 9 张图片');
+    // const payloads = sources.map((src, index) => normalizeSource(src, index));
+    // return uploadsRepository.uploadImages(payloads);
+    throw new AppError('上传功能暂未开放');
   },
 };

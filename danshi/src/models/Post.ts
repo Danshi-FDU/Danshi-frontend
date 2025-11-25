@@ -5,18 +5,18 @@ export type ShareType = 'recommend' | 'warning';
 
 export type Category = 'food' | 'recipe';
 
-export type PostAuthor = Pick<User, 'id' | 'name' | 'avatarUrl'>;
+export type PostAuthor = Pick<User, 'id' | 'name' | 'avatar_url'>;
 
 export interface PostStats {
-  likeCount?: number;
-  favoriteCount?: number;
-  commentCount?: number;
-  viewCount?: number;
+  like_count?: number;
+  favorite_count?: number;
+  comment_count?: number;
+  view_count?: number;
 }
 
 export interface PostBase {
   id: string;
-  postType: PostType;
+  post_type: PostType;
   title: string;
   content: string;
   category: Category;
@@ -25,15 +25,15 @@ export interface PostBase {
   images?: string[];
   author?: PostAuthor;
   stats?: PostStats;
-  isLiked?: boolean;
-  isFavorited?: boolean;
-  createdAt?: string; // ISO
-  updatedAt?: string; // ISO
+  is_liked?: boolean;
+  is_favorited?: boolean;
+  created_at?: string; // ISO
+  updated_at?: string; // ISO
 }
 
 export interface SharePost extends Omit<PostBase, 'images'> {
-  postType: 'share';
-  shareType: ShareType;
+  post_type: 'share';
+  share_type: ShareType;
   cuisine?: string;
   flavors?: string[];
   price?: number;
@@ -41,16 +41,16 @@ export interface SharePost extends Omit<PostBase, 'images'> {
 }
 
 export interface SeekingPost extends PostBase {
-  postType: 'seeking';
-  budgetRange?: { min: number; max: number };
-  preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
+  post_type: 'seeking';
+  budget_range?: { min: number; max: number };
+  preferences?: { avoid_flavors?: string[]; prefer_flavors?: string[] };
 }
 
 export type Post = SharePost | SeekingPost;
 
 // Create inputs mirror domain fields, without server-generated ones
 export type CommonCreateBase = {
-  postType: PostType;
+  post_type: PostType;
   title: string;
   content: string;
   category: Category;
@@ -60,8 +60,8 @@ export type CommonCreateBase = {
 };
 
 export type SharePostCreateInput = CommonCreateBase & {
-  postType: 'share';
-  shareType: ShareType;
+  post_type: 'share';
+  share_type: ShareType;
   cuisine?: string;
   flavors?: string[];
   price?: number;
@@ -69,9 +69,9 @@ export type SharePostCreateInput = CommonCreateBase & {
 };
 
 export type SeekingPostCreateInput = CommonCreateBase & {
-  postType: 'seeking';
-  budgetRange?: { min: number; max: number };
-  preferences?: { avoidFlavors?: string[]; preferFlavors?: string[] };
+  post_type: 'seeking';
+  budget_range?: { min: number; max: number };
+  preferences?: { avoid_flavors?: string[]; prefer_flavors?: string[] };
 };
 
 export type PostCreateInput =
@@ -80,6 +80,13 @@ export type PostCreateInput =
 
 export type PostCreateResult = {
   id: string;
-  postType: PostType;
+  post_type: PostType;
   status: 'pending' | 'approved' | 'rejected';
+};
+
+export type CompanionStatus = 'open' | 'full' | 'closed';
+
+export type CompanionStatusUpdateRequest = {
+  status: CompanionStatus;
+  current_people?: number | null;
 };

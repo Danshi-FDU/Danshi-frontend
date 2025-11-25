@@ -25,7 +25,7 @@ export type CommentRepliesParams = {
   limit?: number;
 };
 
-export type CommentLikeResult = { isLiked: boolean; likeCount: number };
+export type CommentLikeResult = { is_liked: boolean; like_count: number };
 
 export interface CommentsRepository {
   listByPost(postId: string, params?: CommentListParams): Promise<CommentsListResponse>;
@@ -42,6 +42,7 @@ class ApiCommentsRepository implements CommentsRepository {
     if (!params) return '';
     Object.entries(params).forEach(([key, value]) => {
       if (value == null) return;
+      if (!['page', 'limit', 'sortBy'].includes(key)) return;
       qs.append(key, String(value));
     });
     const str = qs.toString();
@@ -89,30 +90,30 @@ const MOCK_AUTHORS: CommentAuthor[] = [
   {
     id: 'mock-user-01',
     name: '李四',
-    avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
-    isFollowing: true,
+    avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
+    is_following: true,
   },
   {
     id: 'mock-user-02',
     name: '王五',
-    avatarUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces',
+    avatar_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces',
   },
   {
     id: 'mock-user-03',
     name: '赵六',
-    avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces',
+    avatar_url: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces',
   },
   {
     id: 'mock-user-04',
     name: '张三',
-    avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
+    avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
   },
 ];
 
 const CURRENT_USER: CommentAuthor = {
   id: 'mock-current-user',
   name: '复旦吃货',
-  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces',
+  avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&crop=faces',
 };
 
 type StoredComment = Comment & { replies: CommentReply[] };
@@ -125,50 +126,50 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-001',
       content: '看起来真的很香，准备周末去试试！',
       author: MOCK_AUTHORS[0],
-      mentionedUsers: [],
-      likeCount: 5,
-      isLiked: false,
-      isAuthor: false,
-      parentId: null,
-      replyTo: null,
-      createdAt: now.toISOString(),
-      replyCount: 3,
+      mentioned_users: [],
+      like_count: 5,
+      is_liked: false,
+      is_author: false,
+      parent_id: null,
+      reply_to: null,
+      created_at: now.toISOString(),
+      reply_count: 3,
       replies: [
         {
           id: 'mock-reply-001',
           content: '去的时候记得早点排队，晚了要排很久。',
           author: MOCK_AUTHORS[1],
-          mentionedUsers: [],
-          likeCount: 2,
-          isLiked: false,
-          isAuthor: false,
-          parentId: 'mock-comment-001',
-          replyTo: { id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name },
-          createdAt: new Date(now.getTime() + 1000 * 60).toISOString(),
+          mentioned_users: [],
+          like_count: 2,
+          is_liked: false,
+          is_author: false,
+          parent_id: 'mock-comment-001',
+          reply_to: { id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name },
+          created_at: new Date(now.getTime() + 1000 * 60).toISOString(),
         },
         {
           id: 'mock-reply-002',
           content: '确实，人多的时候排队体验不好。',
           author: MOCK_AUTHORS[2],
-          mentionedUsers: [],
-          likeCount: 1,
-          isLiked: false,
-          isAuthor: false,
-          parentId: 'mock-comment-001',
-          replyTo: { id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name },
-          createdAt: new Date(now.getTime() + 1000 * 120).toISOString(),
+          mentioned_users: [],
+          like_count: 1,
+          is_liked: false,
+          is_author: false,
+          parent_id: 'mock-comment-001',
+          reply_to: { id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name },
+          created_at: new Date(now.getTime() + 1000 * 120).toISOString(),
         },
         {
           id: 'mock-reply-004',
           content: '昨天去的时候队伍排到了门口，建议工作日去。',
           author: CURRENT_USER,
-          mentionedUsers: [],
-          likeCount: 0,
-          isLiked: false,
-          isAuthor: true,
-          parentId: 'mock-comment-001',
-          replyTo: { id: MOCK_AUTHORS[2].id, name: MOCK_AUTHORS[2].name },
-          createdAt: new Date(now.getTime() + 1000 * 180).toISOString(),
+          mentioned_users: [],
+          like_count: 0,
+          is_liked: false,
+          is_author: true,
+          parent_id: 'mock-comment-001',
+          reply_to: { id: MOCK_AUTHORS[2].id, name: MOCK_AUTHORS[2].name },
+          created_at: new Date(now.getTime() + 1000 * 180).toISOString(),
         },
       ],
     },
@@ -176,26 +177,26 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-002',
       content: '这个帖子完全被你种草了，今晚就冲！',
       author: MOCK_AUTHORS[2],
-      mentionedUsers: [],
-      likeCount: 8,
-      isLiked: true,
-      isAuthor: true,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() - 1000 * 60 * 30).toISOString(),
-      replyCount: 1,
+      mentioned_users: [],
+      like_count: 8,
+      is_liked: true,
+      is_author: true,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() - 1000 * 60 * 30).toISOString(),
+      reply_count: 1,
       replies: [
         {
           id: 'mock-reply-003',
           content: '作者亲测好吃，推荐大家尝试招牌牛肉饭。',
           author: CURRENT_USER,
-          mentionedUsers: [],
-          likeCount: 4,
-          isLiked: false,
-          isAuthor: true,
-          parentId: 'mock-comment-002',
-          replyTo: { id: MOCK_AUTHORS[2].id, name: MOCK_AUTHORS[2].name },
-          createdAt: new Date(now.getTime() - 1000 * 60 * 25).toISOString(),
+          mentioned_users: [],
+          like_count: 4,
+          is_liked: false,
+          is_author: true,
+          parent_id: 'mock-comment-002',
+          reply_to: { id: MOCK_AUTHORS[2].id, name: MOCK_AUTHORS[2].name },
+          created_at: new Date(now.getTime() - 1000 * 60 * 25).toISOString(),
         },
       ],
     },
@@ -203,14 +204,14 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-003',
       content: '店里有学生优惠券，别忘了在收银台扫码领取。',
       author: MOCK_AUTHORS[3],
-      mentionedUsers: [{ id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name }],
-      likeCount: 1,
-      isLiked: false,
-      isAuthor: false,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() - 1000 * 60 * 90).toISOString(),
-      replyCount: 0,
+      mentioned_users: [{ id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name }],
+      like_count: 1,
+      is_liked: false,
+      is_author: false,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() - 1000 * 60 * 90).toISOString(),
+      reply_count: 0,
       replies: [],
     },
   ];
@@ -220,52 +221,52 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-101',
       content: '我有优惠券，可以一起拼，私信我微信号。',
       author: MOCK_AUTHORS[0],
-      mentionedUsers: [],
-      likeCount: 3,
-      isLiked: false,
-      isAuthor: false,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() - 1000 * 60 * 15).toISOString(),
-      replyCount: 0,
+      mentioned_users: [],
+      like_count: 3,
+      is_liked: false,
+      is_author: false,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() - 1000 * 60 * 15).toISOString(),
+      reply_count: 0,
       replies: [],
     },
     {
       id: 'mock-comment-102',
       content: '口味偏辣的话推荐点麻辣牛肉锅底，搭配油麦菜很不错。',
       author: MOCK_AUTHORS[1],
-      mentionedUsers: [],
-      likeCount: 6,
-      isLiked: false,
-      isAuthor: false,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() - 1000 * 60 * 45).toISOString(),
-      replyCount: 2,
+      mentioned_users: [],
+      like_count: 6,
+      is_liked: false,
+      is_author: false,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() - 1000 * 60 * 45).toISOString(),
+      reply_count: 2,
       replies: [
         {
           id: 'mock-reply-101',
           content: '谢谢推荐！我们正愁不知道点什么。',
           author: MOCK_AUTHORS[2],
-          mentionedUsers: [],
-          likeCount: 0,
-          isLiked: false,
-          isAuthor: false,
-          parentId: 'mock-comment-102',
-          replyTo: { id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name },
-          createdAt: new Date(now.getTime() - 1000 * 60 * 40).toISOString(),
+          mentioned_users: [],
+          like_count: 0,
+          is_liked: false,
+          is_author: false,
+          parent_id: 'mock-comment-102',
+          reply_to: { id: MOCK_AUTHORS[1].id, name: MOCK_AUTHORS[1].name },
+          created_at: new Date(now.getTime() - 1000 * 60 * 40).toISOString(),
         },
         {
           id: 'mock-reply-102',
           content: '@李四 可以的话一起拼桌吧，我也去！',
           author: CURRENT_USER,
-          mentionedUsers: [{ id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name }],
-          likeCount: 2,
-          isLiked: false,
-          isAuthor: false,
-          parentId: 'mock-comment-102',
-          replyTo: { id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name },
-          createdAt: new Date(now.getTime() - 1000 * 60 * 35).toISOString(),
+          mentioned_users: [{ id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name }],
+          like_count: 2,
+          is_liked: false,
+          is_author: false,
+          parent_id: 'mock-comment-102',
+          reply_to: { id: MOCK_AUTHORS[0].id, name: MOCK_AUTHORS[0].name },
+          created_at: new Date(now.getTime() - 1000 * 60 * 35).toISOString(),
         },
       ],
     },
@@ -276,26 +277,26 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-201',
       content: '明天中午12点可以到校门集合吗？我带车。',
       author: CURRENT_USER,
-      mentionedUsers: [],
-      likeCount: 7,
-      isLiked: true,
-      isAuthor: true,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() + 1000 * 60 * 60).toISOString(),
-      replyCount: 1,
+      mentioned_users: [],
+      like_count: 7,
+      is_liked: true,
+      is_author: true,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() + 1000 * 60 * 60).toISOString(),
+      reply_count: 1,
       replies: [
         {
           id: 'mock-reply-201',
           content: '可以的！我会提前10分钟到。',
           author: MOCK_AUTHORS[1],
-          mentionedUsers: [],
-          likeCount: 1,
-          isLiked: false,
-          isAuthor: false,
-          parentId: 'mock-comment-201',
-          replyTo: { id: CURRENT_USER.id, name: CURRENT_USER.name },
-          createdAt: new Date(now.getTime() + 1000 * 60 * 90).toISOString(),
+          mentioned_users: [],
+          like_count: 1,
+          is_liked: false,
+          is_author: false,
+          parent_id: 'mock-comment-201',
+          reply_to: { id: CURRENT_USER.id, name: CURRENT_USER.name },
+          created_at: new Date(now.getTime() + 1000 * 60 * 90).toISOString(),
         },
       ],
     },
@@ -303,14 +304,14 @@ function createSeedComments(): Record<string, StoredComment[]> {
       id: 'mock-comment-202',
       content: '还有位置吗？我想一起去，AA没问题。',
       author: MOCK_AUTHORS[3],
-      mentionedUsers: [],
-      likeCount: 0,
-      isLiked: false,
-      isAuthor: false,
-      parentId: null,
-      replyTo: null,
-      createdAt: new Date(now.getTime() + 1000 * 60 * 30).toISOString(),
-      replyCount: 0,
+      mentioned_users: [],
+      like_count: 0,
+      is_liked: false,
+      is_author: false,
+      parent_id: null,
+      reply_to: null,
+      created_at: new Date(now.getTime() + 1000 * 60 * 30).toISOString(),
+      reply_count: 0,
       replies: [],
     },
   ];
@@ -349,7 +350,7 @@ class MockCommentsRepository implements CommentsRepository {
     const start = (safePage - 1) * safeLimit;
     return {
       data: items.slice(start, start + safeLimit),
-      pagination: { page: safePage, limit: safeLimit, total, totalPages },
+      pagination: { page: safePage, limit: safeLimit, total, total_pages: totalPages },
     };
   }
 
@@ -363,8 +364,8 @@ class MockCommentsRepository implements CommentsRepository {
   async listByPost(postId: string, params: CommentListParams = {}): Promise<CommentsListResponse> {
     const comments = this.store[postId] ?? [];
     const sorted = [...comments].sort((a, b) => {
-      if (params.sortBy === 'hot') return b.likeCount - a.likeCount;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (params.sortBy === 'hot') return b.like_count - a.like_count;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
     const { data, pagination } = this.paginate(sorted, params.page, params.limit ?? 20);
@@ -394,53 +395,48 @@ class MockCommentsRepository implements CommentsRepository {
 
   async create(postId: string, payload: CreateCommentInput): Promise<CommentEntity> {
     const content = payload.content.trim();
-    const mentionedUsers: MentionedUser[] = (payload.mentionedUserIds ?? []).map((id) => ({
+    const mentioned_users: MentionedUser[] = (payload.mentioned_user_ids ?? []).map((id) => ({
       id,
       name: `用户${id.slice(-4)}`,
     }));
-    const createdAt = new Date().toISOString();
+    const created_at = new Date().toISOString();
     const id = `mock-comment-${Date.now()}`;
 
-    if (!payload.parentId) {
+    if (!payload.parent_id) {
       const comment: StoredComment = {
         id,
         content,
-        author: CURRENT_USER,
-        mentionedUsers,
-        likeCount: 0,
-        isLiked: false,
-        isAuthor: false,
-        parentId: null,
-        replyTo: null,
-        createdAt,
-        replyCount: 0,
+        author: CURRENT_USER,      mentioned_users,
+        like_count: 0,
+        is_liked: false,
+        is_author: false,
+        parent_id: null,
+        reply_to: null,      created_at,
+        reply_count: 0,
         replies: [],
       };
       this.store[postId] = [comment, ...(this.store[postId] ?? [])];
       return this.cloneComment(comment);
     }
 
-    const { comment: parentComment } = this.findComment(payload.parentId);
+    const { comment: parentComment } = this.findComment(payload.parent_id);
     if (!parentComment) throw new Error('父评论不存在');
 
-    const replyTo: MentionedUser | null = payload.replyToUserId
-      ? { id: payload.replyToUserId, name: `用户${payload.replyToUserId.slice(-4)}` }
+    const reply_to: MentionedUser | null = payload.reply_to_user_id
+      ? { id: payload.reply_to_user_id, name: `用户${payload.reply_to_user_id.slice(-4)}` }
       : null;
 
     const reply: CommentReply = {
       id,
       content,
-      author: CURRENT_USER,
-      mentionedUsers,
-      likeCount: 0,
-      isLiked: false,
-      isAuthor: false,
-      parentId: payload.parentId,
-      replyTo,
-      createdAt,
+      author: CURRENT_USER,      mentioned_users,
+      like_count: 0,
+      is_liked: false,
+      is_author: false,
+      parent_id: payload.parent_id,      reply_to,      created_at,
     };
     parentComment.replies.unshift(reply);
-    parentComment.replyCount = parentComment.replies.length;
+    parentComment.reply_count = parentComment.replies.length;
     return { ...reply };
   }
 
@@ -448,22 +444,22 @@ class MockCommentsRepository implements CommentsRepository {
     const { comment, reply } = this.findComment(commentId);
     const target = comment ?? reply;
     if (!target) throw new Error('评论不存在');
-    if (!target.isLiked) {
-      target.isLiked = true;
-      target.likeCount += 1;
+    if (!target.is_liked) {
+      target.is_liked = true;
+      target.like_count += 1;
     }
-    return { isLiked: true, likeCount: target.likeCount };
+    return { is_liked: true, like_count: target.like_count };
   }
 
   async unlike(commentId: string): Promise<CommentLikeResult> {
     const { comment, reply } = this.findComment(commentId);
     const target = comment ?? reply;
     if (!target) throw new Error('评论不存在');
-    if (target.isLiked) {
-      target.isLiked = false;
-      target.likeCount = Math.max(0, target.likeCount - 1);
+    if (target.is_liked) {
+      target.is_liked = false;
+      target.like_count = Math.max(0, target.like_count - 1);
     }
-    return { isLiked: false, likeCount: target.likeCount };
+    return { is_liked: false, like_count: target.like_count };
   }
 
   async delete(commentId: string): Promise<void> {
@@ -475,7 +471,7 @@ class MockCommentsRepository implements CommentsRepository {
     }
     if (reply && parent) {
       parent.replies = parent.replies.filter((r) => r.id !== reply.id);
-      parent.replyCount = parent.replies.length;
+      parent.reply_count = parent.replies.length;
       return;
     }
     throw new Error('评论不存在');
@@ -485,3 +481,7 @@ class MockCommentsRepository implements CommentsRepository {
 export const commentsRepository: CommentsRepository = USE_MOCK
   ? new MockCommentsRepository()
   : new ApiCommentsRepository();
+
+
+
+

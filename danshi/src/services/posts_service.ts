@@ -1,4 +1,5 @@
-import { postsRepository } from '@/src/repositories/posts_repository';
+import { postsRepository, seedMockPosts } from '@/src/repositories/posts_repository';
+import { USE_MOCK } from '@/src/constants/app';
 import type { PostCreateInput, PostCreateResult } from '@/src/models/Post';
 import type { PostListFilters, PostsListResponse } from '@/src/repositories/posts_repository';
 import { AppError } from '@/src/lib/errors/app_error';
@@ -26,9 +27,9 @@ function validate(input: PostCreateInput) {
 
   if (input.tags && input.tags.length > 10) throw new AppError('标签最多 10 个');
 
-  switch (input.postType) {
+  switch (input.post_type) {
     case 'share': {
-      if (!input.shareType || !['recommend', 'warning'].includes(input.shareType)) {
+      if (!input.share_type || !['recommend', 'warning'].includes(input.share_type)) {
         throw new AppError('分享类型缺失或不合法（recommend/warning）');
       }
       if (!input.images || input.images.length < 1) throw new AppError('请至少上传 1 张图片');
@@ -41,8 +42,8 @@ function validate(input: PostCreateInput) {
       // images 可为空
       if (input.images && input.images.length > 9) throw new AppError('最多上传 9 张图片');
       ensureHttpUrls(input.images, '图片 URL');
-      if (input.budgetRange) {
-        const { min, max } = input.budgetRange;
+      if (input.budget_range) {
+        const { min, max } = input.budget_range;
         if (min < 0 || max < 0) throw new AppError('预算不能为负数');
         if (max < min) throw new AppError('预算上限需大于等于下限');
       }
@@ -55,17 +56,46 @@ function validate(input: PostCreateInput) {
 
 export const postsService = {
   async list(filters: PostListFilters = {}): Promise<PostsListResponse> {
-    // 过滤基础参数
+    const sortBy = filters.sortBy && ['latest', 'hot', 'trending'].includes(filters.sortBy)
+      ? filters.sortBy
+      : undefined;
     const cleaned: PostListFilters = {
-      ...filters,
+      sortBy,
       page: filters.page && filters.page > 0 ? Math.floor(filters.page) : 1,
       limit: filters.limit && filters.limit > 0 ? Math.floor(filters.limit) : 20,
-      tags: filters.tags?.map((t) => t.trim()).filter(Boolean),
-      flavors: filters.flavors?.map((t) => t.trim()).filter(Boolean),
-      canteen: filters.canteen?.trim() || filters.canteen,
-      cuisine: filters.cuisine?.trim() || filters.cuisine,
     };
-    return postsRepository.list(cleaned);
+    try {
+      return await postsRepository.list(cleaned);
+    } catch (err: any) {
+      // 如果是网络/CORS 或者服务端 500，可以选择回退到本地 mock（仅在环境允许时）
+      const fallbackEnabled = USE_MOCK || (process.env.EXPO_PUBLIC_FALLBACK_TO_MOCK ?? 'false').toLowerCase() === 'true';
+      const isNetworkOrCors = err && err.code === 'CORS_OR_NETWORK';
+      const isServer500 = err && ((err as any).status === 500 || (err as any).statusCode === 500);
+      if (fallbackEnabled && (isNetworkOrCors || isServer500)) {
+        // 使用与 MockPostsRepository 相同的种子数据并做分页/排序处理
+        const all = seedMockPosts();
+        const page = Math.max(1, Math.floor(cleaned.page ?? 1));
+        const limit = Math.min(50, Math.max(1, Math.floor(cleaned.limit ?? 20)));
+        const arr = [...all].sort((a, b) => {
+          switch (cleaned.sortBy) {
+            case 'hot':
+              return (b.stats?.like_count ?? 0) - (a.stats?.like_count ?? 0);
+            case 'trending':
+              return (new Date(b.updated_at ?? b.created_at).getTime() || 0) - (new Date(a.updated_at ?? a.created_at).getTime() || 0);
+            case 'latest':
+            default:
+              return (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0);
+          }
+        });
+        const total = arr.length;
+        const total_pages = Math.max(1, Math.ceil(total / limit));
+        const start = (page - 1) * limit;
+        const posts = arr.slice(start, start + limit);
+        return { posts, pagination: { page, limit, total, total_pages } };
+      }
+
+      throw err;
+    }
   },
 
   async get(postId: string) {

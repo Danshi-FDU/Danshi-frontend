@@ -11,11 +11,11 @@ export type RegisterInput = {
   name: string; // 强制必填
   gender?: 'male' | 'female';
   hometown?: string;
-  avatarUrl?: string | null;
+  avatar_url?: string | null;
 };
 
-export type AuthPayload = { token: string; user: User; refreshToken?: string };
-export type RefreshPayload = { token: string; refreshToken?: string };
+export type AuthPayload = { token: string; user: User; refresh_token?: string };
+export type RefreshPayload = { token: string; refresh_token?: string };
 
 export interface AuthRepository {
   login(input: LoginInput): Promise<AuthPayload>;
@@ -48,8 +48,9 @@ export class ApiAuthRepository implements AuthRepository {
     }
   }
   async refresh(refreshToken: string): Promise<RefreshPayload> {
-    const res = await httpAuth.post<ApiResponse<RefreshPayload>>(API_ENDPOINTS.AUTH.REFRESH, { refreshToken });
-    return unwrapApiResponse<RefreshPayload>(res);
+    throw new Error('Refresh API not implemented');
+    // const res = await httpAuth.post<ApiResponse<RefreshPayload>>(API_ENDPOINTS.AUTH.REFRESH, { refresh_token: refreshToken });
+    // return unwrapApiResponse<RefreshPayload>(res);
   }
 }
 
@@ -62,7 +63,7 @@ export class MockAuthRepository implements AuthRepository {
     gender: 'male',
     hometown: 'Shanghai',
     role: 'admin', // 改为管理员以便访问管理界面
-    avatarUrl: null,
+    avatar_url: null,
   };
   private mockPassword: string = 'password123';
 
@@ -85,22 +86,22 @@ export class MockAuthRepository implements AuthRepository {
       throw new Error('账号或密码错误');
     }
     const seed = this.mockUser.email || this.mockUser.name;
-    this.mockUser = { ...this.mockUser, avatarUrl: this.computeAvatar(seed) };
-    return { token: 'mock-token', refreshToken: 'mock-refresh-token', user: this.mockUser };
+    this.mockUser = { ...this.mockUser, avatar_url: this.computeAvatar(seed) };
+    return { token: 'mock-token', refresh_token: 'mock-refresh-token', user: this.mockUser };
   }
   async register(input: RegisterInput): Promise<AuthPayload> {
     await new Promise((r) => setTimeout(r, 500));
     if (!input.name) throw new Error('用户名不能为空');
-    const avatarUrl = this.computeAvatar(input.email || input.name);
-    this.mockUser = { ...this.mockUser, email: input.email, name: input.name, avatarUrl };
+    const avatar_url = this.computeAvatar(input.email || input.name);
+    this.mockUser = { ...this.mockUser, email: input.email, name: input.name, avatar_url };
     this.mockPassword = input.password;
-    return { token: 'mock-token', refreshToken: 'mock-refresh-token', user: this.mockUser };
+    return { token: 'mock-token', refresh_token: 'mock-refresh-token', user: this.mockUser };
   }
   async me(): Promise<{ user: User }> {
     await new Promise((r) => setTimeout(r, 200));
     const seed = this.mockUser.email || this.mockUser.name;
-    const ensured = this.mockUser.avatarUrl ? this.mockUser.avatarUrl : this.computeAvatar(seed);
-    this.mockUser = { ...this.mockUser, avatarUrl: ensured };
+    const ensured = this.mockUser.avatar_url ? this.mockUser.avatar_url : this.computeAvatar(seed);
+    this.mockUser = { ...this.mockUser, avatar_url: ensured };
     return { user: this.mockUser };
   }
   async logout(): Promise<void> {
@@ -109,7 +110,7 @@ export class MockAuthRepository implements AuthRepository {
   async refresh(refreshToken: string): Promise<RefreshPayload> {
     await new Promise((r) => setTimeout(r, 300));
     if (!refreshToken) throw new Error('无效的刷新令牌');
-    return { token: 'mock-token-refreshed', refreshToken: 'mock-refresh-token-next' };
+    return { token: 'mock-token-refreshed', refresh_token: 'mock-refresh-token-next' };
   }
 }
 

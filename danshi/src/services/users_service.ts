@@ -32,7 +32,7 @@ export const usersService = {
   async updateUser(userId: string, input: UpdateUserInput): Promise<UserProfile> {
     if (!isNonEmpty(userId)) throw new AppError('缺少用户ID');
     if (input.name !== undefined && !isNonEmpty(input.name)) throw new AppError('用户名不能为空');
-    if (input.avatarUrl !== undefined && !isValidUrl(input.avatarUrl)) {
+    if (input.avatar_url !== undefined && !isValidUrl(input.avatar_url)) {
       if (USE_MOCK) throw new AppError('头像URL不合法');
       throw new AppError('头像URL必须为 http(s) 地址，或实现上传后使用服务器返回的地址');
     }

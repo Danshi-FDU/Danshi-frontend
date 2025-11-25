@@ -9,7 +9,11 @@ export const STORAGE_KEYS = {
 
 // Runtime config & feature switches (can be overridden via EXPO_PUBLIC_* envs)
 export const USE_MOCK = (process.env.EXPO_PUBLIC_USE_MOCK ?? 'true').toLowerCase() === 'true';
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://example.invalid/api';
+if (!USE_MOCK && !process.env.EXPO_PUBLIC_API_URL) {
+  // eslint-disable-next-line no-console
+  console.warn('[config] USE_MOCK is false but EXPO_PUBLIC_API_URL is not set. Falling back to https://example.invalid');
+}
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://example.invalid';
 export const REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_REQUEST_TIMEOUT_MS ?? 10000);
 
 // API endpoints (path only). Base URL comes from src/config
@@ -19,7 +23,7 @@ export const API_ENDPOINTS = {
     REGISTER: '/api/v1/auth/register',  // POST
     ME: '/api/v1/auth/me',  // GET
     LOGOUT: '/api/v1/auth/logout',  //POST
-    REFRESH: '/api/v1/auth/refresh', // POST
+    // REFRESH: '/api/v1/auth/refresh', // POST (Not in openapi.json)
   },
   USERS: {
     ROOT: '/api/v1/users', // GET /:userId, PUT /:userId
@@ -38,9 +42,9 @@ export const API_ENDPOINTS = {
     USER_ROLE: '/api/v1/admin/users/:userId/role',
     USER_STATUS: '/api/v1/admin/users/:userId/status',
     ADMINS: '/api/v1/admin/admins',
-    SUPER_ADMINS: '/api/v1/admin/super-admins',
-    COMMENTS: '/api/v1/admin/comments',
-    COMMENT_DELETE: '/api/v1/admin/comments/:commentId',
+    // SUPER_ADMINS: '/api/v1/admin/super-admins', (Not in openapi.json)
+    // COMMENTS: '/api/v1/admin/comments', (Not in openapi.json)
+    // COMMENT_DELETE: '/api/v1/admin/comments/:commentId', (Not in openapi.json)
   },
   POSTS: {
     GETPOSTPRE: '/api/v1/posts',  // GET
@@ -52,6 +56,7 @@ export const API_ENDPOINTS = {
     UNLIKEPOST: '/api/v1/posts/:postId/like',  // DELETE
     FAVORITEPOST: '/api/v1/posts/:postId/favorite',  // POST
     UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
+    // COMPANION_STATUS: '/api/v1/posts/:postId/companion-status', // PUT
   },
   COMMENTS: {
     LIST_FOR_POST: '/api/v1/posts/:postId/comments',
@@ -61,6 +66,7 @@ export const API_ENDPOINTS = {
     UNLIKE: '/api/v1/comments/:commentId/like',
     DELETE: '/api/v1/comments/:commentId',
   },
+  /*
   CONFIG: {
     CANTEENS: '/api/v1/config/canteens',
     CUISINES: '/api/v1/config/cuisines',
@@ -79,6 +85,7 @@ export const API_ENDPOINTS = {
     PLATFORM: '/api/v1/stats/platform',
     USER: '/api/v1/stats/user/:userId',
   },
+  */
 } as const;
 
 // Role literals and their order (low -> high privilege)

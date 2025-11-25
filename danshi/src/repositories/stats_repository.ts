@@ -10,14 +10,16 @@ export interface StatsRepository {
 
 class ApiStatsRepository implements StatsRepository {
   async getPlatformStats(): Promise<PlatformStats> {
-    const resp = await httpAuth.get<ApiResponse<PlatformStats>>(API_ENDPOINTS.STATS.PLATFORM);
-    return unwrapApiResponse<PlatformStats>(resp, 200);
+    throw new Error('Stats API not implemented');
+    // const resp = await httpAuth.get<ApiResponse<PlatformStats>>(API_ENDPOINTS.STATS.PLATFORM);
+    // return unwrapApiResponse<PlatformStats>(resp, 200);
   }
 
   async getUserStats(userId: string): Promise<UserAggregateStats> {
-    const path = API_ENDPOINTS.STATS.USER.replace(':userId', encodeURIComponent(userId));
-    const resp = await httpAuth.get<ApiResponse<UserAggregateStats>>(path);
-    return unwrapApiResponse<UserAggregateStats>(resp, 200);
+    throw new Error('Stats API not implemented');
+    // const path = API_ENDPOINTS.STATS.USER.replace(':userId', encodeURIComponent(userId));
+    // const resp = await httpAuth.get<ApiResponse<UserAggregateStats>>(path);
+    // return unwrapApiResponse<UserAggregateStats>(resp, 200);
   }
 }
 
@@ -27,17 +29,17 @@ class MockStatsRepository implements StatsRepository {
   async getPlatformStats(): Promise<PlatformStats> {
     await delay(80);
     return {
-      totalUsers: 1250,
-      totalPosts: 3420,
-      totalComments: 8960,
-      totalViews: 125680,
-      activeUsers: 456,
-      pendingPosts: 12,
-      todayStats: {
-        newUsers: 15,
-        newPosts: 28,
-        newComments: 156,
-        newViews: 3580,
+      total_users: 1250,
+      total_posts: 3420,
+      total_comments: 8960,
+      total_views: 125680,
+      active_users: 456,
+      pending_posts: 12,
+      today_stats: {
+        new_users: 15,
+        new_posts: 28,
+        new_comments: 156,
+        new_views: 3580,
       },
     };
   }
@@ -47,13 +49,13 @@ class MockStatsRepository implements StatsRepository {
     const seed = Math.abs([...userId].reduce((acc, ch) => acc + ch.charCodeAt(0), 0));
     const pseudo = (mod: number, base: number) => (seed % mod) + base;
     return {
-      postCount: pseudo(20, 5),
-      totalLikes: pseudo(200, 40),
-      totalFavorites: pseudo(120, 10),
-      totalViews: pseudo(3000, 500),
-      commentCount: pseudo(80, 5),
-      followerCount: pseudo(500, 20),
-      followingCount: pseudo(100, 10),
+      post_count: pseudo(20, 5),
+      total_likes: pseudo(200, 40),
+      total_favorites: pseudo(120, 10),
+      total_views: pseudo(3000, 500),
+      comment_count: pseudo(80, 5),
+      follower_count: pseudo(500, 20),
+      following_count: pseudo(100, 10),
     };
   }
 }

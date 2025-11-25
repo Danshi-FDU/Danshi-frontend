@@ -8,14 +8,14 @@ export type Pagination = {
   page: number;
   limit: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 };
 
 export type AdminPostListParams = {
   page?: number;
   limit?: number;
   status?: 'pending' | 'approved' | 'rejected' | 'draft';
-  postType?: PostType;
+  post_type?: PostType;
 };
 
 export type AdminPendingPostSummary = {
@@ -23,7 +23,7 @@ export type AdminPendingPostSummary = {
   title: string;
   content: string;
   category: Category;
-  postType?: PostType;
+  post_type?: PostType;
   images?: string[];
   author: {
     id: string;
@@ -31,7 +31,10 @@ export type AdminPendingPostSummary = {
     email: string;
   };
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
+  like_count?: number;
+  view_count?: number;
+  comment_count?: number;
+  created_at: string;
 };
 
 export type AdminPendingPostsResponse = {
@@ -47,29 +50,30 @@ export type AdminPostReviewInput = {
 };
 
 export type AdminPostReviewResult = {
-  postId: string;
+  post_id: string;
   status: 'approved' | 'rejected';
-  reviewedAt: string;
+  reviewed_at: string;
 };
 
 export type AdminUserListParams = {
   page?: number;
   limit?: number;
   role?: Role;
-  isActive?: boolean;
+  is_active?: boolean;
 };
 
 export type AdminUserSummary = {
   id: string;
   name: string;
   email: string;
+  avatar_url?: string;
   role: Role;
-  isActive: boolean;
+  is_active: boolean;
   stats?: {
-    postCount?: number;
-    followerCount?: number;
+    post_count?: number;
+    follower_count?: number;
   };
-  createdAt: string;
+  created_at: string;
 };
 
 export type AdminUsersResponse = {
@@ -82,18 +86,18 @@ export type AdminUserRoleInput = {
 };
 
 export type AdminUserRoleResult = {
-  userId: string;
+  user_id: string;
   role: Role;
 };
 
 export type AdminUserStatusInput = {
-  isActive: boolean;
+  is_active: boolean;
   reason?: string;
 };
 
 export type AdminUserStatusResult = {
-  userId: string;
-  isActive: boolean;
+  user_id: string;
+  is_active: boolean;
 };
 
 const mapQueryKey = (key: string): string => {
@@ -130,29 +134,29 @@ export interface AdminRepository {
   listAdmins(params?: AdminUserListParams): Promise<AdminUsersResponse>;
   listSuperAdmins(params?: AdminUserListParams): Promise<AdminUsersResponse>;
   listComments(params?: AdminCommentListParams): Promise<AdminCommentsResponse>;
-  deleteComment(commentId: string): Promise<{ commentId: string }>;
-  deletePost(postId: string): Promise<{ postId: string }>;
+  deleteComment(commentId: string): Promise<{ comment_id: string }>;
+  deletePost(postId: string): Promise<{ post_id: string }>;
 }
 
 export type AdminCommentListParams = {
   page?: number;
   limit?: number;
-  postId?: string;
+  post_id?: string;
 };
 
 export type AdminCommentSummary = {
   id: string;
   content: string;
-  postId: string;
+  post_id: string;
   author: {
     id: string;
     name: string;
     email?: string;
   };
-  parentId: string | null;
-  likeCount?: number;
-  replyCount?: number;
-  createdAt: string;
+  parent_id: string | null;
+  like_count?: number;
+  reply_count?: number;
+  created_at: string;
 };
 
 export type AdminCommentsResponse = {
@@ -187,10 +191,10 @@ class ApiAdminRepository implements AdminRepository {
     return unwrapApiResponse<AdminPostReviewResult>(res);
   }
 
-  async deletePost(postId: string): Promise<{ postId: string }> {
+  async deletePost(postId: string): Promise<{ post_id: string }> {
     const path = API_ENDPOINTS.ADMIN.POST_DELETE.replace(':postId', encodeURIComponent(postId));
-    const res = await httpAuth.delete<ApiResponse<{ postId: string }>>(path);
-    return unwrapApiResponse<{ postId: string }>(res);
+    const res = await httpAuth.delete<ApiResponse<{ post_id: string }>>(path);
+    return unwrapApiResponse<{ post_id: string }>(res);
   }
 
   async listUsers(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
@@ -214,13 +218,14 @@ class ApiAdminRepository implements AdminRepository {
   }
 
   async listSuperAdmins(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
-    const qs = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      appendQueryParam(qs, key, value);
-    }
-    const url = qs.size ? `${API_ENDPOINTS.ADMIN.SUPER_ADMINS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.SUPER_ADMINS;
-    const res = await httpAuth.get<ApiResponse<AdminUsersResponse>>(url);
-    return unwrapApiResponse<AdminUsersResponse>(res);
+    throw new Error('Admin API not implemented');
+    // const qs = new URLSearchParams();
+    // for (const [key, value] of Object.entries(params)) {
+    //   appendQueryParam(qs, key, value);
+    // }
+    // const url = qs.size ? `${API_ENDPOINTS.ADMIN.SUPER_ADMINS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.SUPER_ADMINS;
+    // const res = await httpAuth.get<ApiResponse<AdminUsersResponse>>(url);
+    // return unwrapApiResponse<AdminUsersResponse>(res);
   }
 
   async updateUserRole(userId: string, input: AdminUserRoleInput): Promise<AdminUserRoleResult> {
@@ -236,19 +241,21 @@ class ApiAdminRepository implements AdminRepository {
   }
 
   async listComments(params: AdminCommentListParams = {}): Promise<AdminCommentsResponse> {
-    const qs = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      appendQueryParam(qs, key, value);
-    }
-    const url = qs.size ? `${API_ENDPOINTS.ADMIN.COMMENTS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.COMMENTS;
-    const res = await httpAuth.get<ApiResponse<AdminCommentsResponse>>(url);
-    return unwrapApiResponse<AdminCommentsResponse>(res);
+    throw new Error('Admin API not implemented');
+    // const qs = new URLSearchParams();
+    // for (const [key, value] of Object.entries(params)) {
+    //   appendQueryParam(qs, key, value);
+    // }
+    // const url = qs.size ? `${API_ENDPOINTS.ADMIN.COMMENTS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.COMMENTS;
+    // const res = await httpAuth.get<ApiResponse<AdminCommentsResponse>>(url);
+    // return unwrapApiResponse<AdminCommentsResponse>(res);
   }
 
-  async deleteComment(commentId: string): Promise<{ commentId: string }> {
-    const path = API_ENDPOINTS.ADMIN.COMMENT_DELETE.replace(':commentId', encodeURIComponent(commentId));
-    const res = await httpAuth.delete<ApiResponse<{ commentId: string }>>(path);
-    return unwrapApiResponse<{ commentId: string }>(res);
+  async deleteComment(commentId: string): Promise<{ comment_id: string }> {
+    throw new Error('Admin API not implemented');
+    // const path = API_ENDPOINTS.ADMIN.COMMENT_DELETE.replace(':commentId', encodeURIComponent(commentId));
+    // const res = await httpAuth.delete<ApiResponse<{ comment_id: string }>>(path);
+    // return unwrapApiResponse<{ comment_id: string }>(res);
   }
 }
 
@@ -258,7 +265,7 @@ class MockAdminRepository implements AdminRepository {
     title: `待审核帖子 ${idx + 1}`,
     content: `这是一条待审核的帖子内容示例 ${idx + 1}`,
     category: idx % 2 === 0 ? 'food' : 'recipe',
-    postType: idx % 2 === 0 ? 'share' : 'seeking',
+    post_type: idx % 2 === 0 ? 'share' : 'seeking',
     images: ['https://images.unsplash.com/photo-1525755662778-989d0524087e?w=800&auto=format&fit=crop'],
     author: {
       id: `author-${idx + 1}`,
@@ -266,7 +273,7 @@ class MockAdminRepository implements AdminRepository {
       email: `author${idx + 1}@example.com`,
     },
     status: 'pending',
-    createdAt: new Date(Date.now() - idx * 3600_000).toISOString(),
+    created_at: new Date(Date.now() - idx * 3600_000).toISOString(),
   }));
 
   private users: AdminUserSummary[] = [
@@ -274,44 +281,47 @@ class MockAdminRepository implements AdminRepository {
       id: 'user-1',
       name: '张三',
       email: 'zhangsan@example.com',
+      avatar_url: 'https://i.pravatar.cc/150?img=1',
       role: ROLES.USER,
-      isActive: true,
-      stats: { postCount: 12, followerCount: 56 },
-      createdAt: '2024-01-01T00:00:00Z',
+      is_active: true,
+      stats: { post_count: 12, follower_count: 56 },
+      created_at: '2024-01-01T00:00:00Z',
     },
     {
       id: 'user-2',
       name: '李四',
       email: 'lisi@example.com',
+      avatar_url: 'https://i.pravatar.cc/150?img=2',
       role: ROLES.ADMIN,
-      isActive: true,
-      stats: { postCount: 34, followerCount: 120 },
-      createdAt: '2024-02-01T00:00:00Z',
+      is_active: true,
+      stats: { post_count: 34, follower_count: 120 },
+      created_at: '2024-02-01T00:00:00Z',
     },
     {
       id: 'user-3',
       name: '王五',
       email: 'wangwu@example.com',
+      avatar_url: 'https://i.pravatar.cc/150?img=3',
       role: ROLES.USER,
-      isActive: false,
-      stats: { postCount: 5, followerCount: 15 },
-      createdAt: '2024-03-01T00:00:00Z',
+      is_active: false,
+      stats: { post_count: 5, follower_count: 15 },
+      created_at: '2024-03-01T00:00:00Z',
     },
   ];
 
   private comments: AdminCommentSummary[] = Array.from({ length: 10 }).map((_, idx) => ({
     id: `comment-${idx + 1}`,
     content: `这是一条待审核的评论内容 ${idx + 1}`,
-    postId: `post-${Math.floor(idx / 2) + 1}`,
+    post_id: `post-${Math.floor(idx / 2) + 1}`,
     author: {
       id: `user-${idx + 1}`,
       name: `用户 ${idx + 1}`,
       email: `user${idx + 1}@example.com`,
     },
-    parentId: null,
-    likeCount: idx * 2,
-    replyCount: idx % 3,
-    createdAt: new Date(Date.now() - idx * 7200_000).toISOString(),
+    parent_id: null,
+    like_count: idx * 2,
+    reply_count: idx % 3,
+    created_at: new Date(Date.now() - idx * 7200_000).toISOString(),
   }));
 
   async listPendingPosts(params: AdminPostListParams = {}): Promise<AdminPendingPostsResponse> {
@@ -326,7 +336,7 @@ class MockAdminRepository implements AdminRepository {
         page,
         limit,
         total: this.pendingPosts.length,
-        totalPages: Math.max(1, Math.ceil(this.pendingPosts.length / limit)),
+        total_pages: Math.max(1, Math.ceil(this.pendingPosts.length / limit)),
       },
     };
   }
@@ -339,8 +349,8 @@ class MockAdminRepository implements AdminRepository {
     if (params.status) {
       list = list.filter((post) => post.status === params.status);
     }
-    if (params.postType) {
-      list = list.filter((post) => post.postType === params.postType);
+    if (params.post_type) {
+      list = list.filter((post) => post.post_type === params.post_type);
     }
     const start = (page - 1) * limit;
     const posts = list.slice(start, start + limit);
@@ -350,7 +360,7 @@ class MockAdminRepository implements AdminRepository {
         page,
         limit,
         total: list.length,
-        totalPages: Math.max(1, Math.ceil(list.length / limit)),
+        total_pages: Math.max(1, Math.ceil(list.length / limit)),
       },
     };
   }
@@ -365,23 +375,23 @@ class MockAdminRepository implements AdminRepository {
       };
     }
     return {
-      postId,
+      post_id: postId,
       status: input.status,
-      reviewedAt: new Date().toISOString(),
+      reviewed_at: new Date().toISOString(),
     };
   }
 
-  async deletePost(postId: string): Promise<{ postId: string }> {
+  async deletePost(postId: string): Promise<{ post_id: string }> {
     await new Promise((resolve) => setTimeout(resolve, 150));
     this.pendingPosts = this.pendingPosts.filter((post) => post.id !== postId);
-    return { postId };
+    return { post_id: postId };
   }
 
   async listUsers(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
     await new Promise((resolve) => setTimeout(resolve, 200));
     let list = [...this.users];
-    if (typeof params.isActive === 'boolean') {
-      list = list.filter((user) => user.isActive === params.isActive);
+    if (typeof params.is_active === 'boolean') {
+      list = list.filter((user) => user.is_active === params.is_active);
     }
     if (params.role) {
       list = list.filter((user) => user.role === params.role);
@@ -408,7 +418,7 @@ class MockAdminRepository implements AdminRepository {
       target.role = input.role;
     }
     return {
-      userId,
+      user_id: userId,
       role: input.role,
     };
   }
@@ -417,11 +427,11 @@ class MockAdminRepository implements AdminRepository {
     await new Promise((resolve) => setTimeout(resolve, 150));
     const target = this.users.find((user) => user.id === userId);
     if (target) {
-      target.isActive = input.isActive;
+      target.is_active = input.is_active;
     }
     return {
-      userId,
-      isActive: input.isActive,
+      user_id: userId,
+      is_active: input.is_active,
     };
   }
 
@@ -430,8 +440,8 @@ class MockAdminRepository implements AdminRepository {
     const page = Math.max(1, Math.floor(params.page ?? 1));
     const limit = Math.max(1, Math.min(50, Math.floor(params.limit ?? 20)));
     let list = [...this.comments];
-    if (params.postId) {
-      list = list.filter((comment) => comment.postId === params.postId);
+    if (params.post_id) {
+      list = list.filter((comment) => comment.post_id === params.post_id);
     }
     const start = (page - 1) * limit;
     const comments = list.slice(start, start + limit);
@@ -441,15 +451,15 @@ class MockAdminRepository implements AdminRepository {
         page,
         limit,
         total: list.length,
-        totalPages: Math.max(1, Math.ceil(list.length / limit)),
+        total_pages: Math.max(1, Math.ceil(list.length / limit)),
       },
     };
   }
 
-  async deleteComment(commentId: string): Promise<{ commentId: string }> {
+  async deleteComment(commentId: string): Promise<{ comment_id: string }> {
     await new Promise((resolve) => setTimeout(resolve, 150));
     this.comments = this.comments.filter((comment) => comment.id !== commentId);
-    return { commentId };
+    return { comment_id: commentId };
   }
 
   private paginateUsers(list: AdminUserSummary[], params: AdminUserListParams): AdminUsersResponse {
@@ -463,7 +473,7 @@ class MockAdminRepository implements AdminRepository {
         page,
         limit,
         total: list.length,
-        totalPages: Math.max(1, Math.ceil(list.length / limit)),
+        total_pages: Math.max(1, Math.ceil(list.length / limit)),
       },
     };
   }

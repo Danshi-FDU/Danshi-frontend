@@ -33,10 +33,10 @@ type PostCardProps = {
   style?: ViewStyle;
 };
 
-type SortValue = 'latest' | 'hot' | 'trending' | 'price-asc' | 'price-desc';
+type SortValue = SortBy;
 
 type ExploreFilters = {
-  postType: Post['postType'] | 'all';
+  postType: Post['post_type'] | 'all';
   shareType: ShareType | 'all';
   category: 'food' | 'recipe' | 'all';
   sortBy: SortValue;
@@ -53,26 +53,16 @@ const INITIAL_FILTERS: ExploreFilters = {
   postType: 'all',
   shareType: 'all',
   category: 'all',
-  sortBy: 'trending',
+  sortBy: 'latest',
 };
 
 const SORT_OPTIONS: Array<{ value: SortValue; label: string; description: string }> = [
   { value: 'trending', label: '趋势', description: '综合热度并考虑时间衰减' },
-  { value: 'hot', label: '热度', description: '点赞、收藏和浏览更高' },
+  { value: 'hot', label: '热度', description: '按互动热度排序' },
   { value: 'latest', label: '最新', description: '按发布时间倒序' },
-  { value: 'price-asc', label: '价格·低到高', description: '按价格从低到高排序' },
-  { value: 'price-desc', label: '价格·高到低', description: '按价格从高到低排序' },
 ];
 
-function sortPostsByPrice(list: Post[], direction: 'asc' | 'desc'): Post[] {
-  const factor = direction === 'desc' ? -1 : 1;
-  return [...list].sort((a, b) => {
-    const aPrice = a.postType === 'share' && typeof a.price === 'number' ? a.price : Number.POSITIVE_INFINITY;
-    const bPrice = b.postType === 'share' && typeof b.price === 'number' ? b.price : Number.POSITIVE_INFINITY;
-    if (aPrice === bPrice) return 0;
-    return (aPrice - bPrice) * factor;
-  });
-}
+const FILTERS_SUPPORTED = false;
 
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
@@ -125,13 +115,15 @@ export default function ExploreScreen() {
 
   const requestFilters = useMemo(() => {
     const payload: Record<string, unknown> = {
-      limit: 30,
-      sortBy: filters.sortBy,
+      limit: 20,
     };
-    if (filters.postType !== 'all') payload.postType = filters.postType;
-    if (filters.postType === 'share' && filters.shareType !== 'all') payload.shareType = filters.shareType;
-    if (filters.category !== 'all') payload.category = filters.category;
-    if (filters.canteenName) payload.canteen = filters.canteenName;
+    if (filters.sortBy !== 'latest') {
+      payload.sortBy = filters.sortBy;
+    }
+    // if (filters.postType !== 'all') payload.post_type = filters.postType;
+    // if (filters.postType === 'share' && filters.shareType !== 'all') payload.share_type = filters.shareType;
+    // if (filters.category !== 'all') payload.category = filters.category;
+    // if (filters.canteenName) payload.canteen = filters.canteenName;
     return payload;
   }, [filters]);
 
@@ -141,15 +133,9 @@ export default function ExploreScreen() {
       if (mode !== 'refresh') setError(null);
       try {
         const params = { ...requestFilters, ...(overrides ?? {}) };
-        const rawSort: SortValue = typeof params.sortBy === 'string' ? (params.sortBy as SortValue) : filters.sortBy;
-        const sortForRequest: SortBy = rawSort === 'price-asc' || rawSort === 'price-desc' ? 'price' : (rawSort as SortBy);
-        const listFilters = { ...(params as Record<string, unknown>), sortBy: sortForRequest } as PostListFilters;
+        const listFilters = { ...(params as Record<string, unknown>) } as PostListFilters;
         const { posts: result } = await postsService.list(listFilters);
-        const processed =
-          rawSort === 'price-asc' || rawSort === 'price-desc'
-            ? sortPostsByPrice(result, rawSort === 'price-desc' ? 'desc' : 'asc')
-            : result;
-        setPosts(processed);
+        setPosts(result);
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
         setError(message);
@@ -244,12 +230,12 @@ export default function ExploreScreen() {
         onClear: () => setFilters((prev) => ({ ...prev, canteenName: undefined })),
       });
     }
-    if (filters.sortBy !== 'trending') {
+    if (filters.sortBy !== 'latest') {
       const label = SORT_OPTIONS.find((item) => item.value === filters.sortBy)?.label ?? '排序';
       chips.push({
         key: 'sortBy',
         label: `排序·${label}`,
-        onClear: () => setFilters((prev) => ({ ...prev, sortBy: 'trending' })),
+        onClear: () => setFilters((prev) => ({ ...prev, sortBy: 'latest' })),
       });
     }
     return chips;
@@ -262,14 +248,8 @@ export default function ExploreScreen() {
   }, []);
 
   const sortHintText = useMemo(() => {
-    if (filters.sortBy === 'price-asc') {
-      return filters.postType === 'share' ? '按价格从低到高排序，适用于美食分享帖子' : '价格排序仅适用于美食分享帖子';
-    }
-    if (filters.sortBy === 'price-desc') {
-      return filters.postType === 'share' ? '按价格从高到低排序，适用于美食分享帖子' : '价格排序仅适用于美食分享帖子';
-    }
     return SORT_OPTIONS.find((item) => item.value === filters.sortBy)?.description ?? '';
-  }, [filters.postType, filters.sortBy]);
+  }, [filters.sortBy]);
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
@@ -288,7 +268,7 @@ export default function ExploreScreen() {
       <View
         style={[styles.typeBarContainer, { paddingHorizontal: horizontalPadding, paddingVertical: typeBarVerticalPadding, gap: typeBarGap }]}
       >
-        <ScrollView
+        {/* <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ flex: 1 }}
@@ -317,7 +297,7 @@ export default function ExploreScreen() {
           icon="tune-variant"
           onPress={() => setFiltersSheetVisible(true)}
           style={styles.typeBarFilterButton}
-        />
+        /> */}
       </View>
       <ScrollView
         style={{ backgroundColor: pTheme.colors.background }}
@@ -383,6 +363,7 @@ export default function ExploreScreen() {
           />
         ) : null}
       </ScrollView>
+      {FILTERS_SUPPORTED ? (
       <BottomSheet visible={filtersSheetVisible} onClose={() => setFiltersSheetVisible(false)} height={520}>
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -546,6 +527,7 @@ export default function ExploreScreen() {
           </View>
         </ScrollView>
       </BottomSheet>
+      ) : null}
     </View>
   );
 }

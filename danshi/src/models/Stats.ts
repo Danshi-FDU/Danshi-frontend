@@ -1,24 +1,24 @@
 export type PlatformStats = {
-  totalUsers: number;
-  totalPosts: number;
-  totalComments: number;
-  totalViews: number;
-  activeUsers: number;
-  pendingPosts: number;
-  todayStats: {
-    newUsers: number;
-    newPosts: number;
-    newComments: number;
-    newViews: number;
+  total_users: number;
+  total_posts: number;
+  total_comments: number;
+  total_views: number;
+  active_users: number;
+  pending_posts: number;
+  today_stats: {
+    new_users: number;
+    new_posts: number;
+    new_comments: number;
+    new_views: number;
   };
 };
 
 export type UserAggregateStats = {
-  postCount: number;
-  totalLikes: number;
-  totalFavorites: number;
-  totalViews: number;
-  commentCount: number;
-  followerCount: number;
-  followingCount: number;
+  post_count: number;
+  total_likes: number;
+  total_favorites: number;
+  total_views: number;
+  comment_count: number;
+  follower_count: number;
+  following_count: number;
 };

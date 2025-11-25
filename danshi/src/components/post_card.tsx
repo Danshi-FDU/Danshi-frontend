@@ -3,8 +3,9 @@ import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import { Card, Chip, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
+import { UserAvatar } from '@/src/components/user_avatar';
 
-const TYPE_LABEL: Record<Post['postType'], string> = {
+const TYPE_LABEL: Record<Post['post_type'] | 'companion', string> = {
   share: '分享',
   seeking: '求助',
   companion: '拼单/搭子',
@@ -21,6 +22,10 @@ const COMPANION_STATUS_LABEL: Record<'open' | 'full' | 'closed', string> = {
   closed: '已结束',
 };
 
+function getCompanionInfo(post: Post) {
+  return (post as any).meeting_info ?? (post as any).meetingInfo;
+}
+
 type PostCardProps = {
   post: Post;
   onPress?: (postId: string) => void;
@@ -32,21 +37,22 @@ type PostCardProps = {
 export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer, appearance = 'flat' }) => {
   const theme = usePaperTheme();
   const firstImage = post.images?.[0];
+  const companionInfo = getCompanionInfo(post);
   const priceLabel =
-    post.postType === 'share' && post.shareType === 'recommend' && typeof post.price === 'number'
+    post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
       ? `￥${post.price.toFixed(2)}`
       : null;
   const statusLabel =
-    post.postType === 'companion' && post.meetingInfo?.status
-      ? COMPANION_STATUS_LABEL[post.meetingInfo.status]
+    post.post_type === 'companion' && companionInfo?.status
+      ? COMPANION_STATUS_LABEL[companionInfo.status as keyof typeof COMPANION_STATUS_LABEL]
       : null;
 
   const chipItems: { key: string; label: string; mode: 'flat' | 'outlined' }[] = [
-    { key: 'type', label: TYPE_LABEL[post.postType], mode: 'flat' },
+    { key: 'type', label: TYPE_LABEL[post.post_type] ?? TYPE_LABEL.share, mode: 'flat' },
   ];
 
-  if (post.postType === 'share' && post.shareType) {
-    chipItems.push({ key: 'share', label: SHARE_LABEL[post.shareType], mode: 'outlined' });
+  if (post.post_type === 'share' && post.share_type) {
+    chipItems.push({ key: 'share', label: SHARE_LABEL[post.share_type], mode: 'outlined' });
   }
 
   chipItems.push({ key: 'category', label: post.category === 'recipe' ? '食谱' : '美食', mode: 'outlined' });
@@ -84,13 +90,23 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer
           {post.title}
         </Text>
         <View style={styles.authorRow}>
-          <Text
-            variant="bodySmall"
-            numberOfLines={1}
-            style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}
-          >
-            {post.author?.name ?? '匿名用户'}
-          </Text>
+          {post.author ? (
+            <UserAvatar
+              userId={post.author.id}
+              name={post.author.name}
+              avatar_url={post.author.avatar_url}
+              showName
+              size={16}
+            />
+          ) : (
+            <Text
+              variant="bodySmall"
+              numberOfLines={1}
+              style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}
+            >
+              匿名用户
+            </Text>
+          )}
           {priceLabel ? (
             <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.primary }] }>
               {priceLabel}
@@ -103,12 +119,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer
           ) : null}
           <View style={styles.likesRow}>
             <Ionicons
-              name={post.isLiked ? 'heart' : 'heart-outline'}
+              name={post.is_liked ? 'heart' : 'heart-outline'}
               size={16}
-              color={post.isLiked ? theme.colors.error : theme.colors.onSurfaceVariant}
+              color={post.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
             />
             <Text variant="bodySmall" style={[styles.likeCount, { color: theme.colors.onSurfaceVariant }] }>
-              {post.stats?.likeCount ?? 0}
+              {post.stats?.like_count ?? 0}
             </Text>
           </View>
         </View>
@@ -119,18 +135,19 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPress, style, footer
 };
 
 export function estimatePostCardHeight(post: Post, minHeight: number, maxHeight: number): number {
+  const companionInfo = getCompanionInfo(post);
   const base = post.images?.length ? 260 : 190;
   const titleExtra = Math.min(140, (post.title?.length ?? 0) * 2.2);
   const chipCount =
     1 +
-    (post.postType === 'share' && post.shareType ? 1 : 0) +
+    (post.post_type === 'share' && post.share_type ? 1 : 0) +
     (post.category ? 1 : 0) +
     (post.canteen ? 1 : 0);
   const chipExtra = chipCount * 14;
   const middleExtra =
-    post.postType === 'share' && post.shareType === 'recommend' && typeof post.price === 'number'
+    post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
       ? 26
-      : post.postType === 'companion' && post.meetingInfo?.status
+      : post.post_type === 'companion' && companionInfo?.status
       ? 22
       : 14;
   const idSeed = post.id

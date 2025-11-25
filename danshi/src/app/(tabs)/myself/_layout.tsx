@@ -41,6 +41,12 @@ export default function MyselfStackLayout() {
           title: '我的关注',
         }}
       />
+      <Stack.Screen
+        name="admin"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

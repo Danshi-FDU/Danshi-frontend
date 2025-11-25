@@ -27,16 +27,11 @@ export default function AdminPostsScreen() {
   const [error, setError] = useState('');
   
   // 过滤器状态
-  const [filterStatus, setFilterStatus] = useState<PostStatus | 'all'>('all');
-  const [filterType, setFilterType] = useState<PostType | 'all'>('all');
+  const [filter_status, setFilterStatus] = useState<PostStatus | 'all'>('all');
+  const [filter_type, setFilterType] = useState<PostType | 'all'>('all');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
 
-  const headerHeight = pickByBreakpoint(current, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
-  const headerTitleStyle = {
-    fontSize: pickByBreakpoint(current, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-    fontWeight: '600' as const,
-  };
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -54,8 +49,8 @@ export default function AdminPostsScreen() {
     
     try {
       const params: any = {};
-      if (filterStatus !== 'all') params.status = filterStatus;
-      if (filterType !== 'all') params.postType = filterType;
+      if (filter_status !== 'all') params.status = filter_status;
+      if (filter_type !== 'all') params.post_type = filter_type;
       
       const result = await adminService.getPosts(params);
       setPosts(result.posts);
@@ -69,21 +64,21 @@ export default function AdminPostsScreen() {
 
   useEffect(() => {
     loadPosts();
-  }, [filterStatus, filterType]);
+  }, [filter_status, filter_type]);
 
-  const handleReview = async (postId: string, action: 'approve' | 'reject') => {
+  const handleReview = async (post_id: string, action: 'approve' | 'reject') => {
     try {
-      await adminService.reviewPost(postId, { status: action === 'approve' ? 'approved' : 'rejected' });
+      await adminService.reviewPost(post_id, { status: action === 'approve' ? 'approved' : 'rejected' });
       await loadPosts();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  const handleDelete = async (postId: string) => {
+  const handleDelete = async (post_id: string) => {
     try {
-      await adminService.deletePost(postId);
-      setPosts(posts.filter(p => p.id !== postId));
+      await adminService.deletePost(post_id);
+      setPosts(posts.filter(p => p.id !== post_id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -121,37 +116,37 @@ export default function AdminPostsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="帖子管理" titleStyle={headerTitleStyle} />
+        <Appbar.Content title="帖子管理" />
       </Appbar.Header>
 
       {/* 过滤器 */}
       <View style={[styles.filterBar, { backgroundColor: pTheme.colors.surface, paddingHorizontal: contentHorizontalPadding }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
           <Chip
-            selected={filterStatus === 'all'}
+            selected={filter_status === 'all'}
             onPress={() => setFilterStatus('all')}
             style={styles.filterChip}
           >
             全部状态
           </Chip>
           <Chip
-            selected={filterStatus === 'pending'}
+            selected={filter_status === 'pending'}
             onPress={() => setFilterStatus('pending')}
             style={styles.filterChip}
           >
             待审核
           </Chip>
           <Chip
-            selected={filterStatus === 'approved'}
+            selected={filter_status === 'approved'}
             onPress={() => setFilterStatus('approved')}
             style={styles.filterChip}
           >
             已通过
           </Chip>
           <Chip
-            selected={filterStatus === 'rejected'}
+            selected={filter_status === 'rejected'}
             onPress={() => setFilterStatus('rejected')}
             style={styles.filterChip}
           >
@@ -161,21 +156,21 @@ export default function AdminPostsScreen() {
           <View style={styles.filterDivider} />
           
           <Chip
-            selected={filterType === 'all'}
+            selected={filter_type === 'all'}
             onPress={() => setFilterType('all')}
             style={styles.filterChip}
           >
             全部类型
           </Chip>
           <Chip
-            selected={filterType === 'share'}
+            selected={filter_type === 'share'}
             onPress={() => setFilterType('share')}
             style={styles.filterChip}
           >
             分享
           </Chip>
           <Chip
-            selected={filterType === 'seeking'}
+            selected={filter_type === 'seeking'}
             onPress={() => setFilterType('seeking')}
             style={styles.filterChip}
           >
@@ -237,7 +232,7 @@ export default function AdminPostsScreen() {
                         style={{ marginLeft: 6, backgroundColor: pTheme.colors.secondaryContainer }}
                         textStyle={{ fontSize: 11 }}
                       >
-                        {getTypeText(post.postType || 'share')}
+                        {getTypeText(post.post_type || 'share')}
                       </Chip>
                     </View>
                     <Text variant="titleMedium" style={styles.postTitle}>
@@ -330,7 +325,7 @@ export default function AdminPostsScreen() {
                     </View>
                   )}
                   <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-                    {new Date(post.createdAt).toLocaleDateString('zh-CN')}
+                    {new Date(post.created_at).toLocaleDateString('zh-CN')}
                   </Text>
                 </View>
               </Card.Content>

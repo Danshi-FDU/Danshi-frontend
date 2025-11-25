@@ -1,7 +1,7 @@
 import { http } from '@/src/lib/http/client';
 import { httpAuth } from '@/src/lib/http/http_auth';
 import { unwrapApiResponse, type ApiResponse } from '@/src/lib/http/response';
-import type { User, Gender } from '@/src/models/User';
+import type { User, Gender, UserStats } from '@/src/models/User';
 import { API_ENDPOINTS, USE_MOCK } from '@/src/constants/app';
 
 const appendQueryParam = (qs: URLSearchParams, key: string, value: unknown) => {
@@ -15,26 +15,18 @@ const appendQueryParam = (qs: URLSearchParams, key: string, value: unknown) => {
   qs.set(key, String(value));
 };
 
-export type UserStats = {
-  postCount: number;
-  likeCount: number;
-  favoriteCount: number;
-  followerCount: number;
-  followingCount: number;
-};
-
 export interface UserProfile extends User {
   bio?: string;
   stats: UserStats;
-  isFollowing: boolean;
-  createdAt: string; // ISO
+  is_following: boolean;
+  created_at: string; // ISO
 }
 
 export type Pagination = {
   page: number;
   limit: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 };
 
 export type UserPostListParams = {
@@ -48,11 +40,11 @@ export type UserPostListItem = {
   title: string;
   category?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'draft';
-  likeCount?: number;
-  viewCount?: number;
-  commentCount?: number;
-  coverImage?: string | null;
-  createdAt?: string;
+  like_count?: number;
+  view_count?: number;
+  comment_count?: number;
+  cover_image?: string;
+  created_at?: string;
 };
 
 export type UserPostListResponse = {
@@ -78,10 +70,10 @@ export type UserFavoriteListResponse = {
 export type FollowUserItem = {
   id: string;
   name: string;
-  avatarUrl?: string | null;
+  avatar_url?: string | null;
   bio?: string;
   stats?: Partial<UserStats>;
-  isFollowing?: boolean;
+  is_following?: boolean;
 };
 
 export type UserFollowListResponse = {
@@ -90,14 +82,14 @@ export type UserFollowListResponse = {
 };
 
 export type FollowActionResponse = {
-  isFollowing: boolean;
-  followerCount: number;
+  is_following: boolean;
+  follower_count: number;
 };
 
 export type UpdateUserInput = {
   name?: string;
   bio?: string;
-  avatarUrl?: string | null;
+  avatar_url?: string | null;
   gender?: Gender;
   hometown?: string;
 };
@@ -191,58 +183,298 @@ export class MockUsersRepository implements UsersRepository {
       gender: 'male',
       hometown: 'Shanghai',
       role: 'user',
-      avatarUrl: null,
-      bio: '热爱美食的复旦学子',
-      stats: { postCount: 15, likeCount: 128, favoriteCount: 45, followerCount: 230, followingCount: 85 },
-      isFollowing: false,
-      createdAt: '2024-01-01T00:00:00Z',
+      avatar_url: 'https://i.pravatar.cc/150?img=11',
+      bio: '热爱美食的复旦学子 🍜',
+      stats: { post_count: 15, like_count: 128, favorite_count: 45, follower_count: 230, following_count: 85 },
+      is_following: false,
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    'user-1': {
+      id: 'user-1',
+      email: 'zhangsan@example.com',
+      name: '张三',
+      gender: 'male',
+      hometown: 'Beijing',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=1',
+      bio: '北区食堂美食探索者 🔍 | 爱好川菜和粤菜',
+      stats: { post_count: 28, like_count: 256, favorite_count: 89, follower_count: 456, following_count: 123 },
+      is_following: false,
+      created_at: '2024-02-15T08:30:00Z',
+    },
+    'user-2': {
+      id: 'user-2',
+      email: 'lisi@example.com',
+      name: '李四',
+      gender: 'female',
+      hometown: 'Hangzhou',
+      role: 'admin',
+      avatar_url: 'https://i.pravatar.cc/150?img=2',
+      bio: '美食博主 | 擅长烘焙和甜点制作 🍰',
+      stats: { post_count: 42, like_count: 512, favorite_count: 156, follower_count: 892, following_count: 234 },
+      is_following: true,
+      created_at: '2024-01-20T10:15:00Z',
+    },
+    'user-3': {
+      id: 'user-3',
+      email: 'wangwu@example.com',
+      name: '王五',
+      gender: 'male',
+      hometown: 'Guangzhou',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=3',
+      bio: '南区食堂常客 | 喜欢尝试各种新菜',
+      stats: { post_count: 12, like_count: 98, favorite_count: 34, follower_count: 178, following_count: 67 },
+      is_following: false,
+      created_at: '2024-03-05T14:20:00Z',
+    },
+    'user-4': {
+      id: 'user-4',
+      email: 'zhaoliu@example.com',
+      name: '赵六',
+      gender: 'female',
+      hometown: 'Chengdu',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=4',
+      bio: '辣妹子 🌶️ | 寻找最正宗的川菜',
+      stats: { post_count: 35, like_count: 387, favorite_count: 145, follower_count: 621, following_count: 189 },
+      is_following: true,
+      created_at: '2024-02-28T16:45:00Z',
+    },
+    'user-5': {
+      id: 'user-5',
+      email: 'sunqi@example.com',
+      name: '孙七',
+      gender: 'male',
+      hometown: 'Nanjing',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=5',
+      bio: '食堂避雷小能手 ⚠️',
+      stats: { post_count: 19, like_count: 167, favorite_count: 56, follower_count: 312, following_count: 98 },
+      is_following: false,
+      created_at: '2024-03-12T09:30:00Z',
+    },
+    'user-6': {
+      id: 'user-6',
+      email: 'zhouba@example.com',
+      name: '周八',
+      gender: 'female',
+      hometown: 'Suzhou',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=6',
+      bio: '甜品爱好者 🧁 | 奶茶重度依赖患者',
+      stats: { post_count: 31, like_count: 289, favorite_count: 112, follower_count: 534, following_count: 167 },
+      is_following: false,
+      created_at: '2024-01-25T11:20:00Z',
+    },
+    'user-7': {
+      id: 'user-7',
+      email: 'wujiu@example.com',
+      name: '吴九',
+      gender: 'male',
+      hometown: 'Xi\'an',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=7',
+      bio: '面食爱好者 🍜 | 西北菜推广大使',
+      stats: { post_count: 24, like_count: 213, favorite_count: 78, follower_count: 389, following_count: 134 },
+      is_following: true,
+      created_at: '2024-02-10T13:40:00Z',
+    },
+    'user-8': {
+      id: 'user-8',
+      email: 'zhengshi@example.com',
+      name: '郑十',
+      gender: 'female',
+      hometown: 'Shenzhen',
+      role: 'user',
+      avatar_url: 'https://i.pravatar.cc/150?img=8',
+      bio: '健身达人 💪 | 寻找低卡高蛋白美食',
+      stats: { post_count: 27, like_count: 245, favorite_count: 91, follower_count: 467, following_count: 156 },
+      is_following: false,
+      created_at: '2024-03-01T15:50:00Z',
     },
   };
   private favoritesStore: Record<string, UserPostListItem[]> = {
     '1234567890': Array.from({ length: 5 }).map((_, idx) => ({
-      id: `favorite-post-${idx + 1}`,
+      id: `favorite-post-knd-${idx + 1}`,
       title: `收藏帖子 ${idx + 1}`,
       category: idx % 2 === 0 ? 'food' : 'recipe',
       status: 'approved',
-      likeCount: 35 + idx * 2,
-      viewCount: 200 + idx * 20,
-      commentCount: 5 + idx,
-      coverImage: 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?w=640&auto=format&fit=crop',
-      createdAt: new Date(Date.now() - idx * 172800000).toISOString(),
+      like_count: 35 + idx * 2,
+      view_count: 200 + idx * 20,
+      comment_count: 5 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 172800000).toISOString(),
+    })),
+    'user-1': Array.from({ length: 8 }).map((_, idx) => ({
+      id: `favorite-post-user1-${idx + 1}`,
+      title: `北区美食推荐 ${idx + 1}`,
+      category: 'food',
+      status: 'approved',
+      like_count: 42 + idx * 3,
+      view_count: 280 + idx * 25,
+      comment_count: 8 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 259200000).toISOString(),
+    })),
+    'user-2': Array.from({ length: 12 }).map((_, idx) => ({
+      id: `favorite-post-user2-${idx + 1}`,
+      title: `甜品制作教程 ${idx + 1}`,
+      category: 'recipe',
+      status: 'approved',
+      like_count: 56 + idx * 4,
+      view_count: 320 + idx * 30,
+      comment_count: 12 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1486427944299-d1955d23e34d?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 345600000).toISOString(),
+    })),
+    'user-4': Array.from({ length: 10 }).map((_, idx) => ({
+      id: `favorite-post-user4-${idx + 1}`,
+      title: `辣味美食探店 ${idx + 1}`,
+      category: 'food',
+      status: 'approved',
+      like_count: 48 + idx * 3,
+      view_count: 295 + idx * 28,
+      comment_count: 9 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 302400000).toISOString(),
     })),
   };
   private postsStore: Record<string, UserPostListItem[]> = {
     '1234567890': Array.from({ length: 8 }).map((_, idx) => ({
-      id: `mock-post-${idx + 1}`,
+      id: `mock-post-knd-${idx + 1}`,
       title: `南区食堂美食分享 ${idx + 1}`,
       category: idx % 2 === 0 ? 'food' : 'recipe',
       status: 'approved',
-      likeCount: 20 + idx * 3,
-      viewCount: 120 + idx * 15,
-      commentCount: 4 + idx,
-      coverImage: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=640&auto=format&fit=crop',
-      createdAt: new Date(Date.now() - idx * 86400000).toISOString(),
+      like_count: 20 + idx * 3,
+      view_count: 120 + idx * 15,
+      comment_count: 4 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 86400000).toISOString(),
+    })),
+    'user-1': Array.from({ length: 15 }).map((_, idx) => ({
+      id: `post-user1-${idx + 1}`,
+      title: idx % 3 === 0 ? `北区川菜窗口推荐 ${idx + 1}` : idx % 3 === 1 ? `粤菜小炒测评 ${idx + 1}` : `食堂避雷指南 ${idx + 1}`,
+      category: idx % 2 === 0 ? 'food' : 'recipe',
+      status: 'approved',
+      like_count: 28 + idx * 4,
+      view_count: 165 + idx * 18,
+      comment_count: 6 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 129600000).toISOString(),
+    })),
+    'user-2': Array.from({ length: 20 }).map((_, idx) => ({
+      id: `post-user2-${idx + 1}`,
+      title: idx % 2 === 0 ? `烘焙日记：${['提拉米苏', '芝士蛋糕', '马卡龙', '泡芙'][idx % 4]} 制作` : `甜品店探店：${['星巴克', '奈雪的茶', '喜茶', '瑞幸'][idx % 4]}`,
+      category: idx % 3 === 0 ? 'recipe' : 'food',
+      status: 'approved',
+      like_count: 45 + idx * 5,
+      view_count: 220 + idx * 22,
+      comment_count: 10 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1486427944299-d1955d23e34d?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 172800000).toISOString(),
+    })),
+    'user-3': Array.from({ length: 6 }).map((_, idx) => ({
+      id: `post-user3-${idx + 1}`,
+      title: `南区食堂新菜尝鲜 ${idx + 1}`,
+      category: 'food',
+      status: 'approved',
+      like_count: 18 + idx * 2,
+      view_count: 95 + idx * 12,
+      comment_count: 3 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 259200000).toISOString(),
+    })),
+    'user-4': Array.from({ length: 18 }).map((_, idx) => ({
+      id: `post-user4-${idx + 1}`,
+      title: idx % 2 === 0 ? `辣味美食探店 ${idx + 1}` : `川菜家常菜谱 ${idx + 1}`,
+      category: idx % 3 === 0 ? 'recipe' : 'food',
+      status: 'approved',
+      like_count: 38 + idx * 4,
+      view_count: 195 + idx * 20,
+      comment_count: 8 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 216000000).toISOString(),
+    })),
+    'user-5': Array.from({ length: 10 }).map((_, idx) => ({
+      id: `post-user5-${idx + 1}`,
+      title: `食堂避雷测评 ${idx + 1}`,
+      category: 'food',
+      status: 'approved',
+      like_count: 22 + idx * 3,
+      view_count: 132 + idx * 16,
+      comment_count: 5 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 302400000).toISOString(),
+    })),
+    'user-7': Array.from({ length: 12 }).map((_, idx) => ({
+      id: `post-user7-${idx + 1}`,
+      title: idx % 2 === 0 ? `西北面食大全 ${idx + 1}` : `食堂面档推荐 ${idx + 1}`,
+      category: idx % 3 === 0 ? 'recipe' : 'food',
+      status: 'approved',
+      like_count: 31 + idx * 3,
+      view_count: 178 + idx * 19,
+      comment_count: 7 + idx,
+      cover_image: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=640&auto=format&fit=crop',
+      created_at: new Date(Date.now() - idx * 345600000).toISOString(),
     })),
   };
   private followingStore: Record<string, FollowUserItem[]> = {
-    '1234567890': Array.from({ length: 5 }).map((_, idx) => ({
-      id: `following-${idx + 1}`,
-      name: `关注用户 ${idx + 1}`,
-      avatarUrl: 'https://api.dicebear.com/7.x/identicon/png?seed=following',
-      bio: idx % 2 === 0 ? '热爱校园美食' : undefined,
-      stats: { postCount: 10 + idx, followerCount: 100 + idx * 5 },
-      isFollowing: true,
-    })),
+    '1234567890': [
+      { id: 'user-2', name: '李四', avatar_url: 'https://i.pravatar.cc/150?img=2', bio: '美食博主 | 擅长烘焙和甜点制作 🍰', stats: { post_count: 42, follower_count: 892 }, is_following: true },
+      { id: 'user-4', name: '赵六', avatar_url: 'https://i.pravatar.cc/150?img=4', bio: '辣妹子 🌶️ | 寻找最正宗的川菜', stats: { post_count: 35, follower_count: 621 }, is_following: true },
+      { id: 'user-7', name: '吴九', avatar_url: 'https://i.pravatar.cc/150?img=7', bio: '面食爱好者 🍜 | 西北菜推广大使', stats: { post_count: 24, follower_count: 389 }, is_following: true },
+      { id: 'user-1', name: '张三', avatar_url: 'https://i.pravatar.cc/150?img=1', bio: '北区食堂美食探索者 🔍 | 爱好川菜和粤菜', stats: { post_count: 28, follower_count: 456 }, is_following: true },
+      { id: 'user-6', name: '周八', avatar_url: 'https://i.pravatar.cc/150?img=6', bio: '甜品爱好者 🧁 | 奶茶重度依赖患者', stats: { post_count: 31, follower_count: 534 }, is_following: true },
+    ],
+    'user-1': [
+      { id: 'user-4', name: '赵六', avatar_url: 'https://i.pravatar.cc/150?img=4', bio: '辣妹子 🌶️', stats: { post_count: 35, follower_count: 621 }, is_following: true },
+      { id: 'user-7', name: '吴九', avatar_url: 'https://i.pravatar.cc/150?img=7', bio: '面食爱好者 🍜', stats: { post_count: 24, follower_count: 389 }, is_following: true },
+      { id: 'user-3', name: '王五', avatar_url: 'https://i.pravatar.cc/150?img=3', stats: { post_count: 12, follower_count: 178 }, is_following: true },
+    ],
+    'user-2': [
+      { id: 'user-6', name: '周八', avatar_url: 'https://i.pravatar.cc/150?img=6', bio: '甜品爱好者 🧁', stats: { post_count: 31, follower_count: 534 }, is_following: true },
+      { id: 'user-8', name: '郑十', avatar_url: 'https://i.pravatar.cc/150?img=8', bio: '健身达人 💪', stats: { post_count: 27, follower_count: 467 }, is_following: true },
+      { id: '1234567890', name: 'knd', avatar_url: 'https://i.pravatar.cc/150?img=11', stats: { post_count: 15, follower_count: 230 }, is_following: true },
+      { id: 'user-4', name: '赵六', avatar_url: 'https://i.pravatar.cc/150?img=4', stats: { post_count: 35, follower_count: 621 }, is_following: true },
+    ],
+    'user-4': [
+      { id: 'user-1', name: '张三', avatar_url: 'https://i.pravatar.cc/150?img=1', stats: { post_count: 28, follower_count: 456 }, is_following: true },
+      { id: 'user-7', name: '吴九', avatar_url: 'https://i.pravatar.cc/150?img=7', stats: { post_count: 24, follower_count: 389 }, is_following: true },
+      { id: 'user-2', name: '李四', avatar_url: 'https://i.pravatar.cc/150?img=2', stats: { post_count: 42, follower_count: 892 }, is_following: true },
+    ],
   };
   private followersStore: Record<string, FollowUserItem[]> = {
-    '1234567890': Array.from({ length: 6 }).map((_, idx) => ({
-      id: `follower-${idx + 1}`,
-      name: `粉丝 ${idx + 1}`,
-      avatarUrl: 'https://api.dicebear.com/7.x/identicon/png?seed=follower',
-      bio: idx % 2 === 1 ? '喜欢尝鲜' : undefined,
-      stats: { postCount: 6 + idx, followerCount: 80 + idx * 3 },
-      isFollowing: idx % 2 === 0,
-    })),
+    '1234567890': [
+      { id: 'user-1', name: '张三', avatar_url: 'https://i.pravatar.cc/150?img=1', bio: '北区食堂美食探索者 🔍', stats: { post_count: 28, follower_count: 456 }, is_following: true },
+      { id: 'user-3', name: '王五', avatar_url: 'https://i.pravatar.cc/150?img=3', bio: '南区食堂常客', stats: { post_count: 12, follower_count: 178 }, is_following: false },
+      { id: 'user-5', name: '孙七', avatar_url: 'https://i.pravatar.cc/150?img=5', bio: '食堂避雷小能手 ⚠️', stats: { post_count: 19, follower_count: 312 }, is_following: false },
+      { id: 'user-2', name: '李四', avatar_url: 'https://i.pravatar.cc/150?img=2', bio: '美食博主', stats: { post_count: 42, follower_count: 892 }, is_following: true },
+      { id: 'user-8', name: '郑十', avatar_url: 'https://i.pravatar.cc/150?img=8', bio: '健身达人 💪', stats: { post_count: 27, follower_count: 467 }, is_following: false },
+      { id: 'user-6', name: '周八', avatar_url: 'https://i.pravatar.cc/150?img=6', stats: { post_count: 31, follower_count: 534 }, is_following: true },
+    ],
+    'user-1': [
+      { id: '1234567890', name: 'knd', avatar_url: 'https://i.pravatar.cc/150?img=11', stats: { post_count: 15, follower_count: 230 }, is_following: false },
+      { id: 'user-2', name: '李四', avatar_url: 'https://i.pravatar.cc/150?img=2', stats: { post_count: 42, follower_count: 892 }, is_following: true },
+      { id: 'user-5', name: '孙七', avatar_url: 'https://i.pravatar.cc/150?img=5', stats: { post_count: 19, follower_count: 312 }, is_following: false },
+      { id: 'user-3', name: '王五', avatar_url: 'https://i.pravatar.cc/150?img=3', stats: { post_count: 12, follower_count: 178 }, is_following: true },
+    ],
+    'user-2': [
+      { id: 'user-1', name: '张三', avatar_url: 'https://i.pravatar.cc/150?img=1', stats: { post_count: 28, follower_count: 456 }, is_following: false },
+      { id: '1234567890', name: 'knd', avatar_url: 'https://i.pravatar.cc/150?img=11', stats: { post_count: 15, follower_count: 230 }, is_following: true },
+      { id: 'user-3', name: '王五', avatar_url: 'https://i.pravatar.cc/150?img=3', stats: { post_count: 12, follower_count: 178 }, is_following: false },
+      { id: 'user-4', name: '赵六', avatar_url: 'https://i.pravatar.cc/150?img=4', stats: { post_count: 35, follower_count: 621 }, is_following: true },
+      { id: 'user-6', name: '周八', avatar_url: 'https://i.pravatar.cc/150?img=6', stats: { post_count: 31, follower_count: 534 }, is_following: true },
+      { id: 'user-7', name: '吴九', avatar_url: 'https://i.pravatar.cc/150?img=7', stats: { post_count: 24, follower_count: 389 }, is_following: false },
+      { id: 'user-8', name: '郑十', avatar_url: 'https://i.pravatar.cc/150?img=8', stats: { post_count: 27, follower_count: 467 }, is_following: true },
+    ],
+    'user-4': [
+      { id: '1234567890', name: 'knd', avatar_url: 'https://i.pravatar.cc/150?img=11', stats: { post_count: 15, follower_count: 230 }, is_following: true },
+      { id: 'user-1', name: '张三', avatar_url: 'https://i.pravatar.cc/150?img=1', stats: { post_count: 28, follower_count: 456 }, is_following: true },
+      { id: 'user-2', name: '李四', avatar_url: 'https://i.pravatar.cc/150?img=2', stats: { post_count: 42, follower_count: 892 }, is_following: true },
+      { id: 'user-3', name: '王五', avatar_url: 'https://i.pravatar.cc/150?img=3', stats: { post_count: 12, follower_count: 178 }, is_following: false },
+      { id: 'user-5', name: '孙七', avatar_url: 'https://i.pravatar.cc/150?img=5', stats: { post_count: 19, follower_count: 312 }, is_following: false },
+    ],
   };
 
   // Generate a default avatar URL based on a seed string
@@ -257,8 +489,8 @@ export class MockUsersRepository implements UsersRepository {
     if (!user) throw new Error('用户不存在');
     // ensure avatar
     const seed = user.email || user.name;
-    const avatar = user.avatarUrl ?? this.computeAvatar(seed);
-    const updated = { ...user, avatarUrl: avatar };
+    const avatar = user.avatar_url ?? this.computeAvatar(seed);
+    const updated = { ...user, avatar_url: avatar };
     this.store[userId] = updated;
     return updated;
   }
@@ -270,11 +502,11 @@ export class MockUsersRepository implements UsersRepository {
     const next: UserProfile = {
       ...user,
       ...input,
-      avatarUrl: input.avatarUrl === undefined ? user.avatarUrl : input.avatarUrl,
+      avatar_url: input.avatar_url === undefined ? user.avatar_url : input.avatar_url,
     };
     // ensure avatar if nullish
     const seed = next.email || next.name;
-    next.avatarUrl = next.avatarUrl ?? this.computeAvatar(seed);
+    next.avatar_url = next.avatar_url ?? this.computeAvatar(seed);
     this.store[userId] = next;
     return { user: next };
   }
@@ -288,7 +520,7 @@ export class MockUsersRepository implements UsersRepository {
     const data = items.slice(start, start + limit);
     return {
       data,
-      pagination: { page, limit, total, totalPages },
+      pagination: { page, limit, total, total_pages: totalPages },
     };
   }
 
@@ -324,25 +556,27 @@ export class MockUsersRepository implements UsersRepository {
     await new Promise((r) => setTimeout(r, 150));
     const profile = this.store[userId];
     if (!profile) throw new Error('用户不存在');
-    if (!profile.isFollowing) {
-      profile.isFollowing = true;
-      profile.stats.followerCount += 1;
+    if (!profile.is_following) {
+      profile.is_following = true;
+      profile.stats.follower_count += 1;
     }
     this.store[userId] = { ...profile };
-    return { isFollowing: profile.isFollowing, followerCount: profile.stats.followerCount };
+    return { is_following: profile.is_following, follower_count: profile.stats.follower_count };
   }
 
   async unfollowUser(userId: string): Promise<FollowActionResponse> {
     await new Promise((r) => setTimeout(r, 150));
     const profile = this.store[userId];
     if (!profile) throw new Error('用户不存在');
-    if (profile.isFollowing) {
-      profile.isFollowing = false;
-      profile.stats.followerCount = Math.max(0, profile.stats.followerCount - 1);
+    if (profile.is_following) {
+      profile.is_following = false;
+      profile.stats.follower_count = Math.max(0, profile.stats.follower_count - 1);
     }
     this.store[userId] = { ...profile };
-    return { isFollowing: profile.isFollowing, followerCount: profile.stats.followerCount };
+    return { is_following: profile.is_following, follower_count: profile.stats.follower_count };
   }
 }
 
 export const usersRepository: UsersRepository = USE_MOCK ? new MockUsersRepository() : new ApiUsersRepository();
+
+

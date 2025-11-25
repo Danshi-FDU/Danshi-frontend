@@ -12,6 +12,7 @@ import type { AdminUserSummary } from '@/src/repositories/admin_repository';
 import type { Role } from '@/src/constants/app';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ROLES } from '@/src/constants/app';
+import { UserAvatar } from '@/src/components/user_avatar';
 
 export default function AdminUsersScreen() {
   const pTheme = usePaperTheme();
@@ -29,12 +30,7 @@ export default function AdminUsersScreen() {
   const [filterActive, setFilterActive] = useState<boolean | 'all'>('all');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
 
-  const headerHeight = pickByBreakpoint(current, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
-  const headerTitleStyle = {
-    fontSize: pickByBreakpoint(current, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-    fontWeight: '600' as const,
-  };
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -55,7 +51,7 @@ export default function AdminUsersScreen() {
     try {
       const params: any = {};
       if (filterRole !== 'all') params.role = filterRole;
-      if (filterActive !== 'all') params.isActive = filterActive;
+      if (filterActive !== 'all') params.is_active = filterActive;
       
       const result = await adminService.getUsers(params);
       setUsers(result.users);
@@ -82,8 +78,8 @@ export default function AdminUsersScreen() {
 
   const handleUpdateStatus = async (userId: string, isActive: boolean) => {
     try {
-      await adminService.updateUserStatus(userId, { isActive });
-      setUsers(users.map(u => u.id === userId ? { ...u, isActive } : u));
+      await adminService.updateUserStatus(userId, { is_active: isActive });
+      setUsers(users.map(u => u.id === userId ? { ...u, is_active: isActive } : u));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -109,9 +105,9 @@ export default function AdminUsersScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="用户管理" titleStyle={headerTitleStyle} />
+        <Appbar.Content title="用户管理" />
       </Appbar.Header>
 
       {/* 过滤器 */}
@@ -211,12 +207,18 @@ export default function AdminUsersScreen() {
             <Card key={u.id} mode="contained" style={styles.userCard}>
               <Card.Content>
                 <View style={styles.userHeader}>
-                  <View style={{ flex: 1 }}>
+                  <UserAvatar
+                    userId={u.id}
+                    name={u.name}
+                    avatar_url={u.avatar_url}
+                    size={48}
+                  />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
                     <View style={styles.userMeta}>
                       <Text variant="titleMedium" style={styles.userName}>
                         {u.name}
                       </Text>
-                      {!u.isActive && (
+                      {!u.is_active && (
                         <Chip 
                           compact 
                           style={{ marginLeft: 8, backgroundColor: pTheme.colors.errorContainer }}
@@ -277,11 +279,11 @@ export default function AdminUsersScreen() {
                     <Menu.Item 
                       onPress={() => {
                         setMenuVisible(null);
-                        handleUpdateStatus(u.id, !u.isActive);
+                        handleUpdateStatus(u.id, !u.is_active);
                       }} 
-                      title={u.isActive ? '禁用用户' : '启用用户'} 
-                      leadingIcon={u.isActive ? 'account-cancel' : 'account-check'}
-                      titleStyle={u.isActive ? { color: pTheme.colors.error } : undefined}
+                      title={u.is_active ? '禁用用户' : '启用用户'} 
+                      leadingIcon={u.is_active ? 'account-cancel' : 'account-check'}
+                      titleStyle={u.is_active ? { color: pTheme.colors.error } : undefined}
                     />
                   </Menu>
                 </View>
@@ -302,20 +304,20 @@ export default function AdminUsersScreen() {
                     <View style={styles.statItem}>
                       <Ionicons name="document-text-outline" size={16} color={pTheme.colors.onSurfaceVariant} />
                       <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                        {u.stats.postCount || 0} 帖子
+                        {u.stats?.post_count || 0} 帖子
                       </Text>
                     </View>
                     <View style={styles.statItem}>
                       <Ionicons name="people-outline" size={16} color={pTheme.colors.onSurfaceVariant} />
                       <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                        {u.stats.followerCount || 0} 粉丝
+                        {u.stats?.follower_count || 0} 粉丝
                       </Text>
                     </View>
                   </View>
                 )}
 
                 <Text variant="bodySmall" style={{ marginTop: 8, color: pTheme.colors.onSurfaceVariant }}>
-                  注册于 {new Date(u.createdAt).toLocaleDateString('zh-CN')}
+                  注册于 {new Date(u.created_at).toLocaleDateString('zh-CN')}
                 </Text>
               </Card.Content>
             </Card>

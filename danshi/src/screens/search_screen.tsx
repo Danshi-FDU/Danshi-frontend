@@ -100,13 +100,16 @@ export default function SearchScreen() {
     setLoading(true);
     setError(null);
     try {
-      if (activeTab === 'posts') {
-        const { posts: result } = await searchService.searchPosts({ q: term, limit: 20 });
-        setPosts(result);
-      } else {
-        const { users: result } = await searchService.searchUsers({ q: term, limit: 20 });
-        setUsers(result);
-      }
+      // if (activeTab === 'posts') {
+      //   const { posts: result } = await searchService.searchPosts({ q: term, limit: 20 });
+      //   setPosts(result);
+      // } else {
+      //   const { users: result } = await searchService.searchUsers({ q: term, limit: 20 });
+      //   setUsers(result);
+      // }
+      setError('搜索功能暂未开放');
+      setPosts([]);
+      setUsers([]);
       setHasSearched(true);
     } catch (e) {
       const message = (e as Error)?.message ?? '搜索失败，请稍后重试';
@@ -254,8 +257,8 @@ export default function SearchScreen() {
                       title={user.name}
                       subtitle={user.bio ?? ''}
                       left={(props) => (
-                          user.avatarUrl ? (
-                            <Avatar.Image {...props} source={{ uri: user.avatarUrl }} />
+                          user.avatar_url ? (
+                            <Avatar.Image {...props} source={{ uri: user.avatar_url }} />
                           ) : (
                             <Avatar.Text {...props} label={user.name?.slice(0, 1) || '?'} />
                           )
@@ -263,7 +266,7 @@ export default function SearchScreen() {
                     />
                     <Card.Content>
                       <Text variant="bodySmall" style={styles.metaText}>
-                        帖子：{user.stats?.postCount ?? 0} · 粉丝：{user.stats?.followerCount ?? 0}
+                        帖子：{user.stats?.post_count ?? 0} · 粉丝：{user.stats?.follower_count ?? 0}
                       </Text>
                     </Card.Content>
                   </Card>

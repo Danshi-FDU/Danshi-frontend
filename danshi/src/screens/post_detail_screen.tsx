@@ -34,8 +34,9 @@ import { CommentItem } from '@/src/components/comments/comment_item';
 import { CommentComposer } from '@/src/components/comments/comment_composer';
 import { commentsService } from '@/src/services/comments_service';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
+import { UserAvatar } from '@/src/components/user_avatar';
 
-const TYPE_LABEL: Record<Post['postType'], string> = {
+const TYPE_LABEL: Record<Post['post_type'], string> = {
   share: '分享',
   seeking: '求助',
 };
@@ -44,6 +45,8 @@ const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   recommend: '推荐',
   warning: '避雷',
 };
+
+const COMMENTS_SUPPORTED = false;
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -96,7 +99,7 @@ function ShareDetails({ post }: { post: SharePost }) {
         分享信息
       </Text>
       <View style={styles.sectionBody}>
-        <InfoItem label="分享类型" value={SHARE_LABEL[post.shareType]} />
+        {/* <InfoItem label="分享类型" value={SHARE_LABEL[post.share_type]} /> */}
         {typeof post.price === 'number' ? (
           <InfoItem label="参考价格" value={`￥${post.price.toFixed(2)}`} />
         ) : null}
@@ -113,7 +116,7 @@ function ShareDetails({ post }: { post: SharePost }) {
 }
 
 function SeekingDetails({ post }: { post: SeekingPost }) {
-  const budget = post.budgetRange;
+  const budget = post.budget_range;
   const prefers = post.preferences;
   return (
     <View style={styles.detailSection}>
@@ -124,11 +127,11 @@ function SeekingDetails({ post }: { post: SeekingPost }) {
         {budget ? (
           <InfoItem label="预算范围" value={`￥${budget.min.toFixed(2)} - ￥${budget.max.toFixed(2)}`} />
         ) : null}
-        {prefers?.preferFlavors?.length ? (
-          <InfoItem label="偏好口味" value={prefers.preferFlavors.join('、')} />
+        {prefers?.prefer_flavors?.length ? (
+          <InfoItem label="偏好口味" value={prefers.prefer_flavors.join('、')} />
         ) : null}
-        {prefers?.avoidFlavors?.length ? (
-          <InfoItem label="忌口" value={prefers.avoidFlavors.join('、')} />
+        {prefers?.avoid_flavors?.length ? (
+          <InfoItem label="忌口" value={prefers.avoid_flavors.join('、')} />
         ) : null}
       </View>
     </View>
@@ -147,7 +150,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentSort, setCommentSort] = useState<'latest' | 'hot'>('latest');
-  const [commentPagination, setCommentPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+  const [commentPagination, setCommentPagination] = useState({ page: 1, total: 0, total_pages: 1 });
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentReplies, setCommentReplies] = useState<Record<string, CommentReply[]>>({});
   const [commentRepliesPagination, setCommentRepliesPagination] = useState<Record<string, CommentsPagination>>({});
@@ -166,6 +169,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const fetchComments = useCallback(
     async (postIdValue: string, sort: 'latest' | 'hot') => {
+      if (!COMMENTS_SUPPORTED) return;
       setCommentLoading(true);
       try {
         const res = await commentsService.listByPost(postIdValue, { sortBy: sort, limit: 10 });
@@ -189,10 +193,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       if (mode !== 'refresh') setError(null);
       try {
         const data = await postsService.get(postId);
-        await fetchComments(data.id, commentSortRef.current);
+        // await fetchComments(data.id, commentSortRef.current);
         setPost({
           ...data,
-          stats: { ...(data.stats ?? {}), commentCount: data.stats?.commentCount ?? 0 },
+          stats: { ...(data.stats ?? {}), comment_count: data.stats?.comment_count ?? 0 },
         });
         setActionError(null);
         setActionLoading({ like: false, favorite: false });
@@ -213,11 +217,12 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   }, [fetchPost]);
 
   useEffect(() => {
+    if (!COMMENTS_SUPPORTED) return;
     commentSortRef.current = commentSort;
   }, [commentSort]);
 
   useEffect(() => {
-    if (!post?.id) return;
+    if (!COMMENTS_SUPPORTED || !post?.id) return;
     fetchComments(post.id, commentSort);
   }, [post?.id, commentSort, fetchComments]);
 
@@ -233,15 +238,15 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     setActionError(null);
     setActionLoading((prev) => ({ ...prev, like: true }));
     try {
-      const { isLiked, likeCount } = post.isLiked
+      const { is_liked, like_count } = post.is_liked
         ? await postsService.unlike(post.id)
         : await postsService.like(post.id);
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              isLiked,
-              stats: { ...(prev.stats ?? {}), likeCount },
+              is_liked,
+              stats: { ...(prev.stats ?? {}), like_count },
             }
           : prev
       );
@@ -251,22 +256,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     } finally {
       setActionLoading((prev) => ({ ...prev, like: false }));
     }
-  }, [post?.id, post?.isLiked]);
+  }, [post?.id, post?.is_liked]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!post) return;
     setActionError(null);
     setActionLoading((prev) => ({ ...prev, favorite: true }));
     try {
-      const { isFavorited, favoriteCount } = post.isFavorited
+      const { is_favorited, favorite_count } = post.is_favorited
         ? await postsService.unfavorite(post.id)
         : await postsService.favorite(post.id);
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              isFavorited,
-              stats: { ...(prev.stats ?? {}), favoriteCount },
+              is_favorited,
+              stats: { ...(prev.stats ?? {}), favorite_count },
             }
           : prev
       );
@@ -276,7 +281,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     } finally {
       setActionLoading((prev) => ({ ...prev, favorite: false }));
     }
-  }, [post?.id, post?.isFavorited]);
+  }, [post?.id, post?.is_favorited]);
 
   const hasImages = post?.images?.length;
 
@@ -294,13 +299,13 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     }
     chips.push(
       <Chip compact key="type">
-        {TYPE_LABEL[post.postType]}
+        {TYPE_LABEL[post.post_type]}
       </Chip>
     );
-    if (post.postType === 'share') {
+    if (post.post_type === 'share') {
       chips.push(
         <Chip compact key="shareType">
-          {SHARE_LABEL[(post as SharePost).shareType]}
+          {SHARE_LABEL[(post as SharePost).share_type]}
         </Chip>
       );
     }
@@ -311,13 +316,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     );
     return chips;
   }, [post]);
-  const likeCount = post?.stats?.likeCount ?? 0;
-  const favoriteCount = post?.stats?.favoriteCount ?? 0;
-  const viewCount = post?.stats?.viewCount ?? 0;
-  const commentCount = post?.stats?.commentCount ?? commentPagination.total;
+  const likeCount = post?.stats?.like_count ?? 0;
+  const favoriteCount = post?.stats?.favorite_count ?? 0;
+  const viewCount = post?.stats?.view_count ?? 0;
+  const commentCount = COMMENTS_SUPPORTED ? post?.stats?.comment_count ?? commentPagination.total : 0;
   const commentSortLabel = commentSort === 'latest' ? '按最新排序' : '按热度排序';
 
   const handleCycleCommentSort = useCallback(() => {
+    if (!COMMENTS_SUPPORTED) return;
     setCommentSort((prev) => (prev === 'latest' ? 'hot' : 'latest'));
   }, []);
 
@@ -369,10 +375,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const handleToggleCommentLike = useCallback(
     async (entity: Comment | CommentReply) => {
       try {
-        const result = entity.isLiked
+        const result = entity.is_liked
           ? await commentsService.unlike(entity.id)
           : await commentsService.like(entity.id);
-        patchCommentEntity(entity.id, { isLiked: result.isLiked, likeCount: result.likeCount });
+        patchCommentEntity(entity.id, { is_liked: result.is_liked, like_count: result.like_count });
       } catch (e) {
         Alert.alert('操作失败', (e as Error)?.message ?? '暂时无法完成点赞操作');
       }
@@ -507,8 +513,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     try {
       await commentsService.create(post.id, {
         content,
-        parentId: commentReplyTarget?.parentId ?? commentReplyTarget?.id,
-        replyToUserId: commentReplyTarget?.author?.id,
+        parent_id: commentReplyTarget?.parent_id ?? commentReplyTarget?.id,
+        reply_to_user_id: commentReplyTarget?.author?.id,
       });
       setCommentInput('');
       setCommentReplyTarget(null);
@@ -518,13 +524,13 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         prev
           ? {
               ...prev,
-              stats: { ...(prev.stats ?? {}), commentCount: (prev.stats?.commentCount ?? 0) + 1 },
+              stats: { ...(prev.stats ?? {}), comment_count: (prev.stats?.comment_count ?? 0) + 1 },
             }
           : prev
       );
       if (commentReplyTarget) {
         setTimeout(() => {
-          const targetCommentId = commentReplyTarget.parentId ?? commentReplyTarget.id;
+          const targetCommentId = commentReplyTarget.parent_id ?? commentReplyTarget.id;
           const targetIndex = comments.findIndex((c) => c.id === targetCommentId);
           const scrollY = targetIndex >= 0 ? commentsOffsetRef.current + targetIndex * 120 : commentsOffsetRef.current;
           scrollRef.current?.scrollTo({ y: scrollY, animated: true });
@@ -544,8 +550,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         {post ? (
           <View style={styles.appbarMain}>
             <View style={styles.appbarAuthorInfo}>
-              {post.author?.avatarUrl ? (
-                <Avatar.Image size={36} source={{ uri: post.author.avatarUrl }} />
+              {post.author?.avatar_url ? (
+                <Avatar.Image size={36} source={{ uri: post.author.avatar_url }} />
               ) : (
                 <Avatar.Text size={36} label={(post.author?.name ?? '访客').slice(0, 1)} />
               )}
@@ -556,8 +562,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               </View>
             </View>
             <View style={styles.appbarActions}>
-              <Chip compact mode="outlined" icon={post.postType === 'share' ? 'food' : 'account'}>
-                {TYPE_LABEL[post.postType]}
+              <Chip compact mode="outlined" icon={post.post_type === 'share' ? 'food' : 'account'}>
+                {TYPE_LABEL[post.post_type]}
               </Chip>
               <IconButton
                 icon="share-variant"
@@ -601,12 +607,36 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                 <Text variant="headlineSmall" style={styles.title}>
                   {post.title}
                 </Text>
-                <Text
-                  variant="bodySmall"
-                  style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
-                >
-                  由 {post.author?.name ?? '匿名用户'} 发布
-                </Text>
+                <View style={styles.authorRow}>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    由
+                  </Text>
+                  {post.author ? (
+                    <UserAvatar
+                      userId={post.author.id}
+                      name={post.author.name}
+                      avatar_url={post.author.avatar_url}
+                      showName
+                      size={20}
+                    />
+                  ) : (
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                    >
+                      匿名用户
+                    </Text>
+                  )}
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.authorSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    发布
+                  </Text>
+                </View>
               </View>
 
               {hasImages ? (
@@ -640,9 +670,9 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
               <Divider />
 
-              {post.postType === 'share' ? <ShareDetails post={post as SharePost} /> : null}
-              {post.postType === 'seeking' ? <SeekingDetails post={post as SeekingPost} /> : null}
-              {post.postType === 'companion' ? <CompanionDetails post={post as CompanionPost} /> : null}
+              {post.post_type === 'share' ? <ShareDetails post={post as SharePost} /> : null}
+              {post.post_type === 'seeking' ? <SeekingDetails post={post as SeekingPost} /> : null}
+              {/* {post.post_type === 'companion' ? <CompanionDetails post={post as CompanionPost} /> : null} */}
 
               <Divider />
 
@@ -651,10 +681,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   帖子编号：{post.id}
                 </Text>
                 <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
-                  最近更新：{formatDate(post.updatedAt ?? post.createdAt) || '暂无'}
+                  最近更新：{formatDate(post.updated_at ?? post.created_at) || '暂无'}
                 </Text>
                 <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
-                  发布于：{formatDate(post.createdAt) || '暂无'}
+                  发布于：{formatDate(post.created_at) || '暂无'}
                 </Text>
               </View>
             </View>
@@ -663,7 +693,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               style={[styles.sectionDividerThick, { backgroundColor: theme.colors.outlineVariant }]}
             />
 
-            <View
+            {/* <View
               style={styles.commentsSection}
               onLayout={(event) => {
                 commentsOffsetRef.current = event.nativeEvent.layout.y;
@@ -712,7 +742,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                     const repliesPreview = expanded
                       ? commentReplies[item.id] ?? []
                       : (item.replies ?? []).slice(0, 2);
-                    const replyTotal = commentRepliesPagination[item.id]?.total ?? item.replyCount ?? repliesPreview.length;
+                    const replyTotal = commentRepliesPagination[item.id]?.total ?? item.reply_count ?? repliesPreview.length;
                     const hasReplies = replyTotal > 0;
                     return (
                       <View key={item.id} style={styles.commentCard}>
@@ -740,7 +770,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   </Button>
                 </View>
               )}
-            </View>
+            </View> */}
           </>
         ) : (
           <View style={styles.emptyWrapper}>
@@ -763,22 +793,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           },
         ]}
       >
-        <Pressable
+        {/* <Pressable
           style={[styles.commentTrigger, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}
           onPress={handleOpenCommentSheet}
         >
           <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }]}>
             写评论…
           </Text>
-        </Pressable>
+        </Pressable> */}
         <View style={styles.bottomActions}>
           <View style={styles.iconButtonWrapper}>
             <IconButton
-              icon={post?.isFavorited ? 'bookmark' : 'bookmark-outline'}
+              icon={post?.is_favorited ? 'bookmark' : 'bookmark-outline'}
               size={24}
               onPress={handleToggleFavorite}
               disabled={actionLoading.favorite}
-              iconColor={post?.isFavorited ? theme.colors.primary : theme.colors.onSurface}
+              iconColor={post?.is_favorited ? theme.colors.primary : theme.colors.onSurface}
             />
             {favoriteCount ? (
               <Badge style={styles.iconBadge}>{favoriteCount}</Badge>
@@ -786,22 +816,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </View>
           <View style={styles.iconButtonWrapper}>
             <IconButton
-              icon={post?.isLiked ? 'heart' : 'heart-outline'}
+              icon={post?.is_liked ? 'heart' : 'heart-outline'}
               size={24}
               onPress={handleToggleLike}
               disabled={actionLoading.like}
-              iconColor={post?.isLiked ? theme.colors.error : theme.colors.onSurface}
+              iconColor={post?.is_liked ? theme.colors.error : theme.colors.onSurface}
             />
             {likeCount ? (
               <Badge style={styles.iconBadge}>{likeCount}</Badge>
             ) : null}
           </View>
-          <View style={styles.iconButtonWrapper}>
+          {/* <View style={styles.iconButtonWrapper}>
             <IconButton icon="message-outline" size={24} onPress={handleScrollToComments} />
             {commentCount ? (
               <Badge style={styles.iconBadge}>{commentCount}</Badge>
             ) : null}
-          </View>
+          </View> */}
         </View>
       </View>
 
@@ -834,7 +864,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Button>
         </View>
       </BottomSheet>
-      <BottomSheet visible={commentSheetVisible} onClose={handleCloseCommentSheet} height={360}>
+      {/* <BottomSheet visible={commentSheetVisible} onClose={handleCloseCommentSheet} height={360}>
         <CommentComposer
           value={commentInput}
           onChange={setCommentInput}
@@ -842,7 +872,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           replyTarget={commentReplyTarget?.author?.name}
           onCancelReply={handleCancelReply}
         />
-      </BottomSheet>
+      </BottomSheet> */}
       <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={handleCloseImageViewer}>
         <View style={styles.viewerOverlay}>
           <IconButton
@@ -951,7 +981,8 @@ const styles = StyleSheet.create({
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
+    flexWrap: 'wrap',
   },
   authorMeta: {
     flex: 1,

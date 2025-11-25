@@ -35,19 +35,19 @@ export type SearchPostsResponse = {
     page: number;
     limit: number;
     total: number;
-    totalPages: number;
+    total_pages: number;
   };
 };
 
 export type SearchUser = User & {
   bio?: string;
   stats?: {
-    postCount?: number;
-    followerCount?: number;
-    likeCount?: number;
-    favoriteCount?: number;
+    post_count?: number;
+    follower_count?: number;
+    like_count?: number;
+    favorite_count?: number;
   };
-  isFollowing?: boolean;
+  is_following?: boolean;
 };
 
 export type SearchUsersResponse = {
@@ -56,7 +56,7 @@ export type SearchUsersResponse = {
     page: number;
     limit: number;
     total: number;
-    totalPages: number;
+    total_pages: number;
   };
 };
 
@@ -67,6 +67,8 @@ export interface SearchRepository {
 
 class ApiSearchRepository implements SearchRepository {
   async searchPosts(params: SearchPostsParams): Promise<SearchPostsResponse> {
+    throw new Error('Search API not implemented');
+    /*
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value == null || value === '') return;
@@ -80,9 +82,12 @@ class ApiSearchRepository implements SearchRepository {
     const url = `${API_ENDPOINTS.SEARCH.POSTS}${qs.toString() ? `?${qs.toString()}` : ''}`;
     const res = await http.get<ApiResponse<SearchPostsResponse>>(url);
     return unwrapApiResponse<SearchPostsResponse>(res, 200);
+    */
   }
 
   async searchUsers(params: SearchUsersParams): Promise<SearchUsersResponse> {
+    throw new Error('Search API not implemented');
+    /*
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value == null || value === '') return;
@@ -91,6 +96,7 @@ class ApiSearchRepository implements SearchRepository {
     const url = `${API_ENDPOINTS.SEARCH.USERS}${qs.toString() ? `?${qs.toString()}` : ''}`;
     const res = await http.get<ApiResponse<SearchUsersResponse>>(url);
     return unwrapApiResponse<SearchUsersResponse>(res, 200);
+    */
   }
 }
 
@@ -130,7 +136,7 @@ class MockSearchRepository implements SearchRepository {
     }));
     return {
       posts: items,
-      pagination: { page, limit, total, totalPages },
+      pagination: { page, limit, total, total_pages: totalPages },
     };
   }
 
@@ -144,30 +150,30 @@ class MockSearchRepository implements SearchRepository {
         email: 'mock1@example.com',
         name: '张三',
         role: 'user',
-        avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
+        avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&crop=faces',
         bio: '热爱美食的复旦学子',
-        stats: { postCount: 12, followerCount: 320, likeCount: 540, favoriteCount: 210 },
-        isFollowing: false,
+        stats: { post_count: 12, follower_count: 320, like_count: 540, favorite_count: 210, following_count: 98 },
+        is_following: false,
       },
       {
         id: 'mock-user-02',
         email: 'mock2@example.com',
         name: '李四',
         role: 'user',
-        avatarUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces',
+        avatar_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=120&h=120&crop=faces',
         bio: '记录校园美食日常',
-        stats: { postCount: 45, followerCount: 1280, likeCount: 1520, favoriteCount: 890 },
-        isFollowing: true,
+        stats: { post_count: 45, follower_count: 1280, like_count: 1520, favorite_count: 890, following_count: 310 },
+        is_following: true,
       },
       {
         id: 'mock-user-03',
         email: 'mock3@example.com',
         name: '王五',
         role: 'user',
-        avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces',
+        avatar_url: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&crop=faces',
         bio: '喜欢探索隐藏的好味道',
-        stats: { postCount: 28, followerCount: 610, likeCount: 870, favoriteCount: 450 },
-        isFollowing: false,
+        stats: { post_count: 28, follower_count: 610, like_count: 870, favorite_count: 450, following_count: 180 },
+        is_following: false,
       },
     ];
     const filtered = mockUsers.filter((user) => user.name.toLowerCase().includes(keyword));
@@ -177,7 +183,7 @@ class MockSearchRepository implements SearchRepository {
     const items = filtered.slice(start, start + limit);
     return {
       users: items,
-      pagination: { page, limit, total, totalPages },
+      pagination: { page, limit, total, total_pages: totalPages },
     };
   }
 }
@@ -185,3 +191,4 @@ class MockSearchRepository implements SearchRepository {
 export const searchRepository: SearchRepository = USE_MOCK
   ? new MockSearchRepository()
   : new ApiSearchRepository();
+

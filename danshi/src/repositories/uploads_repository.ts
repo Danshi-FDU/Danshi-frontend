@@ -38,16 +38,18 @@ function buildFormData(field: string, payloads: UploadFilePayload[]): FormData {
 
 class ApiUploadsRepository implements UploadsRepository {
   async uploadImage(file: UploadFilePayload): Promise<UploadImageResult> {
-    const form = buildFormData('file', [file]);
-    const resp = await httpAuth.post<ApiResponse<UploadImageResult>>(API_ENDPOINTS.UPLOAD.IMAGE, form);
-    return unwrapApiResponse<UploadImageResult>(resp, 200);
+    throw new Error('Upload API not implemented');
+    // const form = buildFormData('file', [file]);
+    // const resp = await httpAuth.post<ApiResponse<UploadImageResult>>(API_ENDPOINTS.UPLOAD.IMAGE, form);
+    // return unwrapApiResponse<UploadImageResult>(resp, 200);
   }
 
   async uploadImages(files: UploadFilePayload[]): Promise<UploadImageResult[]> {
-    const form = buildFormData('files', files);
-    const resp = await httpAuth.post<ApiResponse<{ urls: UploadImageResult[] }>>(API_ENDPOINTS.UPLOAD.IMAGES, form);
-    const result = unwrapApiResponse<{ urls: UploadImageResult[] }>(resp, 200);
-    return result?.urls ?? [];
+    throw new Error('Upload API not implemented');
+    // const form = buildFormData('files', files);
+    // const resp = await httpAuth.post<ApiResponse<{ urls: UploadImageResult[] }>>(API_ENDPOINTS.UPLOAD.IMAGES, form);
+    // const result = unwrapApiResponse<{ urls: UploadImageResult[] }>(resp, 200);
+    // return result?.urls ?? [];
   }
 }
 

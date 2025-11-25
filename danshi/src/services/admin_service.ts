@@ -46,7 +46,7 @@ export const adminService = {
     if (sanitized.status && !VALID_POST_STATUS.has(sanitized.status)) {
       throw new AppError('无效的帖子状态筛选');
     }
-    if (sanitized.postType && !VALID_POST_TYPES.has(sanitized.postType)) {
+    if (sanitized.post_type && !VALID_POST_TYPES.has(sanitized.post_type)) {
       throw new AppError('无效的帖子类型筛选');
     }
     return adminRepository.listPosts(sanitized);
@@ -58,7 +58,7 @@ export const adminService = {
     return adminRepository.reviewPost(postId, input);
   },
 
-  async deletePost(postId: string): Promise<{ postId: string }> {
+  async deletePost(postId: string): Promise<{ post_id: string }> {
     if (!postId?.trim()) throw new AppError('缺少帖子ID');
     return adminRepository.deletePost(postId.trim());
   },
@@ -77,8 +77,9 @@ export const adminService = {
   },
 
   async getSuperAdmins(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
-    const sanitized = sanitizePaginationParams(params);
-    return adminRepository.listSuperAdmins(sanitized);
+    // const sanitized = sanitizePaginationParams(params);
+    // return adminRepository.listSuperAdmins(sanitized);
+    throw new AppError('功能暂未开放');
   },
 
   async updateUserRole(userId: string, input: AdminUserRoleInput): Promise<AdminUserRoleResult> {
@@ -89,16 +90,17 @@ export const adminService = {
 
   async updateUserStatus(userId: string, input: AdminUserStatusInput): Promise<AdminUserStatusResult> {
     if (!userId?.trim()) throw new AppError('缺少用户ID');
-    if (typeof input?.isActive !== 'boolean') throw new AppError('缺少用户状态');
+    if (typeof input?.is_active !== 'boolean') throw new AppError('缺少用户状态');
     return adminRepository.updateUserStatus(userId, input);
   },
 
   async getComments(params: AdminCommentListParams = {}): Promise<AdminCommentsResponse> {
-    const sanitized = sanitizePaginationParams(params);
-    return adminRepository.listComments(sanitized);
+    // const sanitized = sanitizePaginationParams(params);
+    // return adminRepository.listComments(sanitized);
+    throw new AppError('功能暂未开放');
   },
 
-  async deleteComment(commentId: string): Promise<{ commentId: string }> {
+  async deleteComment(commentId: string): Promise<{ comment_id: string }> {
     if (!commentId?.trim()) throw new AppError('缺少评论ID');
     return adminRepository.deleteComment(commentId.trim());
   },

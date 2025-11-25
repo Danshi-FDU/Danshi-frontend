@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Avatar, Button, Chip, IconButton, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import type { Comment, CommentReply, CommentEntity, MentionedUser } from '@/src/models/Comment';
+import { UserAvatar } from '@/src/components/user_avatar';
 
 type BaseProps = {
   onLike?: (comment: CommentEntity) => void;
@@ -23,14 +24,19 @@ type CommentItemProps = BaseProps & {
 function MentionedText({ mentions }: { mentions?: MentionedUser[] }) {
   if (!mentions?.length) return null;
   return (
-    <Text variant="bodyMedium" style={styles.mentionRow}>
+    <View style={styles.mentionRow}>
       {mentions.map((mention, idx) => (
-        <Text key={mention.id} style={styles.mentionText}>
-          @{mention.name}
-          {idx < mentions.length - 1 ? ' ' : ''}
-        </Text>
+        <React.Fragment key={mention.id}>
+          <UserAvatar
+            userId={mention.id}
+            name={`@${mention.name}`}
+            size={16}
+            showName
+          />
+          {idx < mentions.length - 1 ? <Text> </Text> : null}
+        </React.Fragment>
       ))}
-    </Text>
+    </View>
   );
 }
 
@@ -47,7 +53,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   loadingReplies,
 }) => {
   const theme = usePaperTheme();
-  const isAuthor = comment.isAuthor;
+  const isAuthor = comment.is_author;
   const handleLike = () => onLike?.(comment);
   const handleReply = () => onReply?.(comment);
   const handleToggleReplies = () => comment.id && onToggleReplies?.(comment.id, !repliesExpanded);
@@ -56,15 +62,19 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const allRepliesVisible = repliesExpanded || (totalReplyCount > 0 && visibleReplyCount >= totalReplyCount);
 
   const avatarSize = isReply ? 28 : 40;
-  const avatarNode = comment.author?.avatarUrl ? (
-    <Avatar.Image size={avatarSize} source={{ uri: comment.author.avatarUrl }} />
-  ) : (
-    <Avatar.Text size={avatarSize} label={comment.author?.name?.slice(0, 1) ?? '?'} />
-  );
 
   return (
     <View style={[styles.container, isReply && styles.replyContainer]}>
-      {avatarNode}
+      {comment.author ? (
+        <UserAvatar
+          userId={comment.author.id}
+          name={comment.author.name}
+          avatar_url={comment.author.avatar_url}
+          size={avatarSize}
+        />
+      ) : (
+        <Avatar.Text size={avatarSize} label="?" />
+      )}
       <View style={styles.body}>
         <View style={styles.headerRow}>
           <View style={styles.authorBlock}>
@@ -80,7 +90,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 作者
               </Chip>
             ) : null}
-            {comment.author?.isFollowing ? (
+            {comment.author?.is_following ? (
               <Chip compact style={styles.followChip}>
                 已关注
               </Chip>
@@ -89,15 +99,15 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         </View>
 
         <Pressable style={styles.bodyPressable} onPress={handleReply}>
-          <MentionedText mentions={comment.mentionedUsers} />
+          <MentionedText mentions={comment.mentioned_users} />
           <Text
             variant="bodyMedium"
             style={styles.content}
             numberOfLines={maxContentLines}
           >
-            {comment.replyTo ? (
+            {comment.reply_to ? (
               <Text style={styles.replyPrefix}>
-                回复 <Text style={styles.replyTarget}>@{comment.replyTo.name}</Text>：
+                回复 <Text style={styles.replyTarget}>@{comment.reply_to.name}</Text>：
               </Text>
             ) : null}
             {comment.content}
@@ -107,18 +117,18 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         <View style={styles.metaRow}>
           <View style={styles.metaLeft}>
             <Text variant="bodySmall" style={[styles.timestamp, { color: theme.colors.onSurfaceVariant }]}>
-              {new Date(comment.createdAt).toLocaleString()}
+              {new Date(comment.created_at).toLocaleString()}
             </Text>
           </View>
           <View style={styles.likeButton}>
             <IconButton
               size={18}
-              icon={comment.isLiked ? 'heart' : 'heart-outline'}
-              iconColor={comment.isLiked ? theme.colors.error : theme.colors.onSurfaceVariant}
+              icon={comment.is_liked ? 'heart' : 'heart-outline'}
+              iconColor={comment.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
               onPress={handleLike}
             />
             <Text variant="bodySmall" style={styles.actionCount}>
-              {comment.likeCount}
+              {comment.like_count}
             </Text>
           </View>
         </View>

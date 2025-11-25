@@ -42,7 +42,11 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
 
     try {
       const token = await opts.getAuthToken?.();
-      const headers: Record<string, string> = { ...defaultHeaders, ...(init?.headers as any) };
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        ...defaultHeaders,
+        ...(init?.headers as any)
+      };
       const bodyIsBodyInit = isBodyInit(body);
       const payload: BodyInit | undefined = body == null ? undefined : bodyIsBodyInit ? (body as BodyInit) : JSON.stringify(body);
 
@@ -57,7 +61,14 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
 
       const { headers: _ignoredHeaders, ...restInit } = init ?? {};
 
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`, {
+      const fullUrl = `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+      // eslint-disable-next-line no-console
+      console.log(`[HttpClient] ${method} ${fullUrl}`, {
+        headers: { ...headers, Authorization: headers['Authorization'] ? 'Bearer ***' : 'None' },
+        body: bodyIsBodyInit ? 'Blob/FormData' : payload
+      });
+
+      const res = await fetch(fullUrl, {
         method,
         headers,
         body: payload,
@@ -76,10 +87,22 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
 
       return (data as unknown) as T;
     } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error('[HttpClient] Request failed:', method, path, e);
       const name = (e && typeof e === 'object') ? (e as any).name : undefined;
       if (name === 'AbortError') {
         throw new AppError('请求超时', { code: 'TIMEOUT', cause: e });
       }
+
+      // 浏览器在遇到 CORS 问题或网络失败时通常抛出 TypeError: Failed to fetch
+      // 无法从浏览器端读取响应头/状态，故此处将其包装为更具可操作性的错误信息
+      if (typeof e === 'object' && e instanceof TypeError) {
+        throw new AppError(
+          '网络错误或 CORS 限制：无法完成请求（请检查后端是否返回 Access-Control-Allow-Origin 或使用代理）。',
+          { code: 'CORS_OR_NETWORK', cause: e }
+        );
+      }
+
       throw AppError.from(e);
     } finally {
       clearTimeout(id);
