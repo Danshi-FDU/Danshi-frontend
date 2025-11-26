@@ -47,7 +47,7 @@ export default function MyselfScreen() {
 
 	const name = useMemo(() => profile?.name ?? user?.name ?? preview?.name ?? '未登录', [profile?.name, user?.name, preview?.name]);
 	const email = useMemo(() => profile?.email ?? user?.email ?? undefined, [profile?.email, user?.email]);
-	const avatarUrl = useMemo(() => profile?.avatarUrl ?? user?.avatarUrl ?? preview?.avatarUrl ?? null, [profile?.avatarUrl, user?.avatarUrl, preview?.avatarUrl]);
+	const avatarUrl = useMemo(() => profile?.avatar_url ?? user?.avatar_url ?? preview?.avatar_url ?? null, [profile?.avatar_url, user?.avatar_url, preview?.avatar_url]);
 
 	useEffect(() => {
 		let mounted = true;
@@ -73,6 +73,7 @@ export default function MyselfScreen() {
 							total_likes: 0,
 							total_favorites: 0,
 							total_views: 0,
+							comment_count: 0,
 						});
 					}
 				}
@@ -123,7 +124,7 @@ export default function MyselfScreen() {
 					<View style={styles.profileRow}>
 					<Pressable
 						onPress={() => {
-							setAvatarDraft(profile?.avatarUrl ?? null);
+							setAvatarDraft(profile?.avatar_url ?? null);
 							setAvatarOpen(true);
 							setActiveEdit('none');
 						}}
@@ -357,7 +358,7 @@ export default function MyselfScreen() {
 														setErr('');
 														try {
 																const normalized = avatarDraft && avatarDraft.trim() !== '' ? avatarDraft : null;
-																const updated = await usersService.updateUser(user.id, { avatarUrl: normalized });
+																const updated = await usersService.updateUser(user.id, { avatar_url: normalized });
 																setProfile(updated);
 																setAvatarOpen(false);
 																setAvatarDraft(null);

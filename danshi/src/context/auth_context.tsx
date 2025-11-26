@@ -7,7 +7,7 @@ import { decodeJwtPayload } from '../lib/auth/jwt';
 export type AuthContextValue = {
   userToken: string | null;
   user: User | null; // full info（from /auth/me）
-  preview: Pick<User, 'name' | 'avatarUrl'> | null; // from JWT payload 
+  preview: Pick<User, 'name' | 'avatar_url'> | null; // from JWT payload 
   isLoading: boolean;
   signIn: (token: string) => Promise<void>; 
   signOut: () => Promise<void>;
@@ -19,18 +19,18 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [preview, setPreview] = useState<Pick<User, 'name' | 'avatarUrl'> | null>(null);
+  const [preview, setPreview] = useState<Pick<User, 'name' | 'avatar_url'> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // from token get name and avtarUrl
-  const computePreview = (token: string | null): Pick<User, 'name' | 'avatarUrl'> | null => {
+  const computePreview = (token: string | null): Pick<User, 'name' | 'avatar_url'> | null => {
     if (!token) return null;
     const payload = decodeJwtPayload<Record<string, any>>(token);
     if (!payload || typeof payload !== 'object') return null;
     const name = (payload.nickname ?? payload.name ?? null) as string | null;
     const avatarUrl = (payload.avatarUrl ?? payload.avatar ?? null) as string | null;
     if (!name && !avatarUrl) return null;
-    return { name: name ?? '', avatarUrl: avatarUrl ?? null };
+    return { name: name ?? '', avatar_url: avatarUrl ?? null };
   };
 
   const restore = async () => {

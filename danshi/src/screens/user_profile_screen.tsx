@@ -79,6 +79,7 @@ export default function UserProfileScreen() {
           total_likes: 0,
           total_favorites: 0,
           total_views: 0,
+          comment_count: 0,
         });
       }
     } catch (e) {

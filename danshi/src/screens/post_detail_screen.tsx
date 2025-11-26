@@ -46,7 +46,7 @@ const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   warning: '避雷',
 };
 
-const COMMENTS_SUPPORTED = false;
+const COMMENTS_SUPPORTED = true;
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -193,7 +193,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       if (mode !== 'refresh') setError(null);
       try {
         const data = await postsService.get(postId);
-        // await fetchComments(data.id, commentSortRef.current);
+        await fetchComments(data.id, commentSortRef.current);
         setPost({
           ...data,
           stats: { ...(data.stats ?? {}), comment_count: data.stats?.comment_count ?? 0 },
@@ -619,7 +619,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                       userId={post.author.id}
                       name={post.author.name}
                       avatar_url={post.author.avatar_url}
-                      showName
+                      show_name
                       size={20}
                     />
                   ) : (
@@ -693,7 +693,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               style={[styles.sectionDividerThick, { backgroundColor: theme.colors.outlineVariant }]}
             />
 
-            {/* <View
+            <View
               style={styles.commentsSection}
               onLayout={(event) => {
                 commentsOffsetRef.current = event.nativeEvent.layout.y;
@@ -770,7 +770,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   </Button>
                 </View>
               )}
-            </View> */}
+            </View>
           </>
         ) : (
           <View style={styles.emptyWrapper}>
@@ -793,14 +793,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           },
         ]}
       >
-        {/* <Pressable
+        <Pressable
           style={[styles.commentTrigger, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}
           onPress={handleOpenCommentSheet}
         >
-          <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }]}>
+          <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }] }>
             写评论…
           </Text>
-        </Pressable> */}
+        </Pressable>
         <View style={styles.bottomActions}>
           <View style={styles.iconButtonWrapper}>
             <IconButton
@@ -864,7 +864,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Button>
         </View>
       </BottomSheet>
-      {/* <BottomSheet visible={commentSheetVisible} onClose={handleCloseCommentSheet} height={360}>
+      <BottomSheet visible={commentSheetVisible} onClose={handleCloseCommentSheet} height={360}>
         <CommentComposer
           value={commentInput}
           onChange={setCommentInput}
@@ -872,7 +872,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           replyTarget={commentReplyTarget?.author?.name}
           onCancelReply={handleCancelReply}
         />
-      </BottomSheet> */}
+      </BottomSheet>
       <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={handleCloseImageViewer}>
         <View style={styles.viewerOverlay}>
           <IconButton

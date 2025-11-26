@@ -43,39 +43,33 @@ function sanitizeCreateInput(input: CreateCommentInput): CreateCommentInput {
 
 export const commentsService = {
   async listByPost(postId: string, params: CommentListParams = {}) {
-    throw new AppError('评论功能暂未开放');
-    // if (!postId?.trim()) throw new AppError('缺少帖子ID');
-    // return commentsRepository.listByPost(postId.trim(), sanitizePagination(params));
+    if (!postId?.trim()) throw new AppError('缺少帖子ID');
+    return commentsRepository.listByPost(postId.trim(), sanitizePagination(params));
   },
 
   async listReplies(commentId: string, params: CommentRepliesParams = {}) {
-    throw new AppError('评论功能暂未开放');
-    // if (!commentId?.trim()) throw new AppError('缺少评论ID');
-    // return commentsRepository.listReplies(commentId.trim(), sanitizePagination(params));
+    if (!commentId?.trim()) throw new AppError('缺少评论ID');
+    return commentsRepository.listReplies(commentId.trim(), sanitizePagination(params));
   },
 
   async create(postId: string, input: CreateCommentInput) {
-    throw new AppError('评论功能暂未开放');
-    // if (!postId?.trim()) throw new AppError('缺少帖子ID');
-    // const payload = sanitizeCreateInput(input);
-    // return commentsRepository.create(postId.trim(), payload);
+    if (!postId?.trim()) throw new AppError('缺少帖子ID');
+    const payload = sanitizeCreateInput(input);
+    return commentsRepository.create(postId.trim(), payload);
   },
 
   async like(commentId: string) {
-    throw new AppError('评论功能暂未开放');
-    // if (!commentId?.trim()) throw new AppError('缺少评论ID');
-    // return commentsRepository.like(commentId.trim());
+    if (!commentId?.trim()) throw new AppError('缺少评论ID');
+    return commentsRepository.like(commentId.trim());
   },
 
   async unlike(commentId: string) {
-    throw new AppError('评论功能暂未开放');
-    // if (!commentId?.trim()) throw new AppError('缺少评论ID');
-    // return commentsRepository.unlike(commentId.trim());
+    if (!commentId?.trim()) throw new AppError('缺少评论ID');
+    return commentsRepository.unlike(commentId.trim());
   },
 
   async remove(commentId: string) {
-    throw new AppError('评论功能暂未开放');
-    // if (!commentId?.trim()) throw new AppError('缺少评论ID');
-    // return commentsRepository.delete(commentId.trim());
+    if (!commentId?.trim()) throw new AppError('缺少评论ID');
+    return commentsRepository.delete(commentId.trim());
   },
 };

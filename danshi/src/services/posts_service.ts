@@ -81,10 +81,10 @@ export const postsService = {
             case 'hot':
               return (b.stats?.like_count ?? 0) - (a.stats?.like_count ?? 0);
             case 'trending':
-              return (new Date(b.updated_at ?? b.created_at).getTime() || 0) - (new Date(a.updated_at ?? a.created_at).getTime() || 0);
+              return (new Date(b.updated_at ?? b.created_at ?? 0).getTime() || 0) - (new Date(a.updated_at ?? a.created_at ?? 0).getTime() || 0);
             case 'latest':
             default:
-              return (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0);
+              return (new Date(b.created_at ?? 0).getTime() || 0) - (new Date(a.created_at ?? 0).getTime() || 0);
           }
         });
         const total = arr.length;
