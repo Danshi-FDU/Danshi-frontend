@@ -77,9 +77,8 @@ export const adminService = {
   },
 
   async getSuperAdmins(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
-    // const sanitized = sanitizePaginationParams(params);
-    // return adminRepository.listSuperAdmins(sanitized);
-    throw new AppError('功能暂未开放');
+    const sanitized = sanitizePaginationParams(params);
+    return adminRepository.listSuperAdmins(sanitized);
   },
 
   async updateUserRole(userId: string, input: AdminUserRoleInput): Promise<AdminUserRoleResult> {
@@ -95,9 +94,8 @@ export const adminService = {
   },
 
   async getComments(params: AdminCommentListParams = {}): Promise<AdminCommentsResponse> {
-    // const sanitized = sanitizePaginationParams(params);
-    // return adminRepository.listComments(sanitized);
-    throw new AppError('功能暂未开放');
+    const sanitized = sanitizePaginationParams(params);
+    return adminRepository.listComments(sanitized);
   },
 
   async deleteComment(commentId: string): Promise<{ comment_id: string }> {

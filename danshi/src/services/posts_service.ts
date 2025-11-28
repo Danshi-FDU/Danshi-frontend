@@ -1,6 +1,6 @@
 import { postsRepository, seedMockPosts } from '@/src/repositories/posts_repository';
 import { USE_MOCK } from '@/src/constants/app';
-import type { PostCreateInput, PostCreateResult } from '@/src/models/Post';
+import type { PostCreateInput, PostCreateResult, CompanionStatusUpdateRequest } from '@/src/models/Post';
 import type { PostListFilters, PostsListResponse } from '@/src/repositories/posts_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 
@@ -157,5 +157,19 @@ export const postsService = {
   async unfavorite(postId: string) {
     if (!postId?.trim()) throw new AppError('缺少帖子 ID');
     return postsRepository.unfavorite(postId.trim());
+  },
+
+  async updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest) {
+    if (!postId?.trim()) throw new AppError('缺少帖子 ID');
+    const status = input?.status;
+    if (!status || !['open', 'full', 'closed'].includes(status)) {
+      throw new AppError('结伴状态不合法（open/full/closed）');
+    }
+    if (typeof input.current_people !== 'undefined' && input.current_people !== null) {
+      const v = Number(input.current_people);
+      if (!Number.isFinite(v) || v < 0) throw new AppError('当前人数需为非负整数');
+      (input as any).current_people = Math.floor(v);
+    }
+    return postsRepository.updateCompanionStatus(postId.trim(), input);
   },
 };

@@ -39,10 +39,8 @@ export default function AdminCommentsScreen() {
     setError('');
     
     try {
-      // const result = await adminService.getComments({});
-      // setComments(result.comments);
-      setComments([]);
-      setError('评论管理功能暂未开放');
+      const result = await adminService.getComments({});
+      setComments(result.comments);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -57,9 +55,8 @@ export default function AdminCommentsScreen() {
 
   const handleDelete = async (commentId: string) => {
     try {
-      // await adminService.deleteComment(commentId);
-      // setComments(comments.filter(c => c.id !== commentId));
-      Alert.alert('提示', '删除功能暂未开放');
+      await adminService.deleteComment(commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

@@ -85,6 +85,7 @@ export function useTheme() {
     danger: colors.error,
     icon: colors.secondary,
     background: colors.background,
+    tabIconDefault: colors.outline,
     mode: ctx.mode,
     effective: ctx.effective,
     setMode: ctx.setMode,

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Avatar, List, Text, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Avatar, Button, List, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
@@ -24,8 +25,10 @@ const createFollowListScreen = (type: ListType) => {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
     const insets = useSafeAreaInsets();
     const theme = useTheme();
+    const router = useRouter();
 
     const load = useCallback(
       async (isRefresh = false) => {
@@ -60,37 +63,104 @@ const createFollowListScreen = (type: ListType) => {
       load();
     }, [load]);
 
-    const renderItem = ({ item }: { item: FollowUserItem }) => (
-      <List.Item
-        title={item.name}
-        description={item.bio ?? '这个用户还没有填写简介'}
-        left={() => (
-          <Avatar.Image
-            size={48}
-            source={{ uri: item.avatar_url ?? 'https://api.dicebear.com/7.x/identicon/png?seed=danshi' }}
-          />
-        )}
-        right={() => (
-          <View style={styles.followMeta}>
-            <Text variant="labelSmall">
-              帖子 {formatCount(item.stats?.post_count)}
-            </Text>
-            <Text variant="labelSmall">
-              粉丝 {formatCount(item.stats?.follower_count)}
-            </Text>
-            {type === 'followers' ? (
-              <Text variant="labelSmall" style={{ color: theme.colors.primary }}>
-                {item.is_following ? '已互关' : '未回关'}
-              </Text>
-            ) : (
-              <Text variant="labelSmall" style={{ color: theme.colors.primary }}>
-                {item.is_following ? '已关注' : '未关注'}
-              </Text>
-            )}
-          </View>
-        )}
-      />
+    const navigateToProfile = useCallback(
+      (targetId: string) => {
+        router.push(`/user/${targetId}`);
+      },
+      [router],
     );
+
+    const withActionLoading = useCallback((userId: string, value: boolean) => {
+      setActionLoading((prev) => ({ ...prev, [userId]: value }));
+    }, []);
+
+    const handleFollowBack = useCallback(
+      async (targetId: string) => {
+        setError(null);
+        withActionLoading(targetId, true);
+        try {
+          await usersService.followUser(targetId);
+          setItems((prev) =>
+            prev.map((item) => (item.id === targetId ? { ...item, is_following: true } : item)),
+          );
+        } catch (err) {
+          const message = err instanceof AppError ? err.message : '操作失败，请稍后重试';
+          setError(message);
+        } finally {
+          withActionLoading(targetId, false);
+        }
+      },
+      [withActionLoading],
+    );
+
+    const handleUnfollow = useCallback(
+      async (targetId: string) => {
+        setError(null);
+        withActionLoading(targetId, true);
+        try {
+          await usersService.unfollowUser(targetId);
+          setItems((prev) => prev.filter((item) => item.id !== targetId));
+        } catch (err) {
+          const message = err instanceof AppError ? err.message : '操作失败，请稍后重试';
+          setError(message);
+        } finally {
+          withActionLoading(targetId, false);
+        }
+      },
+      [withActionLoading],
+    );
+
+    const renderItem = ({ item }: { item: FollowUserItem }) => {
+      const isProcessing = !!actionLoading[item.id];
+      const isFollowed = !!item.is_following;
+
+      return (
+        <List.Item
+          title={item.name}
+          description={item.bio ?? '这个用户还没有填写简介'}
+          descriptionNumberOfLines={2}
+          onPress={() => navigateToProfile(item.id)}
+          left={() => (
+            <Avatar.Image
+              size={48}
+              source={{ uri: item.avatar_url ?? 'https://api.dicebear.com/7.x/identicon/png?seed=danshi' }}
+            />
+          )}
+          right={() => (
+            <View style={styles.followMeta}>
+              <Text variant="labelSmall">
+                帖子 {formatCount(item.stats?.post_count)}
+              </Text>
+              <Text variant="labelSmall">
+                粉丝 {formatCount(item.stats?.follower_count)}
+              </Text>
+              {type === 'followers' ? (
+                <Button
+                  mode={isFollowed ? 'outlined' : 'contained'}
+                  compact
+                  disabled={isFollowed || isProcessing}
+                  loading={isProcessing}
+                  onPress={() => handleFollowBack(item.id)}
+                >
+                  {isFollowed ? '已关注' : '回关'}
+                </Button>
+              ) : (
+                <Button
+                  mode="text"
+                  compact
+                  textColor={theme.colors.error}
+                  disabled={isProcessing}
+                  loading={isProcessing}
+                  onPress={() => handleUnfollow(item.id)}
+                >
+                  取消关注
+                </Button>
+              )}
+            </View>
+          )}
+        />
+      );
+    };
 
     if (!user?.id) {
       return (

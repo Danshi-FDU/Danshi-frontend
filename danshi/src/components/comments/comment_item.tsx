@@ -31,7 +31,7 @@ function MentionedText({ mentions }: { mentions?: MentionedUser[] }) {
             userId={mention.id}
             name={`@${mention.name}`}
             size={16}
-            showName
+            show_name
           />
           {idx < mentions.length - 1 ? <Text> </Text> : null}
         </React.Fragment>

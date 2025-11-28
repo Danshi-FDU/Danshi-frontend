@@ -17,12 +17,10 @@ import {
   Appbar,
   ActivityIndicator,
   Chip,
-  Divider,
   Avatar,
   Button,
   Text,
   IconButton,
-  Badge,
   useTheme as usePaperTheme,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,8 +91,9 @@ const InfoItem: React.FC<InfoItemProps> = ({ label, value }) => {
 };
 
 function ShareDetails({ post }: { post: SharePost }) {
+  const theme = usePaperTheme();
   return (
-    <View style={styles.detailSection}>
+    <View style={[styles.detailSection, { backgroundColor: theme.colors.surfaceVariant, borderRadius: 12, padding: 12 }]}>
       <Text variant="titleSmall" style={styles.sectionTitle}>
         分享信息
       </Text>
@@ -116,10 +115,11 @@ function ShareDetails({ post }: { post: SharePost }) {
 }
 
 function SeekingDetails({ post }: { post: SeekingPost }) {
+  const theme = usePaperTheme();
   const budget = post.budget_range;
   const prefers = post.preferences;
   return (
-    <View style={styles.detailSection}>
+    <View style={[styles.detailSection, { backgroundColor: theme.colors.surfaceVariant, borderRadius: 12, padding: 12 }]}>
       <Text variant="titleSmall" style={styles.sectionTitle}>
         求助需求
       </Text>
@@ -292,19 +292,24 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     const chips: React.ReactNode[] = [];
     if (post.canteen) {
       chips.push(
-        <Chip compact mode="outlined" icon="storefront-outline" key="canteen">
+        <Chip
+          compact
+          mode="outlined"
+          icon="storefront-outline"
+          key="canteen"
+        >
           {post.canteen}
         </Chip>
       );
     }
     chips.push(
-      <Chip compact key="type">
+      <Chip compact key="type" mode="outlined">
         {TYPE_LABEL[post.post_type]}
       </Chip>
     );
     if (post.post_type === 'share') {
       chips.push(
-        <Chip compact key="shareType">
+        <Chip compact key="shareType" mode="outlined">
           {SHARE_LABEL[(post as SharePost).share_type]}
         </Chip>
       );
@@ -668,13 +673,13 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                 </Text>
               ) : null}
 
-              <Divider />
+              {/* 使用间距与容器色替代硬分隔线 */}
 
               {post.post_type === 'share' ? <ShareDetails post={post as SharePost} /> : null}
               {post.post_type === 'seeking' ? <SeekingDetails post={post as SeekingPost} /> : null}
               {/* {post.post_type === 'companion' ? <CompanionDetails post={post as CompanionPost} /> : null} */}
 
-              <Divider />
+              {/* 使用间距与容器色替代硬分隔线 */}
 
               <View style={styles.metaFooter}>
                 <Text variant="bodySmall" style={[styles.metaFooterText, { color: theme.colors.onSurfaceVariant }] }>
@@ -689,9 +694,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               </View>
             </View>
 
-            <View
-              style={[styles.sectionDividerThick, { backgroundColor: theme.colors.outlineVariant }]}
-            />
+            {/* 移除厚分隔线，改用外层留白分隔 */}
 
             <View
               style={styles.commentsSection}
@@ -787,14 +790,20 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           styles.bottomBar,
           {
             backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.outlineVariant,
+            borderColor: 'transparent',
             shadowColor: theme.colors.shadow,
             paddingBottom: insets.bottom + 8,
           },
         ]}
       >
         <Pressable
-          style={[styles.commentTrigger, { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceVariant }]}
+          style={[
+            styles.commentTrigger,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+              borderColor: 'transparent',
+            },
+          ]}
           onPress={handleOpenCommentSheet}
         >
           <Text variant="bodyMedium" style={[styles.commentTriggerText, { color: theme.colors.onSurfaceVariant }] }>
@@ -802,36 +811,20 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Text>
         </Pressable>
         <View style={styles.bottomActions}>
-          <View style={styles.iconButtonWrapper}>
-            <IconButton
-              icon={post?.is_favorited ? 'bookmark' : 'bookmark-outline'}
-              size={24}
-              onPress={handleToggleFavorite}
-              disabled={actionLoading.favorite}
-              iconColor={post?.is_favorited ? theme.colors.primary : theme.colors.onSurface}
-            />
-            {favoriteCount ? (
-              <Badge style={styles.iconBadge}>{favoriteCount}</Badge>
-            ) : null}
-          </View>
-          <View style={styles.iconButtonWrapper}>
-            <IconButton
-              icon={post?.is_liked ? 'heart' : 'heart-outline'}
-              size={24}
-              onPress={handleToggleLike}
-              disabled={actionLoading.like}
-              iconColor={post?.is_liked ? theme.colors.error : theme.colors.onSurface}
-            />
-            {likeCount ? (
-              <Badge style={styles.iconBadge}>{likeCount}</Badge>
-            ) : null}
-          </View>
-          {/* <View style={styles.iconButtonWrapper}>
-            <IconButton icon="message-outline" size={24} onPress={handleScrollToComments} />
-            {commentCount ? (
-              <Badge style={styles.iconBadge}>{commentCount}</Badge>
-            ) : null}
-          </View> */}
+          <IconButton
+            icon={post?.is_favorited ? 'bookmark' : 'bookmark-outline'}
+            size={24}
+            onPress={handleToggleFavorite}
+            disabled={actionLoading.favorite}
+            iconColor={post?.is_favorited ? theme.colors.primary : theme.colors.onSurfaceVariant}
+          />
+          <IconButton
+            icon={post?.is_liked ? 'heart' : 'heart-outline'}
+            size={24}
+            onPress={handleToggleLike}
+            disabled={actionLoading.like}
+            iconColor={post?.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
+          />
         </View>
       </View>
 
@@ -1169,13 +1162,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     gap: 12,
-    borderTopWidth: 1,
-    elevation: 8,
+    borderTopWidth: 0,
+    elevation: 1,
   },
   commentTrigger: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 999,
+    borderWidth: 0,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
@@ -1185,15 +1178,7 @@ const styles = StyleSheet.create({
   bottomActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  iconButtonWrapper: {
-    position: 'relative',
-  },
-  iconBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
+    gap: 0,
   },
   commentSheetContent: {
     gap: 12,

@@ -30,7 +30,15 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
   const disabled = !value.trim() || loading;
 
   return (
-    <View style={[styles.container, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surfaceVariant,
+          borderColor: 'transparent',
+        },
+      ]}
+    >
       {currentUser?.avatar_url ? (
         <Avatar.Image size={40} source={{ uri: currentUser.avatar_url }} />
       ) : (
@@ -46,14 +54,20 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
           </View>
         ) : null}
         <TextInput
-          mode="outlined"
+          mode="flat"
           value={value}
           onChangeText={onChange}
           placeholder="写下你的想法..."
           multiline
           numberOfLines={minRows}
           maxLength={maxLength}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.colors.surfaceVariant,
+            },
+          ]}
+          textAlignVertical="top"
         />
         <View style={styles.footer}>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -73,8 +87,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    borderWidth: 1,
-    borderRadius: 16,
+    borderWidth: 0,
+    borderRadius: 12,
     padding: 12,
   },
   body: {

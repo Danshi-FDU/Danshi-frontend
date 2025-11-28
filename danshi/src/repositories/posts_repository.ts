@@ -22,7 +22,7 @@ export interface PostsRepository {
   unlike(postId: string): Promise<{ is_liked: boolean; like_count: number }>;
   favorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }>;
   unfavorite(postId: string): Promise<{ is_favorited: boolean; favorite_count: number }>;
-  // updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void>;
+  updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void>;
 }
 
 export type SortBy = 'latest' | 'hot' | 'trending';
@@ -103,11 +103,11 @@ class ApiPostsRepository implements PostsRepository {
     return unwrapApiResponse<{ is_favorited: boolean; favorite_count: number }>(resp, 200);
   }
 
-  // async updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void> {
-  //   const path = API_ENDPOINTS.POSTS.COMPANION_STATUS.replace(':postId', encodeURIComponent(postId));
-  //   const resp = await httpAuth.put(path, input);
-  //   unwrapApiResponse<void>(resp, 200);
-  // }
+  async updateCompanionStatus(postId: string, input: CompanionStatusUpdateRequest): Promise<void> {
+    const path = API_ENDPOINTS.POSTS.COMPANION_STATUS.replace(':postId', encodeURIComponent(postId));
+    const resp = await httpAuth.put(path, input);
+    unwrapApiResponse<void>(resp, 200);
+  }
 }
 
 const MOCK_AUTHORS: PostAuthor[] = [

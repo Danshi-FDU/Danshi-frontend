@@ -69,10 +69,10 @@ export default function SearchScreen() {
   const bp = useBreakpoint();
   const { minHeight, maxHeight } = useWaterfallSettings();
 
-  const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 28 });
-  const spacing = pickByBreakpoint(bp, { base: 12, sm: 14, md: 16, lg: 18, xl: 20 });
-  const gridGap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
-  const gridVerticalGap = gridGap + 6;
+  const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+  const spacing = pickByBreakpoint(bp, { base: 14, sm: 16, md: 18, lg: 20, xl: 24 });
+  const gridGap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 14, xl: 18 });
+  const gridVerticalGap = gridGap + 8;
 
   const [keyword, setKeyword] = useState('');
   const [activeTab, setActiveTab] = useState<TabValue>('posts');
@@ -138,41 +138,20 @@ export default function SearchScreen() {
     [theme.colors.primary]
   );
 
-  const segmentedButtons = useMemo(
-    () =>
-      [
-        { value: 'posts' as TabValue, label: '帖子', icon: 'file-search-outline' },
-        { value: 'users' as TabValue, label: '用户', icon: 'account-search-outline' },
-      ].map((item) => {
-        const isActive = activeTab === item.value;
-        return {
-          ...item,
-          style: [
-            styles.segmentButton,
-            {
-              backgroundColor: isActive ? theme.colors.primary : 'transparent',
-              borderWidth: 0,
-            },
-          ],
-          labelStyle: [
-            styles.segmentLabel,
-            {
-              color: isActive ? theme.colors.onPrimary : theme.colors.onSurfaceVariant,
-            },
-          ],
-          icon: item.icon,
-        };
-      }),
-    [activeTab, theme.colors.onPrimary, theme.colors.onSurfaceVariant, theme.colors.primary]
+  const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
+  const headerTitleStyle = useMemo(
+    () => ({
+      fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
+      fontWeight: '600' as const,
+    }),
+    [bp]
   );
-
-  const headerHeight = pickByBreakpoint(bp, { base: 56, sm: 58, md: 60, lg: 64, xl: 68 });
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Appbar.Header statusBarHeight={insets.top} style={{ height: headerHeight }} mode="center-aligned">
         <Appbar.BackAction onPress={() => router.back()} accessibilityLabel="返回" />
-        <Appbar.Content title="搜索" />
+        <Appbar.Content title="搜索" titleStyle={headerTitleStyle} />
       </Appbar.Header>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -180,30 +159,47 @@ export default function SearchScreen() {
       >
         <View style={{ paddingTop: spacing, gap: spacing }}>
           <TextInput
-            label="关键词"
-            mode="outlined"
+            mode="flat"
             value={keyword}
             onChangeText={(text) => setKeyword(text)}
             onSubmitEditing={handleSearch}
-            placeholder="输入美食或用户关键词"
+            placeholder="搜索美食或用户"
             autoCapitalize="none"
             returnKeyType="search"
-            right={
+            style={{
+              backgroundColor: theme.colors.surfaceVariant,
+              borderRadius: 12,
+              marginBottom: 14,
+            }}
+            underlineColor="transparent"
+            activeUnderlineColor={theme.colors.primary}
+            left={
               <TextInput.Icon
                 icon="magnify"
-                onPress={handleSearch}
+                color={theme.colors.onSurfaceVariant}
                 forceTextInputFocus={false}
               />
             }
+            right={
+              keyword.trim() ? (
+                <TextInput.Icon
+                  icon="close-circle"
+                  onPress={() => setKeyword('')}
+                  forceTextInputFocus={false}
+                />
+              ) : undefined
+            }
           />
-          <View style={styles.segmentedWrap}>
-            <SegmentedButtons
-              style={styles.segmentedContainer}
-              value={activeTab}
-              onValueChange={handleTabChange}
-              buttons={segmentedButtons}
-            />
-          </View>
+          <SegmentedButtons
+            value={activeTab}
+            onValueChange={(value) => handleTabChange(value)}
+            buttons={[
+              { value: 'posts', label: '帖子' },
+              { value: 'users', label: '用户' },
+            ]}
+            density="medium"
+            style={{ marginBottom: 14 }}
+          />
           {error ? <HelperText type="error">{error}</HelperText> : null}
           {loading ? (
             <ActivityIndicator animating color={theme.colors.primary} style={{ marginTop: spacing }} />
@@ -301,25 +297,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#888888',
     marginTop: 24,
-  },
-  segmentedContainer: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    gap: 8,
-  },
-  segmentedWrap: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  segmentButton: {
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    marginHorizontal: 4,
-    borderWidth: 0,
-    elevation: 0,
-  },
-  segmentLabel: {
-    fontWeight: '600',
   },
 });

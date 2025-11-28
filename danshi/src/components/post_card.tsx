@@ -5,26 +5,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
 import { UserAvatar } from '@/src/components/user_avatar';
 
-const TYPE_LABEL: Record<Post['post_type'] | 'companion', string> = {
+const TYPE_LABEL: Record<Post['post_type'], string> = {
   share: '分享',
   seeking: '求助',
-  companion: '拼单/搭子',
 };
 
 const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   recommend: '推荐',
   warning: '避雷',
 };
-
-const COMPANION_STATUS_LABEL: Record<'open' | 'full' | 'closed', string> = {
-  open: '招募中',
-  full: '已满员',
-  closed: '已结束',
-};
-
-function getCompanionInfo(post: Post) {
-  return (post as any).meeting_info ?? (post as any).meetingInfo;
-}
 
 type PostCardProps = {
   post: Post;
@@ -50,18 +39,13 @@ export const PostCard: React.FC<PostCardProps> = ({
   const theme = usePaperTheme();
   const [menuVisible, setMenuVisible] = useState(false);
   const firstImage = post.images?.[0];
-  const companionInfo = getCompanionInfo(post);
   const priceLabel =
     post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
       ? `￥${post.price.toFixed(2)}`
       : null;
-  const statusLabel =
-    post.post_type === 'companion' && companionInfo?.status
-      ? COMPANION_STATUS_LABEL[companionInfo.status as keyof typeof COMPANION_STATUS_LABEL]
-      : null;
 
   const chipItems: { key: string; label: string; mode: 'flat' | 'outlined' }[] = [
-    { key: 'type', label: TYPE_LABEL[post.post_type] ?? TYPE_LABEL.share, mode: 'flat' },
+    { key: 'type', label: TYPE_LABEL[post.post_type] ?? TYPE_LABEL.share, mode: 'outlined' },
   ];
 
   if (post.post_type === 'share' && post.share_type) {
@@ -142,7 +126,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               userId={post.author.id}
               name={post.author.name}
               avatar_url={post.author.avatar_url}
-              showName
+              show_name
               size={16}
             />
           ) : (
@@ -157,11 +141,6 @@ export const PostCard: React.FC<PostCardProps> = ({
           {priceLabel ? (
             <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.primary }] }>
               {priceLabel}
-            </Text>
-          ) : null}
-          {statusLabel && !priceLabel ? (
-            <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.tertiary }] }>
-              {statusLabel}
             </Text>
           ) : null}
           <View style={styles.likesRow}>
@@ -182,7 +161,6 @@ export const PostCard: React.FC<PostCardProps> = ({
 };
 
 export function estimatePostCardHeight(post: Post, minHeight: number, maxHeight: number): number {
-  const companionInfo = getCompanionInfo(post);
   const base = post.images?.length ? 260 : 190;
   const titleExtra = Math.min(140, (post.title?.length ?? 0) * 2.2);
   const chipCount =
@@ -194,8 +172,6 @@ export function estimatePostCardHeight(post: Post, minHeight: number, maxHeight:
   const middleExtra =
     post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
       ? 26
-      : post.post_type === 'companion' && companionInfo?.status
-      ? 22
       : 14;
   const idSeed = post.id
     ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 48
@@ -206,7 +182,7 @@ export function estimatePostCardHeight(post: Post, minHeight: number, maxHeight:
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   flatCard: {
@@ -216,13 +192,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardCover: {
-    height: 160,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    height: 150,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   cardContent: {
-    gap: 10,
+    gap: 12,
     paddingVertical: 14,
+    paddingHorizontal: 14,
   },
   tagRow: {
     flexDirection: 'row',
@@ -230,20 +207,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagChip: {
-    height: 28,
+    height: 26,
+    borderRadius: 13,
   },
   tagChipText: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+    marginTop: 2,
   },
   cardTitle: {
     fontWeight: '600',
     flex: 1,
+    lineHeight: 22,
   },
   cardTitleWithActions: {
     paddingRight: 8,
@@ -256,7 +236,8 @@ const styles = StyleSheet.create({
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    marginTop: 4,
   },
   authorName: {
     flexShrink: 1,
@@ -274,7 +255,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   footer: {
-    marginTop: 4,
+    marginTop: 6,
     gap: 6,
   },
 });

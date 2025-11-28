@@ -29,7 +29,9 @@ export default function ParallaxScrollView({
   const backgroundColor = colors.background;
 
   // derive a single header background color from either the explicit mapping or the theme key
-  const headerBgColor = headerBackgroundColor ? headerBackgroundColor[effective] : headerColorKey ? colors[headerColorKey] : undefined;
+  const headerBgColorValue = headerBackgroundColor ? headerBackgroundColor[effective] : headerColorKey ? colors[headerColorKey] : undefined;
+  // Ensure we have a valid string color value
+  const headerBgColor = typeof headerBgColorValue === 'string' ? headerBgColorValue : undefined;
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
   const headerAnimatedStyle = useAnimatedStyle(() => {

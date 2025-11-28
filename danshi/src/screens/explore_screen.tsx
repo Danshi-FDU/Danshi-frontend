@@ -67,10 +67,10 @@ const FILTERS_SUPPORTED = false;
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
-  const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
-  const verticalGap = gap + 6;
-  const horizontalPadding = gap;
-  const verticalPadding = gap;
+  const gap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 14, xl: 18 });
+  const verticalGap = gap + 8;
+  const horizontalPadding = pickByBreakpoint(bp, { base: 12, sm: 14, md: 16, lg: 18, xl: 20 });
+  const verticalPadding = pickByBreakpoint(bp, { base: 12, sm: 14, md: 16, lg: 18, xl: 20 });
   const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
   const headerTitleStyle = useMemo(() => ({
     fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),

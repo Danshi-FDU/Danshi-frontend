@@ -218,14 +218,13 @@ class ApiAdminRepository implements AdminRepository {
   }
 
   async listSuperAdmins(params: AdminUserListParams = {}): Promise<AdminUsersResponse> {
-    throw new Error('Admin API not implemented');
-    // const qs = new URLSearchParams();
-    // for (const [key, value] of Object.entries(params)) {
-    //   appendQueryParam(qs, key, value);
-    // }
-    // const url = qs.size ? `${API_ENDPOINTS.ADMIN.SUPER_ADMINS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.SUPER_ADMINS;
-    // const res = await httpAuth.get<ApiResponse<AdminUsersResponse>>(url);
-    // return unwrapApiResponse<AdminUsersResponse>(res);
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      appendQueryParam(qs, key, value);
+    }
+    const url = qs.size ? `${API_ENDPOINTS.ADMIN.SUPER_ADMINS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.SUPER_ADMINS;
+    const res = await httpAuth.get<ApiResponse<AdminUsersResponse>>(url);
+    return unwrapApiResponse<AdminUsersResponse>(res);
   }
 
   async updateUserRole(userId: string, input: AdminUserRoleInput): Promise<AdminUserRoleResult> {
@@ -241,21 +240,19 @@ class ApiAdminRepository implements AdminRepository {
   }
 
   async listComments(params: AdminCommentListParams = {}): Promise<AdminCommentsResponse> {
-    throw new Error('Admin API not implemented');
-    // const qs = new URLSearchParams();
-    // for (const [key, value] of Object.entries(params)) {
-    //   appendQueryParam(qs, key, value);
-    // }
-    // const url = qs.size ? `${API_ENDPOINTS.ADMIN.COMMENTS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.COMMENTS;
-    // const res = await httpAuth.get<ApiResponse<AdminCommentsResponse>>(url);
-    // return unwrapApiResponse<AdminCommentsResponse>(res);
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      appendQueryParam(qs, key, value);
+    }
+    const url = qs.size ? `${API_ENDPOINTS.ADMIN.COMMENTS}?${qs.toString()}` : API_ENDPOINTS.ADMIN.COMMENTS;
+    const res = await httpAuth.get<ApiResponse<AdminCommentsResponse>>(url);
+    return unwrapApiResponse<AdminCommentsResponse>(res);
   }
 
   async deleteComment(commentId: string): Promise<{ comment_id: string }> {
-    throw new Error('Admin API not implemented');
-    // const path = API_ENDPOINTS.ADMIN.COMMENT_DELETE.replace(':commentId', encodeURIComponent(commentId));
-    // const res = await httpAuth.delete<ApiResponse<{ comment_id: string }>>(path);
-    // return unwrapApiResponse<{ comment_id: string }>(res);
+    const path = API_ENDPOINTS.ADMIN.COMMENT_DELETE.replace(':commentId', encodeURIComponent(commentId));
+    const res = await httpAuth.delete<ApiResponse<{ comment_id: string }>>(path);
+    return unwrapApiResponse<{ comment_id: string }>(res);
   }
 }
 

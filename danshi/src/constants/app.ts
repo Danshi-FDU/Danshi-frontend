@@ -42,9 +42,9 @@ export const API_ENDPOINTS = {
     USER_ROLE: '/api/v1/admin/users/:userId/role',
     USER_STATUS: '/api/v1/admin/users/:userId/status',
     ADMINS: '/api/v1/admin/admins',
-    // SUPER_ADMINS: '/api/v1/admin/super-admins', (Not in openapi.json)
-    // COMMENTS: '/api/v1/admin/comments', (Not in openapi.json)
-    // COMMENT_DELETE: '/api/v1/admin/comments/:commentId', (Not in openapi.json)
+    SUPER_ADMINS: '/api/v1/admin/super-admins',
+    COMMENTS: '/api/v1/admin/comments',
+    COMMENT_DELETE: '/api/v1/admin/comments/:commentId',
   },
   POSTS: {
     GETPOSTPRE: '/api/v1/posts',  // GET
@@ -56,7 +56,7 @@ export const API_ENDPOINTS = {
     UNLIKEPOST: '/api/v1/posts/:postId/like',  // DELETE
     FAVORITEPOST: '/api/v1/posts/:postId/favorite',  // POST
     UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
-    // COMPANION_STATUS: '/api/v1/posts/:postId/companion-status', // PUT
+    COMPANION_STATUS: '/api/v1/posts/:postId/companion-status', // PUT
   },
   COMMENTS: {
     LIST_FOR_POST: '/api/v1/posts/:postId/comments',

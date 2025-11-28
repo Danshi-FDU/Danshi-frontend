@@ -1,12 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View, StyleSheet, Pressable } from 'react-native';
 import {
 	Appbar,
 	Button,
-	Card,
 	Chip,
-	Divider,
-	HelperText,
 	IconButton,
 	SegmentedButtons,
 	Text,
@@ -16,7 +13,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
-import { useTheme } from '@/src/context/theme_context';
 import { postsService } from '@/src/services/posts_service';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type {
@@ -46,8 +42,7 @@ export default function PostScreen({
 }: PostScreenProps = {}) {
 	const bp = useBreakpoint();
 	const maxWidth = pickByBreakpoint(bp, { base: 560, sm: 600, md: 640, lg: 720, xl: 800 });
-	const verticalGap = pickByBreakpoint(bp, { base: 10, sm: 12, md: 12, lg: 16, xl: 20 });
-	const contentHeight = pickByBreakpoint(bp, { base: 120, sm: 140, md: 160, lg: 200, xl: 240 });
+	const contentHeight = pickByBreakpoint(bp, { base: 140, sm: 160, md: 180, lg: 220, xl: 260 });
 	const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
 	const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
 	const headerTitleStyle = useMemo(
@@ -57,18 +52,15 @@ export default function PostScreen({
 		}),
 		[bp]
 	);
-	const { danger, icon } = useTheme();
 	const insets = useSafeAreaInsets();
 	const pTheme = usePaperTheme();
-	const flatCardStyle = useMemo(
+
+	// 输入框通用样式 - Filled 风格，使用 surfaceVariant
+	const inputStyle = useMemo(
 		() => ({
-			backgroundColor: pTheme.colors.surface,
-			borderWidth: 0,
-			borderColor: 'transparent',
-			elevation: 0,
-			shadowColor: 'transparent',
+			backgroundColor: pTheme.colors.surfaceVariant,
 		}),
-		[pTheme.colors.surface],
+		[pTheme.colors.surfaceVariant],
 	);
 
 	const [title, setTitle] = useState('');
@@ -278,296 +270,226 @@ export default function PostScreen({
 				</Appbar.Header>
 				<ScrollView
 					style={{ backgroundColor: pTheme.colors.background }}
-					contentContainerStyle={{ paddingTop: 16, paddingBottom: 32, paddingHorizontal: horizontalPadding, alignItems: 'center' }}
+					contentContainerStyle={{ paddingTop: 20, paddingBottom: 40, paddingHorizontal: horizontalPadding, alignItems: 'center' }}
+					keyboardShouldPersistTaps="handled"
 				>
 					<View style={{ width: '100%', maxWidth }}>
 						{/* 错误/成功提示 */}
 						{!!error && (
-							<Card mode="contained" style={[styles.messageCard, { backgroundColor: pTheme.colors.errorContainer }]}>
-								<Card.Content style={styles.messageContent}>
-									<Ionicons name="alert-circle" size={20} color={pTheme.colors.error} />
-									<Text style={{ color: pTheme.colors.error, flex: 1 }}>{error}</Text>
-								</Card.Content>
-							</Card>
+							<View style={[styles.messageCard, { backgroundColor: pTheme.colors.errorContainer }]}>
+								<Ionicons name="alert-circle" size={18} color={pTheme.colors.error} />
+								<Text style={{ color: pTheme.colors.error, flex: 1, fontSize: 14 }}>{error}</Text>
+							</View>
 						)}
 						{!!success && (
-							<Card mode="contained" style={[styles.messageCard, { backgroundColor: '#d1fae5' }]}>
-								<Card.Content style={styles.messageContent}>
-									<Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-									<Text style={{ color: '#16a34a', flex: 1 }}>{success}</Text>
-								</Card.Content>
-							</Card>
+							<View style={[styles.messageCard, { backgroundColor: '#d1fae5' }]}>
+								<Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+								<Text style={{ color: '#16a34a', flex: 1, fontSize: 14 }}>{success}</Text>
+							</View>
 						)}
 
-						{/* 帖子类型选择 */}
-						<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-							<Card.Content>
-								<View style={styles.sectionHeader}>
-									<Ionicons name="layers" size={20} color={pTheme.colors.primary} />
-									<Text variant="titleSmall" style={styles.sectionTitle}>帖子类型</Text>
-								</View>
-								<View style={{ gap: 12 }}>
-									<SegmentedButtons
-										value={post_type}
-										onValueChange={(value) => setPostType((value as PostType) ?? 'share')}
-										buttons={[
-											{ value: 'share', label: '美食分享', icon: 'share-variant' },
-											{ value: 'seeking', label: '求推荐', icon: 'compass' },
-										]}
-									/>
-									{/* <SegmentedButtons
-										value={category}
-										onValueChange={(value) => setCategory((value as Category) ?? 'food')}
-										buttons={[
-											{ value: 'food', label: '美食', icon: 'food' },
-											{ value: 'recipe', label: '食谱', icon: 'book-open-variant' },
-										]}
-									/> */}
-									{post_type === 'share' ? (
-										<SegmentedButtons
-											value={share_type}
-											onValueChange={(value) => setShareType((value as ShareType) ?? 'recommend')}
-											buttons={[
-												{ value: 'recommend', label: '推荐', icon: 'thumb-up' },
-												{ value: 'warning', label: '避雷', icon: 'alert' },
+						{/* 帖子类型选择 - 紧凑的 SegmentedButtons */}
+						<View style={styles.typeSection}>
+							<SegmentedButtons
+								value={post_type}
+								onValueChange={(value) => setPostType((value as PostType) ?? 'share')}
+								buttons={[
+									{ value: 'share', label: '分享美食' },
+									{ value: 'seeking', label: '求推荐' },
+								]}
+								density="medium"
+							/>
+							{post_type === 'share' && (
+								<View style={styles.subTypeRow}>
+									{(['recommend', 'warning'] as ShareType[]).map((type) => (
+										<Pressable
+											key={type}
+											onPress={() => setShareType(type)}
+											style={[
+												styles.subTypeChip,
+												share_type === type && { 
+													borderColor: pTheme.colors.primary,
+													backgroundColor: pTheme.colors.primaryContainer,
+												},
 											]}
-										/>
-									) : null}
-								</View>
-							</Card.Content>
-						</Card>
-
-						{/* 基础信息 */}
-						<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-							<Card.Content>
-								<View style={styles.sectionHeader}>
-									<Ionicons name="create" size={20} color={pTheme.colors.primary} />
-									<Text variant="titleSmall" style={styles.sectionTitle}>基础信息</Text>
-								</View>
-								<View style={{ gap: verticalGap }}>
-									<TextInput 
-										label="标题" 
-										mode="outlined" 
-										value={title} 
-										onChangeText={setTitle} 
-										maxLength={80}
-										left={<TextInput.Icon icon="text" />}
-										placeholder="给你的帖子起个标题吧"
-									/>
-									<TextInput
-										label="正文内容"
-										mode="outlined"
-										value={content}
-										onChangeText={setContent}
-										multiline
-										numberOfLines={Math.max(4, Math.round(contentHeight / 24))}
-										style={{ height: contentHeight, textAlignVertical: 'top' }}
-										left={<TextInput.Icon icon="text-box" />}
-										placeholder="分享你的美食体验..."
-									/>
-									<View style={styles.charCount}>
-										<Ionicons name="document-text" size={14} color={icon as string} />
-										<Text style={{ color: icon, fontSize: 12, marginLeft: 4 }}>
-											{content_count} / 推荐100字以上
-										</Text>
-									</View>
-								</View>
-							</Card.Content>
-						</Card>
-
-						{/* 位置与标签 */}
-						<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-							<Card.Content>
-								<View style={styles.sectionHeader}>
-									<Ionicons name="location" size={20} color={pTheme.colors.primary} />
-									<Text variant="titleSmall" style={styles.sectionTitle}>位置与标签</Text>
-								</View>
-								<View style={{ gap: verticalGap }}>
-									<TextInput
-										label="所属食堂 / 地点"
-										mode="outlined"
-										value={canteen}
-										onChangeText={setCanteen}
-										left={<TextInput.Icon icon="map-marker" />}
-										placeholder="例：邯郸校区南区食堂"
-									/>
-									<TextInput
-										label="标签"
-										mode="outlined"
-										value={tagsInput}
-										onChangeText={setTagsInput}
-										left={<TextInput.Icon icon="tag-multiple" />}
-										placeholder="用逗号分隔多个标签，如：南区, 红烧肉"
-									/>
-									{parsedTags.length > 0 && (
-										<View style={styles.chipContainer}>
-											{parsedTags.map((tag, idx) => (
-												<Chip key={idx} compact style={styles.chip}>{tag}</Chip>
-											))}
-										</View>
-									)}
-									<HelperText type="info" style={{ marginTop: -8 }}>
-										<Ionicons name="information-circle" size={14} /> 最多10个标签，自动去重
-									</HelperText>
-								</View>
-							</Card.Content>
-						</Card>
-
-						{/* 图片 */}
-						<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-							<Card.Content>
-								<View style={styles.sectionHeader}>
-									<Ionicons name="images" size={20} color={pTheme.colors.primary} />
-									<Text variant="titleSmall" style={styles.sectionTitle}>图片</Text>
-									<Text variant="bodySmall" style={{ color: icon, marginLeft: 'auto' }}>
-										{filtered_images.length} / 9
-									</Text>
-								</View>
-								<View style={{ gap: 10 }}>
-									{images.map((url, idx) => (
-										<View key={`image-${idx}`} style={styles.imageRow}>
-											<TextInput
-												style={{ flex: 1 }}
-												mode="outlined"
-												dense
-												label={`图片链接 ${idx + 1}`}
-												value={url}
-												onChangeText={(value) => handleChangeImage(idx, value)}
-												left={<TextInput.Icon icon="link" />}
-												placeholder="https://example.com/image.jpg"
-											/>
-											{images.length > 1 && (
-												<IconButton 
-													icon="close-circle" 
-													size={20}
-													onPress={() => handleRemoveImageField(idx)} 
-													iconColor={pTheme.colors.error}
-												/>
-											)}
-										</View>
+										>
+											<Text 
+												style={[
+													styles.subTypeText, 
+													{ color: share_type === type ? pTheme.colors.primary : pTheme.colors.onSurfaceVariant }
+												]}
+											>
+												{type === 'recommend' ? '推荐' : '避雷'}
+											</Text>
+										</Pressable>
 									))}
-									<Button 
-										mode="outlined" 
-										icon="plus" 
-										onPress={handleAddImageField}
-										disabled={images.length >= 9}
-									>
-										添加图片链接
-									</Button>
 								</View>
-							</Card.Content>
-						</Card>
+							)}
+						</View>
 
-						{/* 分享信息 */}
+						{/* 标题输入 - Filled Text Field */}
+						<TextInput 
+							mode="flat" 
+							value={title} 
+							onChangeText={setTitle} 
+							maxLength={80}
+							style={[inputStyle, styles.titleInput]}
+							placeholder="给帖子起个标题"
+							placeholderTextColor={pTheme.colors.onSurfaceVariant}
+							underlineColor="transparent"
+							activeUnderlineColor={pTheme.colors.primary}
+						/>
+
+						{/* 正文内容 - 大面积输入区 */}
+						<TextInput
+							mode="flat"
+							value={content}
+							onChangeText={setContent}
+							multiline
+							numberOfLines={6}
+							style={[inputStyle, styles.contentInput, { minHeight: contentHeight }]}
+							placeholder="分享你的美食体验，推荐100字以上获得更多曝光..."
+							placeholderTextColor={pTheme.colors.onSurfaceVariant}
+							underlineColor="transparent"
+							activeUnderlineColor={pTheme.colors.primary}
+							textAlignVertical="top"
+						/>
+						<Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>
+							{content_count} 字
+						</Text>
+
+						{/* 位置 - 简化 */}
+						<TextInput
+							mode="flat"
+							value={canteen}
+							onChangeText={setCanteen}
+							style={[inputStyle, styles.fieldInput]}
+							placeholder="添加位置（如：邯郸南区食堂）"
+							placeholderTextColor={pTheme.colors.onSurfaceVariant}
+							underlineColor="transparent"
+							activeUnderlineColor={pTheme.colors.primary}
+							left={<TextInput.Icon icon="map-marker-outline" color={pTheme.colors.onSurfaceVariant} />}
+						/>
+
+						{/* 标签输入 */}
+						<TextInput
+							mode="flat"
+							value={tagsInput}
+							onChangeText={setTagsInput}
+							style={[inputStyle, styles.fieldInput]}
+							placeholder="# 添加标签，逗号分隔"
+							placeholderTextColor={pTheme.colors.onSurfaceVariant}
+							underlineColor="transparent"
+							activeUnderlineColor={pTheme.colors.primary}
+						/>
+						{parsedTags.length > 0 && (
+							<View style={styles.chipRow}>
+								{parsedTags.map((tag, idx) => (
+									<Chip 
+										key={idx} 
+										compact 
+										mode="outlined" 
+										style={styles.tagChip}
+										textStyle={{ fontSize: 12 }}
+									>
+										{tag}
+									</Chip>
+								))}
+							</View>
+						)}
+
+						{/* 图片链接区 - 底部网格预览 */}
+						<View style={styles.imageSection}>
+							<Text style={[styles.imageSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}>
+								图片 ({filtered_images.length}/9)
+							</Text>
+							{images.map((url, idx) => (
+								<View key={`image-${idx}`} style={styles.imageRow}>
+									<TextInput
+										style={[{ flex: 1 }, inputStyle, styles.imageInput]}
+										mode="flat"
+										dense
+										value={url}
+										onChangeText={(value) => handleChangeImage(idx, value)}
+										placeholder="粘贴图片链接"
+										placeholderTextColor={pTheme.colors.onSurfaceVariant}
+										underlineColor="transparent"
+									/>
+									{images.length > 1 && (
+										<IconButton 
+											icon="close" 
+											size={18}
+											onPress={() => handleRemoveImageField(idx)} 
+											iconColor={pTheme.colors.onSurfaceVariant}
+										/>
+									)}
+								</View>
+							))}
+							{images.length < 9 && (
+								<Pressable 
+									style={[styles.addImageBtn, { borderColor: pTheme.colors.outline }]} 
+									onPress={handleAddImageField}
+								>
+									<Ionicons name="add" size={20} color={pTheme.colors.onSurfaceVariant} />
+									<Text style={{ color: pTheme.colors.onSurfaceVariant, fontSize: 13 }}>添加图片</Text>
+								</Pressable>
+							)}
+						</View>
+
+						{/* 分享详情 - 折叠/可选 */}
 						{post_type === 'share' && (
-							<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-								<Card.Content>
-									<View style={styles.sectionHeader}>
-										<Ionicons name="restaurant" size={20} color={pTheme.colors.primary} />
-										<Text variant="titleSmall" style={styles.sectionTitle}>分享详情</Text>
-									</View>
-									<View style={{ gap: verticalGap }}>
-										<TextInput 
-											label="菜系" 
-											mode="outlined" 
-											value={cuisine} 
-											onChangeText={setCuisine}
-											left={<TextInput.Icon icon="silverware-fork-knife" />}
-											placeholder="如：川菜、粤菜"
-										/>
-										{/* <TextInput
-											label="口味标签"
-											mode="outlined"
-											value={flavorsInput}
-											onChangeText={setFlavorsInput}
-											left={<TextInput.Icon icon="chili-hot" />}
-											placeholder="用逗号分隔，如：清淡, 微辣"
-										/>
-										{parsedFlavors.length > 0 && (
-											<View style={styles.chipContainer}>
-												{parsedFlavors.map((flavor, idx) => (
-													<Chip key={idx} compact icon="chili-mild" style={styles.chip}>{flavor}</Chip>
-												))}
-											</View>
-										)} */}
-										<TextInput
-											label="价格（元）"
-											mode="outlined"
-											value={price}
-											onChangeText={setPrice}
-											keyboardType="decimal-pad"
-											left={<TextInput.Icon icon="currency-cny" />}
-											placeholder="0.00"
-										/>
-									</View>
-								</Card.Content>
-							</Card>
+							<View style={styles.extraSection}>
+								<View style={styles.extraRow}>
+									<TextInput 
+										mode="flat" 
+										value={cuisine} 
+										onChangeText={setCuisine}
+										style={[inputStyle, styles.halfInput]}
+										placeholder="菜系（可选）"
+										placeholderTextColor={pTheme.colors.onSurfaceVariant}
+										underlineColor="transparent"
+									/>
+									<TextInput
+										mode="flat"
+										value={price}
+										onChangeText={setPrice}
+										keyboardType="decimal-pad"
+										style={[inputStyle, styles.halfInput]}
+										placeholder="价格 ¥（可选）"
+										placeholderTextColor={pTheme.colors.onSurfaceVariant}
+										underlineColor="transparent"
+									/>
+								</View>
+							</View>
 						)}
 
 						{/* 求推荐偏好 */}
 						{post_type === 'seeking' && (
-							<Card mode="contained" style={[flatCardStyle, styles.sectionCard]}>
-								<Card.Content>
-									<View style={styles.sectionHeader}>
-										<Ionicons name="options" size={20} color={pTheme.colors.primary} />
-										<Text variant="titleSmall" style={styles.sectionTitle}>偏好设置</Text>
-									</View>
-									<View style={{ gap: verticalGap }}>
-										<View style={{ flexDirection: 'row', gap: 12 }}>
-											<TextInput
-												style={{ flex: 1 }}
-												label="预算下限"
-												mode="outlined"
-												value={budgetMin}
-												onChangeText={setBudgetMin}
-												keyboardType="numeric"
-												left={<TextInput.Icon icon="currency-cny" />}
-												placeholder="0"
-											/>
-											<TextInput
-												style={{ flex: 1 }}
-												label="预算上限"
-												mode="outlined"
-												value={budgetMax}
-												onChangeText={setBudgetMax}
-												keyboardType="numeric"
-												left={<TextInput.Icon icon="currency-cny" />}
-												placeholder="50"
-											/>
-										</View>
-										{/* <TextInput
-											label="偏好口味"
-											mode="outlined"
-											value={preferFlavors}
-											onChangeText={setPreferFlavors}
-											left={<TextInput.Icon icon="heart" />}
-											placeholder="用逗号分隔，如：清淡, 家常"
-										/>
-										{parsed_prefer_flavors.length > 0 && (
-											<View style={styles.chipContainer}>
-												{parsed_prefer_flavors.map((flavor, idx) => (
-													<Chip key={idx} compact icon="heart" style={styles.chip}>{flavor}</Chip>
-												))}
-											</View>
-										)}
-										<TextInput
-											label="忌口"
-											mode="outlined"
-											value={avoid_flavors}
-											onChangeText={setAvoidFlavors}
-											left={<TextInput.Icon icon="close-circle" />}
-											placeholder="用逗号分隔，如：特辣, 油炸"
-										/>
-										{parsed_avoid_flavors.length > 0 && (
-											<View style={styles.chipContainer}>
-												{parsed_avoid_flavors.map((flavor, idx) => (
-													<Chip key={idx} compact icon="close-circle" style={styles.chip}>{flavor}</Chip>
-												))}
-											</View>
-										)} */}
-									</View>
-								</Card.Content>
-							</Card>
+							<View style={styles.extraSection}>
+								<View style={styles.extraRow}>
+									<TextInput
+										style={[{ flex: 1 }, inputStyle, styles.halfInput]}
+										mode="flat"
+										value={budgetMin}
+										onChangeText={setBudgetMin}
+										keyboardType="numeric"
+										placeholder="预算下限 ¥"
+										placeholderTextColor={pTheme.colors.onSurfaceVariant}
+										underlineColor="transparent"
+									/>
+									<Text style={{ color: pTheme.colors.onSurfaceVariant }}>—</Text>
+									<TextInput
+										style={[{ flex: 1 }, inputStyle, styles.halfInput]}
+										mode="flat"
+										value={budgetMax}
+										onChangeText={setBudgetMax}
+										keyboardType="numeric"
+										placeholder="预算上限 ¥"
+										placeholderTextColor={pTheme.colors.onSurfaceVariant}
+										underlineColor="transparent"
+									/>
+								</View>
+							</View>
 						)}
 
 						{/* 发布按钮 */}
@@ -575,11 +497,11 @@ export default function PostScreen({
 							mode="contained" 
 							loading={loading} 
 							onPress={onSubmit}
-							icon={editMode ? "content-save" : "send"}
-							contentStyle={styles.submitButton}
-							labelStyle={styles.submitButtonLabel}
+							style={styles.submitBtn}
+							contentStyle={styles.submitBtnContent}
+							labelStyle={styles.submitBtnLabel}
 						>
-							{editMode ? '保存修改' : '发布帖子'}
+							{editMode ? '保存修改' : '发布'}
 						</Button>
 					</View>
 				</ScrollView>
@@ -590,57 +512,119 @@ export default function PostScreen({
 
 const styles = StyleSheet.create({
 	messageCard: {
-		marginBottom: 16,
-		elevation: 0,
-		borderWidth: 0,
-	},
-	messageContent: {
 		flexDirection: 'row',
 		alignItems: 'center',
+		gap: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 14,
+		borderRadius: 12,
+		marginBottom: 20,
+	},
+	typeSection: {
+		marginBottom: 24,
+		gap: 14,
+	},
+	subTypeRow: {
+		flexDirection: 'row',
 		gap: 12,
+		marginTop: 6,
+	},
+	subTypeChip: {
+		paddingHorizontal: 16,
 		paddingVertical: 8,
+		borderRadius: 20,
+		borderWidth: 1,
+		borderColor: '#E5E5E5',
 	},
-	sectionCard: {
-		marginBottom: 16,
+	subTypeText: {
+		fontSize: 14,
+		fontWeight: '500',
 	},
-	sectionHeader: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		marginBottom: 16,
-		paddingBottom: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: 'rgba(0,0,0,0.05)',
-	},
-	sectionTitle: {
+	titleInput: {
+		marginBottom: 14,
+		fontSize: 16,
 		fontWeight: '600',
-		marginLeft: 8,
+		borderRadius: 12,
+	},
+	contentInput: {
+		marginBottom: 6,
+		fontSize: 15,
+		borderRadius: 12,
+		paddingTop: 12,
 	},
 	charCount: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'flex-end',
-		marginTop: -4,
+		alignSelf: 'flex-end',
+		fontSize: 12,
+		marginBottom: 18,
 	},
-	chipContainer: {
+	fieldInput: {
+		marginBottom: 14,
+		borderRadius: 12,
+	},
+	chipRow: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 8,
-		marginTop: 4,
+		marginBottom: 18,
+		marginTop: -4,
 	},
-	chip: {
+	tagChip: {
 		height: 28,
+		borderRadius: 14,
+	},
+	imageSection: {
+		marginTop: 10,
+		marginBottom: 18,
+		gap: 12,
+	},
+	imageSectionTitle: {
+		fontSize: 14,
+		fontWeight: '500',
+		marginBottom: 6,
 	},
 	imageRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 4,
+		gap: 6,
 	},
-	submitButton: {
-		paddingVertical: 8,
+	imageInput: {
+		fontSize: 13,
+		borderRadius: 10,
 	},
-	submitButtonLabel: {
-		fontSize: 16,
+	addImageBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		paddingVertical: 12,
+		borderWidth: 1,
+		borderStyle: 'dashed',
+		borderRadius: 12,
+	},
+	extraSection: {
+		marginBottom: 18,
+	},
+	extraRow: {
+		flexDirection: 'row',
+		gap: 14,
+		alignItems: 'center',
+	},
+	halfInput: {
+		flex: 1,
+		borderRadius: 12,
+	},
+	submitBtn: {
+		marginTop: 20,
+		borderRadius: 28,
+		elevation: 2,
+	},
+	submitBtnContent: {
+		paddingVertical: 10,
+	},
+	submitBtnLabel: {
+		fontSize: 17,
 		fontWeight: '600',
+		letterSpacing: 0.5,
 	},
 });
 
