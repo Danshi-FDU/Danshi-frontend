@@ -1,78 +1,534 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Image,
+  TextInput,
+  Alert,
+  Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { useTheme } from '@/src/context/theme_context';
-import { Text, Appbar, List, useTheme as usePaperTheme } from 'react-native-paper';
+import { Text, List, useTheme as usePaperTheme, ActivityIndicator, Button, Snackbar } from 'react-native-paper';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
+import { CenterPicker } from '@/src/components/overlays/center_picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '@/src/context/auth_context';
+import { usersService } from '@/src/services/users_service';
+import { uploadService } from '@/src/services/upload_service';
+import { HOMETOWN_OPTIONS, findOptionLabel } from '@/src/constants/selects';
+import type { UserProfile } from '@/src/repositories/users_repository';
 
+const BRAND_ORANGE = '#F97316';
 
 export default function SettingsScreen() {
-  const { mode, setMode, text, card } = useTheme();
-  const [sheet, setSheet] = useState<null | 'theme'>(null);
+  const { mode, setMode } = useTheme();
+  const { user, signOut, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const pTheme = usePaperTheme();
 
-  const themeLabel = useMemo(() => (mode === 'system' ? '系统' : mode === 'light' ? '明亮' : '深色'), [mode]);
+  // 编辑状态
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const goBack = () => {
-    // 优先返回上一个页面；若没有历史记录则直接回到“我的”
-    if (typeof window !== 'undefined' && window.history.length > 1) {
+  // 表单字段
+  const [name, setName] = useState('');
+  const [hometown, setHometown] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+
+  // Sheet 状态
+  const [sheet, setSheet] = useState<null | 'theme' | 'edit-name'>(null);
+  const [hometownPickerOpen, setHometownPickerOpen] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  // Snackbar 状态
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({ visible: false, message: '', type: 'success' });
+
+  const themeLabel = useMemo(() => (mode === 'system' ? '跟随系统' : mode === 'light' ? '浅色模式' : '深色模式'), [mode]);
+
+  // 检测是否有未保存的修改
+  const hasUnsavedChanges = useMemo(() => {
+    if (!profile) return false;
+    return (
+      name !== (profile.name ?? '') ||
+      hometown !== (profile.hometown ?? '') ||
+      avatarUrl !== (profile.avatar_url ?? null)
+    );
+  }, [profile, name, hometown, avatarUrl]);
+
+  const hometownLabel = useMemo(() => {
+    return findOptionLabel(HOMETOWN_OPTIONS, hometown) || hometown || '未设置';
+  }, [hometown]);
+
+  // 加载用户资料
+  const loadProfile = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const fetchedProfile = await usersService.getUser(user.id);
+      setProfile(fetchedProfile);
+      setName(fetchedProfile.name ?? '');
+      setHometown(fetchedProfile.hometown ?? '');
+      setAvatarUrl(fetchedProfile.avatar_url ?? null);
+    } catch (error) {
+      console.warn('Load profile failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // 保存个人资料
+  const handleSaveProfile = useCallback(async () => {
+    console.log('[Settings] handleSaveProfile called');
+    console.log('[Settings] user:', user);
+    if (!user?.id) {
+      console.warn('[Settings] No user ID, cannot save');
+      Alert.alert('错误', '用户未登录，无法保存');
+      return;
+    }
+    setSaving(true);
+    try {
+      const input: Parameters<typeof usersService.updateUser>[1] = {
+        name: name.trim() || undefined,
+        hometown: hometown.trim() || undefined,
+        avatar_url: avatarUrl,
+      };
+      console.log('[Settings] Saving profile with input:', JSON.stringify(input));
+      console.log('[Settings] User ID:', user.id);
+      await usersService.updateUser(user.id, input);
+      // 更新 profile 状态，使 hasUnsavedChanges 变为 false
+      setProfile(prev => prev ? { ...prev, name: name.trim(), hometown: hometown.trim(), avatar_url: avatarUrl } : prev);
+      refreshUser?.();
+      // 显示成功提示，然后自动返回
+      Alert.alert('保存成功', '个人资料已更新', [
+        {
+          text: '确定',
+          onPress: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/myself');
+            }
+          },
+        },
+      ]);
+    } catch (error: any) {
+      console.error('[Settings] Save failed:', error);
+      Alert.alert('保存失败', error?.message ?? '请稍后重试');
+    } finally {
+      setSaving(false);
+    }
+  }, [user?.id, name, hometown, avatarUrl, refreshUser]);
+
+  // 选择头像
+  const handlePickAvatar = useCallback(async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('权限不足', '请允许访问相册以选择头像');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setLocalAvatarUri(asset.uri);
+      setUploadingAvatar(true);
+
+      try {
+        const uploadResult = await uploadService.uploadImage({
+          uri: asset.uri,
+          name: asset.fileName ?? `avatar-${Date.now()}.jpg`,
+          type: asset.mimeType ?? 'image/jpeg',
+        });
+        setAvatarUrl(uploadResult.url);
+        setLocalAvatarUri(null);
+      } catch (uploadError: any) {
+        Alert.alert('上传失败', uploadError?.message ?? '请检查网络连接');
+        setLocalAvatarUri(null);
+      } finally {
+        setUploadingAvatar(false);
+      }
+    } catch (error: any) {
+      Alert.alert('选择失败', error?.message ?? '请稍后重试');
+    }
+  }, []);
+
+  // 编辑字段
+  const handleOpenEdit = (field: 'name') => {
+    if (field === 'name') {
+      setEditValue(name);
+      setSheet('edit-name');
+    }
+  };
+
+  const handleConfirmEdit = () => {
+    if (sheet === 'edit-name') {
+      setName(editValue);
+    }
+    setSheet(null);
+  };
+
+  const doGoBack = () => {
+    if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/myself');
     }
   };
 
+  const goBack = () => {
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        '未保存的修改',
+        '你有未保存的修改，确定要离开吗？',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '不保存', style: 'destructive', onPress: doGoBack },
+          {
+            text: '保存并离开',
+            onPress: async () => {
+              await handleSaveProfile();
+              doGoBack();
+            },
+          },
+        ]
+      );
+    } else {
+      doGoBack();
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('退出登录', '确定要退出当前账号吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '退出',
+        style: 'destructive',
+        onPress: () => {
+          signOut?.();
+          router.replace('/');
+        },
+      },
+    ]);
+  };
+
+  const displayAvatarUri = localAvatarUri || avatarUrl;
+
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
-        <Appbar.BackAction onPress={goBack} />
-        <Appbar.Content title="设置" />
-      </Appbar.Header>
-      <ScrollView style={{ backgroundColor: pTheme.colors.background }} contentContainerStyle={{ padding: 16 }}>
-        <List.Section>
-          <List.Subheader>主题</List.Subheader>
-          <List.Item
-            title="当前主题"
-            right={() => <Text style={{ alignSelf: 'center' }}>{themeLabel}</Text>}
-            onPress={() => setSheet('theme')}
-          />
-        </List.Section>
+      {/* 顶部导航栏 - 与 post_screen 相同结构 */}
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingTop: insets.top,
+            backgroundColor: pTheme.colors.background,
+          },
+        ]}
+      >
+        <View style={styles.topBarContent}>
+          {/* 左侧：返回按钮 */}
+          <Pressable style={styles.topBarLeft} onPress={goBack}>
+            <Ionicons name="arrow-back" size={24} color={pTheme.colors.onSurface} />
+          </Pressable>
 
-        {/* 选择面板 */}
-        <BottomSheet visible={sheet === 'theme'} onClose={() => setSheet(null)}>
-          <Text style={{ marginBottom: 8 }}>选择主题模式</Text>
-          {(['system', 'light', 'dark'] as const).map((m) => (
-            <Pressable
-              key={m}
-              onPress={() => {
-                setMode?.(m);
-                setSheet(null);
-              }}
-              style={({ pressed }) => [
-                styles.option,
-                { backgroundColor: card as string, borderRadius: 8, marginVertical: 4 },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text>{m === 'system' ? '系统' : m === 'light' ? '明亮' : '深色'}</Text>
-              {mode === m ? <Ionicons name="checkmark" size={18} color={text as string} /> : null}
-            </Pressable>
-          ))}
-        </BottomSheet>
-      </ScrollView>
+          {/* 右侧：保存按钮 - 使用内联样式确保显示 */}
+          <Pressable
+            style={{
+              backgroundColor: '#F97316',
+              paddingHorizontal: 14,
+              paddingVertical: 7,
+              borderRadius: 16,
+              minWidth: 52,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: saving ? 0.6 : 1,
+            }}
+            onPress={handleSaveProfile}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size={14} color="#fff" />
+            ) : (
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>保存</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={{ backgroundColor: pTheme.colors.background }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        >
+          {loading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={BRAND_ORANGE} />
+            </View>
+          ) : (
+            <>
+              {/* 头像编辑 */}
+              <View style={styles.avatarSection}>
+                <Pressable style={styles.avatarContainer} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+                  {displayAvatarUri ? (
+                    <Image source={{ uri: displayAvatarUri }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatarPlaceholder, { backgroundColor: pTheme.colors.primaryContainer }]}>
+                      <Ionicons name="person" size={48} color={pTheme.colors.primary} />
+                    </View>
+                  )}
+                  {uploadingAvatar ? (
+                    <View style={styles.avatarOverlay}>
+                      <ActivityIndicator size="small" color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={styles.avatarBadge}>
+                      <Ionicons name="camera" size={16} color="#fff" />
+                    </View>
+                  )}
+                </Pressable>
+                <Text style={[styles.avatarHint, { color: pTheme.colors.onSurfaceVariant }]}>
+                  点击更换头像
+                </Text>
+              </View>
+
+              {/* 个人信息 */}
+              <List.Section>
+                <List.Subheader>个人信息</List.Subheader>
+                <List.Item
+                  title="昵称"
+                  description={name || '未设置'}
+                  left={(props) => <List.Icon {...props} icon="account" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => handleOpenEdit('name')}
+                />
+                <List.Item
+                  title="家乡"
+                  description={hometownLabel}
+                  left={(props) => <List.Icon {...props} icon="map-marker" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => setHometownPickerOpen(true)}
+                />
+              </List.Section>
+
+              {/* 主题设置 */}
+              <List.Section>
+                <List.Subheader>外观</List.Subheader>
+                <List.Item
+                  title="主题模式"
+                  description={themeLabel}
+                  left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => setSheet('theme')}
+                />
+              </List.Section>
+
+              {/* 账号操作 */}
+              <List.Section>
+                <List.Subheader>账号</List.Subheader>
+                <List.Item
+                  title="退出登录"
+                  titleStyle={{ color: pTheme.colors.error }}
+                  left={(props) => <List.Icon {...props} icon="logout" color={pTheme.colors.error} />}
+                  onPress={handleLogout}
+                />
+              </List.Section>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* 主题选择 */}
+      <BottomSheet visible={sheet === 'theme'} onClose={() => setSheet(null)}>
+        <Text style={styles.sheetTitle}>选择主题模式</Text>
+        {(['system', 'light', 'dark'] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => {
+              setMode?.(m);
+              setSheet(null);
+            }}
+            style={({ pressed }) => [
+              styles.option,
+              { backgroundColor: pTheme.colors.surfaceVariant },
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Text style={{ color: pTheme.colors.onSurface }}>
+              {m === 'system' ? '跟随系统' : m === 'light' ? '浅色模式' : '深色模式'}
+            </Text>
+            {mode === m ? <Ionicons name="checkmark" size={18} color={BRAND_ORANGE} /> : null}
+          </Pressable>
+        ))}
+      </BottomSheet>
+
+      {/* 编辑昵称 */}
+      <BottomSheet visible={sheet === 'edit-name'} onClose={() => setSheet(null)} height={200}>
+        <Text style={styles.sheetTitle}>编辑昵称</Text>
+        <TextInput
+          style={[styles.textInput, { backgroundColor: pTheme.colors.surfaceVariant, color: pTheme.colors.onSurface }]}
+          value={editValue}
+          onChangeText={setEditValue}
+          placeholder="请输入昵称"
+          placeholderTextColor={pTheme.colors.onSurfaceVariant}
+          maxLength={20}
+          autoFocus
+        />
+        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={BRAND_ORANGE}>
+          确认
+        </Button>
+      </BottomSheet>
+
+      {/* 家乡选择 */}
+      <CenterPicker
+        visible={hometownPickerOpen}
+        onClose={() => setHometownPickerOpen(false)}
+        title="选择家乡"
+        options={HOMETOWN_OPTIONS}
+        selectedValue={hometown}
+        onSelect={(value) => setHometown(value)}
+      />
+
+      {/* 保存结果提示 */}
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+        duration={2000}
+        style={{ backgroundColor: snackbar.type === 'success' ? '#22c55e' : pTheme.colors.error }}
+      >
+        {snackbar.message}
+      </Snackbar>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  option: {
-    minHeight: 44,
+  // ==================== Top Bar ====================
+  topBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  topBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: 48,
+    width: '100%',
+  },
+  topBarLeft: {
+    minWidth: 52,
     paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  saveBtn: {
+    backgroundColor: '#F97316',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    minWidth: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingWrap: {
+    paddingVertical: 80,
+    alignItems: 'center',
+  },
+  avatarSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  avatarPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: BRAND_ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  avatarHint: {
+    fontSize: 13,
+    marginTop: 8,
+  },
+  option: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  textInput: {
+    height: 48,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 15,
+  },
+  confirmBtn: {
+    marginTop: 16,
   },
 });

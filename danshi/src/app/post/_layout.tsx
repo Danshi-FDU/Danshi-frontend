@@ -1,31 +1,26 @@
 import React from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
-import { Stack, Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useTheme } from '@/src/context/theme_context';
-import { useAuth } from '@/src/context/auth_context';
 
-export default function AuthLayout() {
+export default function PostStackLayout() {
   const theme = useTheme();
-  const { userToken, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (userToken) {
-    return <Redirect href="/explore" />;
-  }
   return (
     <View style={[styles.container, { backgroundColor: theme.background as string }]}>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: theme.background },
+          contentStyle: { backgroundColor: theme.background as string },
           // 流畅的过渡动画
-          animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
+          animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
           animationDuration: 200,
           gestureEnabled: true,
+          gestureDirection: 'horizontal',
           presentation: 'card',
         }}
       >
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
+        <Stack.Screen name="[postId]" />
+        <Stack.Screen name="edit" options={{ headerShown: false }} />
       </Stack>
     </View>
   );

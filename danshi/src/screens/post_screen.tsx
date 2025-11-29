@@ -1,19 +1,31 @@
-import React, { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
-	Appbar,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	View,
+	StyleSheet,
+	Pressable,
+	Image,
+	TextInput as RNTextInput,
+	DimensionValue,
+} from 'react-native';
+import {
 	Button,
 	Chip,
 	IconButton,
-	SegmentedButtons,
 	Text,
-	TextInput,
 	useTheme as usePaperTheme,
+	ActivityIndicator,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { postsService } from '@/src/services/posts_service';
+import { CANTEEN_OPTIONS } from '@/src/constants/selects';
+import CenterPicker from '@/src/components/overlays/center_picker';
+import ImageUploadGrid from '@/src/components/image_upload_grid';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type {
 	Category,
@@ -41,28 +53,16 @@ export default function PostScreen({
 	onUpdateSuccess,
 }: PostScreenProps = {}) {
 	const bp = useBreakpoint();
-	const maxWidth = pickByBreakpoint(bp, { base: 560, sm: 600, md: 640, lg: 720, xl: 800 });
-	const contentHeight = pickByBreakpoint(bp, { base: 140, sm: 160, md: 180, lg: 220, xl: 260 });
-	const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
-	const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
-	const headerTitleStyle = useMemo(
-		() => ({
-			fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-			fontWeight: '600' as const,
-		}),
-		[bp]
-	);
+	const router = useRouter();
+	const maxWidth = pickByBreakpoint<DimensionValue>(bp, { base: '100%', sm: 540, md: 580, lg: 620, xl: 660 });
+	const horizontalPadding = pickByBreakpoint(bp, { base: 24, sm: 28, md: 32, lg: 36, xl: 40 });
 	const insets = useSafeAreaInsets();
-	const pTheme = usePaperTheme();
+	const theme = usePaperTheme();
 
-	// 输入框通用样式 - Filled 风格，使用 surfaceVariant
-	const inputStyle = useMemo(
-		() => ({
-			backgroundColor: pTheme.colors.surfaceVariant,
-		}),
-		[pTheme.colors.surfaceVariant],
-	);
+	// 预览模式状态
+	const [isPreviewMode, setIsPreviewMode] = useState(false);
 
+	// 表单状态
 	const [title, setTitle] = useState('');
 	const [content, setContent] = useState('');
 	const [post_type, setPostType] = useState<PostType>('share');
@@ -73,7 +73,7 @@ export default function PostScreen({
 	const [flavorsInput, setFlavorsInput] = useState('');
 	const [tagsInput, setTagsInput] = useState('');
 	const [price, setPrice] = useState('');
-	const [images, setImages] = useState<string[]>(['']);
+	const [images, setImages] = useState<string[]>([]);
 	const [budgetMin, setBudgetMin] = useState('');
 	const [budgetMax, setBudgetMax] = useState('');
 	const [preferFlavors, setPreferFlavors] = useState('');
@@ -81,8 +81,10 @@ export default function PostScreen({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+	const [canteenPickerOpen, setCanteenPickerOpen] = useState(false);
+	const [showTagInput, setShowTagInput] = useState(false);
 
-	// 编辑模式：从initialData初始化表单
+	// 编辑模式：从 initialData 初始化表单
 	React.useEffect(() => {
 		if (editMode && initialData && !initialLoading) {
 			setTitle(initialData.title || '');
@@ -97,7 +99,7 @@ export default function PostScreen({
 			setCategory(initialData.category || 'food');
 			setCanteen(initialData.canteen || '');
 			setTagsInput(initialData.tags?.join(', ') || '');
-			setImages(initialData.images?.length ? [...initialData.images, ''] : ['']);
+			setImages(initialData.images?.length ? initialData.images : []);
 			if (initialData.post_type === 'seeking') {
 				if (initialData.budget_range) {
 					setBudgetMin(initialData.budget_range.min?.toString() || '');
@@ -111,9 +113,10 @@ export default function PostScreen({
 		}
 	}, [editMode, initialData, initialLoading]);
 
+	// 解析列表
 	const parseList = (value: string) =>
 		value
-			.split(/[\n,，,]/)
+			.split(/[\n,，]/)
 			.map((item) => item.trim())
 			.filter(Boolean);
 
@@ -124,20 +127,20 @@ export default function PostScreen({
 	const parsedFlavors = useMemo(() => parseList(flavorsInput), [flavorsInput]);
 	const parsed_prefer_flavors = useMemo(() => parseList(preferFlavors), [preferFlavors]);
 	const parsed_avoid_flavors = useMemo(() => parseList(avoid_flavors), [avoid_flavors]);
-	// const parsedFlavors: string[] = [];
-	// const parsed_prefer_flavors: string[] = [];
-	// const parsed_avoid_flavors: string[] = [];
-	const filtered_images = useMemo(() => images.map((url) => url.trim()).filter(Boolean), [images]);
+	const filtered_images = useMemo(
+		() => images.filter((url) => url && /^https?:\/\//i.test(url.trim())),
+		[images]
+	);
 
-	const handleChangeImage = (index: number, value: string) => {
-		setImages((prev) => prev.map((item, idx) => (idx === index ? value : item)));
-	};
+	const handleBack = useCallback(() => {
+		if (router.canGoBack()) {
+			router.back();
+		}
+	}, [router]);
 
-	const handleAddImageField = () => setImages((prev) => [...prev, '']);
-
-	const handleRemoveImageField = (index: number) => {
-		setImages((prev) => (prev.length === 1 ? [''] : prev.filter((_, idx) => idx !== index)));
-	};
+	const togglePreviewMode = useCallback(() => {
+		setIsPreviewMode((prev) => !prev);
+	}, []);
 
 	const resetForm = () => {
 		setTitle('');
@@ -150,7 +153,7 @@ export default function PostScreen({
 		setFlavorsInput('');
 		setTagsInput('');
 		setPrice('');
-		setImages(['']);
+		setImages([]);
 		setBudgetMin('');
 		setBudgetMax('');
 		setPreferFlavors('');
@@ -163,8 +166,7 @@ export default function PostScreen({
 		if (!content.trim()) return '请输入正文内容';
 		if (content.trim().length < 5) return '正文至少 5 个字';
 		if (post_type === 'share') {
-			if (!filtered_images.length) return '请至少提供 1 张图片链接';
-			if (filtered_images.some((url) => !/^https?:\/\//i.test(url))) return '图片 URL 需以 http/https 开头';
+			if (!filtered_images.length) return '请至少上传 1 张图片';
 			if (price && Number(price) < 0) return '价格需大于等于 0';
 		}
 		if (post_type === 'seeking') {
@@ -200,7 +202,7 @@ export default function PostScreen({
 			if (post_type === 'share') {
 				const sharePayload: SharePostCreateInput = {
 					post_type: 'share',
-						...common_fields,
+					...common_fields,
 					share_type: share_type,
 					cuisine: cuisine.trim() || undefined,
 					flavors: parsedFlavors.length ? parsedFlavors : undefined,
@@ -221,29 +223,34 @@ export default function PostScreen({
 					budget_range:
 						typeof minBudget !== 'undefined' || typeof maxBudget !== 'undefined'
 							? {
-								min: typeof minBudget !== 'undefined' ? minBudget : 0,
-								max: typeof maxBudget !== 'undefined' ? maxBudget : typeof minBudget !== 'undefined' ? minBudget : 0,
-							}
+									min: typeof minBudget !== 'undefined' ? minBudget : 0,
+									max:
+										typeof maxBudget !== 'undefined'
+											? maxBudget
+											: typeof minBudget !== 'undefined'
+												? minBudget
+												: 0,
+								}
 							: undefined,
 					preferences:
 						parsed_prefer_flavors.length || parsed_avoid_flavors.length
 							? {
-								prefer_flavors: parsed_prefer_flavors,
-								avoid_flavors: parsed_avoid_flavors,
-							}
+									prefer_flavors: parsed_prefer_flavors,
+									avoid_flavors: parsed_avoid_flavors,
+								}
 							: undefined,
 				};
 			}
-			
+
 			if (editMode && editPostId) {
-				// 编辑模式：更新帖子
 				await postsService.update(editPostId, payload);
 				setSuccess('更新成功，等待审核');
 				onUpdateSuccess?.();
 			} else {
-				// 创建模式：创建新帖子
 				const result = await postsService.create(payload);
-				setSuccess(`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`);
+				setSuccess(
+					`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`
+				);
 				resetForm();
 			}
 		} catch (err) {
@@ -253,378 +260,1063 @@ export default function PostScreen({
 		}
 	};
 
-		const content_count = content.trim().length;
+	const content_count = content.trim().length;
 
-		// 编辑模式加载中状态
-		if (editMode && initialLoading) {
-			return (
-				<View style={{ flex: 1, backgroundColor: pTheme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
-					<Text>正在加载帖子数据...</Text>
+	// 编辑模式加载中状态
+	if (editMode && initialLoading) {
+		return (
+			<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+				<View style={styles.loadingWrapper}>
+					<ActivityIndicator size="large" color={theme.colors.primary} />
+					<Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 12 }}>
+						正在加载...
+					</Text>
 				</View>
-			);
-		}	return (
-		<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: undefined })}>
-			<View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-				<Appbar.Header mode="center-aligned" statusBarHeight={insets.top} style={{ height: headerHeight }}>
-					<Appbar.Content title={editMode ? '编辑帖子' : '发布帖子'} titleStyle={headerTitleStyle} />
-				</Appbar.Header>
-				<ScrollView
-					style={{ backgroundColor: pTheme.colors.background }}
-					contentContainerStyle={{ paddingTop: 20, paddingBottom: 40, paddingHorizontal: horizontalPadding, alignItems: 'center' }}
-					keyboardShouldPersistTaps="handled"
+			</View>
+		);
+	}
+
+	// ==================== 预览模式渲染 ====================
+	const renderPreviewMode = () => (
+		<ScrollView
+			style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
+			contentContainerStyle={[styles.scrollContent, { paddingHorizontal: horizontalPadding }]}
+			showsVerticalScrollIndicator={false}
+		>
+			<View style={[styles.contentWrapper, { maxWidth }]}>
+				{/* 预览：图片画廊 */}
+				{filtered_images.length > 0 && (
+					<View style={styles.previewImageGrid}>
+						{filtered_images.slice(0, 9).map((url, idx) => (
+							<View key={idx} style={styles.previewImageItem}>
+								<Image
+									source={{ uri: url }}
+									style={styles.previewImage}
+									resizeMode="cover"
+								/>
+							</View>
+						))}
+					</View>
+				)}
+
+				{/* 预览：标题 */}
+				<Text
+					variant="headlineSmall"
+					style={[
+						styles.previewTitle,
+						{ color: title ? theme.colors.onSurface : theme.colors.outline },
+					]}
 				>
-					<View style={{ width: '100%', maxWidth }}>
-						{/* 错误/成功提示 */}
-						{!!error && (
-							<View style={[styles.messageCard, { backgroundColor: pTheme.colors.errorContainer }]}>
-								<Ionicons name="alert-circle" size={18} color={pTheme.colors.error} />
-								<Text style={{ color: pTheme.colors.error, flex: 1, fontSize: 14 }}>{error}</Text>
-							</View>
-						)}
-						{!!success && (
-							<View style={[styles.messageCard, { backgroundColor: '#d1fae5' }]}>
-								<Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-								<Text style={{ color: '#16a34a', flex: 1, fontSize: 14 }}>{success}</Text>
-							</View>
-						)}
+					{title || '标题预览'}
+				</Text>
 
-						{/* 帖子类型选择 - 紧凑的 SegmentedButtons */}
-						<View style={styles.typeSection}>
-							<SegmentedButtons
-								value={post_type}
-								onValueChange={(value) => setPostType((value as PostType) ?? 'share')}
-								buttons={[
-									{ value: 'share', label: '分享美食' },
-									{ value: 'seeking', label: '求推荐' },
-								]}
-								density="medium"
-							/>
-							{post_type === 'share' && (
-								<View style={styles.subTypeRow}>
-									{(['recommend', 'warning'] as ShareType[]).map((type) => (
-										<Pressable
-											key={type}
-											onPress={() => setShareType(type)}
-											style={[
-												styles.subTypeChip,
-												share_type === type && { 
-													borderColor: pTheme.colors.primary,
-													backgroundColor: pTheme.colors.primaryContainer,
-												},
-											]}
-										>
-											<Text 
-												style={[
-													styles.subTypeText, 
-													{ color: share_type === type ? pTheme.colors.primary : pTheme.colors.onSurfaceVariant }
-												]}
-											>
-												{type === 'recommend' ? '推荐' : '避雷'}
-											</Text>
-										</Pressable>
-									))}
-								</View>
-							)}
+				{/* 预览：元信息标签 */}
+				<View style={styles.previewMetaRow}>
+					{post_type === 'share' && (
+						<View
+							style={[
+								styles.previewBadge,
+								{
+									backgroundColor:
+										share_type === 'recommend'
+											? theme.colors.tertiaryContainer
+											: theme.colors.errorContainer,
+								},
+							]}
+						>
+							<Text
+								style={{
+									color:
+										share_type === 'recommend'
+											? theme.colors.tertiary
+											: theme.colors.error,
+									fontSize: 12,
+									fontWeight: '600',
+								}}
+							>
+								{share_type === 'recommend' ? '👍 推荐' : '⚠️ 避雷'}
+							</Text>
 						</View>
+					)}
+					{canteen && (
+						<View style={styles.previewLocationBadge}>
+							<Ionicons
+								name="location"
+								size={12}
+								color={theme.colors.onSurfaceVariant}
+							/>
+							<Text
+								style={{
+									color: theme.colors.onSurfaceVariant,
+									fontSize: 12,
+									marginLeft: 2,
+								}}
+							>
+								{canteen}
+							</Text>
+						</View>
+					)}
+				</View>
 
-						{/* 标题输入 - Filled Text Field */}
-						<TextInput 
-							mode="flat" 
-							value={title} 
-							onChangeText={setTitle} 
-							maxLength={80}
-							style={[inputStyle, styles.titleInput]}
-							placeholder="给帖子起个标题"
-							placeholderTextColor={pTheme.colors.onSurfaceVariant}
-							underlineColor="transparent"
-							activeUnderlineColor={pTheme.colors.primary}
-						/>
+				{/* 预览：正文 */}
+				<Text
+					style={[
+						styles.previewContent,
+						{ color: content ? theme.colors.onSurface : theme.colors.outline },
+					]}
+				>
+					{content || '正文内容预览...'}
+				</Text>
 
-						{/* 正文内容 - 大面积输入区 */}
-						<TextInput
-							mode="flat"
-							value={content}
-							onChangeText={setContent}
-							multiline
-							numberOfLines={6}
-							style={[inputStyle, styles.contentInput, { minHeight: contentHeight }]}
-							placeholder="分享你的美食体验，推荐100字以上获得更多曝光..."
-							placeholderTextColor={pTheme.colors.onSurfaceVariant}
-							underlineColor="transparent"
-							activeUnderlineColor={pTheme.colors.primary}
-							textAlignVertical="top"
-						/>
-						<Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>
-							{content_count} 字
+				{/* 预览：话题标签 */}
+				{parsedTags.length > 0 && (
+					<View style={styles.previewTagsRow}>
+						{parsedTags.map((tag, idx) => (
+							<Text
+								key={idx}
+								style={[styles.previewTag, { color: theme.colors.primary }]}
+							>
+								#{tag}
+							</Text>
+						))}
+					</View>
+				)}
+			</View>
+		</ScrollView>
+	);
+
+	// ==================== 编辑模式渲染 ====================
+	const renderEditMode = () => (
+		<ScrollView
+			style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
+			contentContainerStyle={[styles.scrollContent, { paddingHorizontal: horizontalPadding }]}
+			keyboardShouldPersistTaps="handled"
+			showsVerticalScrollIndicator={false}
+		>
+			<View style={[styles.contentWrapper, { maxWidth }]}>
+				{/* 错误/成功提示 */}
+				{!!error && (
+					<View
+						style={[styles.messageCard, { backgroundColor: theme.colors.errorContainer }]}
+					>
+						<Ionicons name="alert-circle" size={18} color={theme.colors.error} />
+						<Text style={{ color: theme.colors.error, flex: 1, fontSize: 14 }}>
+							{error}
 						</Text>
-
-						{/* 位置 - 简化 */}
-						<TextInput
-							mode="flat"
-							value={canteen}
-							onChangeText={setCanteen}
-							style={[inputStyle, styles.fieldInput]}
-							placeholder="添加位置（如：邯郸南区食堂）"
-							placeholderTextColor={pTheme.colors.onSurfaceVariant}
-							underlineColor="transparent"
-							activeUnderlineColor={pTheme.colors.primary}
-							left={<TextInput.Icon icon="map-marker-outline" color={pTheme.colors.onSurfaceVariant} />}
+						<IconButton
+							icon="close"
+							size={16}
+							iconColor={theme.colors.error}
+							onPress={() => setError('')}
+							style={styles.messageDismiss}
 						/>
+					</View>
+				)}
+				{!!success && (
+					<View
+						style={[
+							styles.messageCard,
+							{ backgroundColor: theme.colors.tertiaryContainer },
+						]}
+					>
+						<Ionicons name="checkmark-circle" size={18} color={theme.colors.tertiary} />
+						<Text style={{ color: theme.colors.tertiary, flex: 1, fontSize: 14 }}>
+							{success}
+						</Text>
+						<IconButton
+							icon="close"
+							size={16}
+							iconColor={theme.colors.tertiary}
+							onPress={() => setSuccess('')}
+							style={styles.messageDismiss}
+						/>
+					</View>
+				)}
 
-						{/* 标签输入 */}
-						<TextInput
-							mode="flat"
+				{/* ==================== 沉浸式输入区 ==================== */}
+
+				{/* 标题输入 - 大字体无边框 */}
+				<RNTextInput
+					value={title}
+					onChangeText={setTitle}
+					placeholder="填写标题"
+					placeholderTextColor={theme.colors.outline}
+					maxLength={80}
+					style={[
+						styles.titleInput,
+						{
+							color: theme.colors.onSurface,
+						},
+					]}
+				/>
+
+				{/* 正文输入 - 无背景无边框 */}
+				<RNTextInput
+					value={content}
+					onChangeText={setContent}
+					placeholder="分享你的美食体验，让更多人发现美味..."
+					placeholderTextColor={theme.colors.outline}
+					multiline
+					textAlignVertical="top"
+					style={[styles.contentInput, { color: theme.colors.onSurface }]}
+				/>
+				<Text style={[styles.charCount, { color: theme.colors.outline }]}>
+					{content_count} 字
+				</Text>
+
+				{/* ==================== 工具栏 (地点 + 话题) ==================== */}
+				<View style={styles.toolbarRow}>
+					{/* 地点按钮 */}
+					<Pressable
+						style={[
+							styles.toolbarBtn,
+							canteen && {
+								backgroundColor: theme.colors.primaryContainer,
+								borderColor: theme.colors.primary,
+							},
+							!canteen && { borderColor: theme.colors.outlineVariant },
+						]}
+						onPress={() => setCanteenPickerOpen(true)}
+					>
+						<Ionicons
+							name="location-outline"
+							size={16}
+							color={canteen ? theme.colors.primary : theme.colors.onSurfaceVariant}
+						/>
+						<Text
+							style={[
+								styles.toolbarBtnText,
+								{
+									color: canteen
+										? theme.colors.primary
+										: theme.colors.onSurfaceVariant,
+								},
+							]}
+							numberOfLines={1}
+						>
+							{canteen || '添加地点'}
+						</Text>
+						{canteen && (
+							<Pressable
+								onPress={(e) => {
+									e.stopPropagation();
+									setCanteen('');
+								}}
+								hitSlop={8}
+							>
+								<Ionicons
+									name="close-circle"
+									size={14}
+									color={theme.colors.primary}
+								/>
+							</Pressable>
+						)}
+					</Pressable>
+
+					{/* 话题按钮 */}
+					<Pressable
+						style={[
+							styles.toolbarBtn,
+							parsedTags.length > 0 && {
+								backgroundColor: theme.colors.primaryContainer,
+								borderColor: theme.colors.primary,
+							},
+							parsedTags.length === 0 && { borderColor: theme.colors.outlineVariant },
+						]}
+						onPress={() => setShowTagInput(true)}
+					>
+						<Ionicons
+							name="pricetag-outline"
+							size={16}
+							color={
+								parsedTags.length > 0
+									? theme.colors.primary
+									: theme.colors.onSurfaceVariant
+							}
+						/>
+						<Text
+							style={[
+								styles.toolbarBtnText,
+								{
+									color:
+										parsedTags.length > 0
+											? theme.colors.primary
+											: theme.colors.onSurfaceVariant,
+								},
+							]}
+						>
+							{parsedTags.length > 0 ? `${parsedTags.length} 个话题` : '添加话题'}
+						</Text>
+					</Pressable>
+				</View>
+
+				{/* 话题输入区 */}
+				{showTagInput && (
+					<View
+						style={[
+							styles.tagInputSection,
+							{ backgroundColor: theme.colors.surfaceVariant },
+						]}
+					>
+						<RNTextInput
 							value={tagsInput}
 							onChangeText={setTagsInput}
-							style={[inputStyle, styles.fieldInput]}
-							placeholder="# 添加标签，逗号分隔"
-							placeholderTextColor={pTheme.colors.onSurfaceVariant}
-							underlineColor="transparent"
-							activeUnderlineColor={pTheme.colors.primary}
+							placeholder="输入话题，用逗号分隔"
+							placeholderTextColor={theme.colors.outline}
+							style={[styles.tagTextInput, { color: theme.colors.onSurface }]}
+							autoFocus
 						/>
-						{parsedTags.length > 0 && (
-							<View style={styles.chipRow}>
-								{parsedTags.map((tag, idx) => (
-									<Chip 
-										key={idx} 
-										compact 
-										mode="outlined" 
-										style={styles.tagChip}
-										textStyle={{ fontSize: 12 }}
+						<Pressable
+							style={[
+								styles.tagInputDone,
+								{ backgroundColor: theme.colors.primary },
+							]}
+							onPress={() => setShowTagInput(false)}
+						>
+							<Text style={{ color: theme.colors.onPrimary, fontSize: 13 }}>完成</Text>
+						</Pressable>
+					</View>
+				)}
+
+				{/* 已添加的话题展示 */}
+				{parsedTags.length > 0 && (
+					<View style={styles.tagsDisplay}>
+						{parsedTags.map((tag, idx) => (
+							<Chip
+								key={idx}
+								compact
+								mode="flat"
+								closeIcon="close"
+								onClose={() => {
+									const newTags = parsedTags.filter((_, i) => i !== idx);
+									setTagsInput(newTags.join(', '));
+								}}
+								style={[
+									styles.tagChip,
+									{ backgroundColor: theme.colors.surfaceVariant },
+								]}
+								textStyle={{ color: theme.colors.primary, fontSize: 13 }}
+							>
+								#{tag}
+							</Chip>
+						))}
+					</View>
+				)}
+
+				{/* ==================== 图片上传区 ==================== */}
+				<ImageUploadGrid
+					images={images}
+					onImagesChange={setImages}
+					maxImages={9}
+				/>
+
+				{/* ==================== 分享类型扩展信息 ==================== */}
+				{post_type === 'share' && (
+					<View style={styles.extraSection}>
+						<Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
+							更多信息（可选）
+						</Text>
+						<View style={styles.extraGrid}>
+							<View style={styles.extraItem}>
+								<Text style={[styles.extraLabel, { color: theme.colors.outline }]}>
+									菜系
+								</Text>
+								<RNTextInput
+									value={cuisine}
+									onChangeText={setCuisine}
+									placeholder="如：川菜、粤菜"
+									placeholderTextColor={theme.colors.outline}
+									style={[
+										styles.extraInput,
+										{
+											color: theme.colors.onSurface,
+											borderBottomColor: theme.colors.outlineVariant,
+										},
+									]}
+								/>
+							</View>
+							<View style={styles.extraItem}>
+								<Text style={[styles.extraLabel, { color: theme.colors.outline }]}>
+									人均价格
+								</Text>
+								<View style={styles.priceInputRow}>
+									<Text style={{ color: theme.colors.outline }}>¥</Text>
+									<RNTextInput
+										value={price}
+										onChangeText={setPrice}
+										placeholder="0"
+										placeholderTextColor={theme.colors.outline}
+										keyboardType="decimal-pad"
+										style={[
+											styles.extraInput,
+											styles.priceInput,
+											{
+												color: theme.colors.onSurface,
+												borderBottomColor: theme.colors.outlineVariant,
+											},
+										]}
+									/>
+								</View>
+							</View>
+						</View>
+
+						{/* 口味标签 */}
+						<View style={styles.flavorSection}>
+							<Text style={[styles.extraLabel, { color: theme.colors.outline }]}>
+								口味标签
+							</Text>
+							<RNTextInput
+								value={flavorsInput}
+								onChangeText={setFlavorsInput}
+								placeholder="如：麻辣、酸甜、清淡（逗号分隔）"
+								placeholderTextColor={theme.colors.outline}
+								style={[
+									styles.extraInput,
+									{
+										color: theme.colors.onSurface,
+										borderBottomColor: theme.colors.outlineVariant,
+									},
+								]}
+							/>
+						</View>
+						{parsedFlavors.length > 0 && (
+							<View style={styles.flavorsDisplay}>
+								{parsedFlavors.map((flavor, idx) => (
+									<View
+										key={idx}
+										style={[
+											styles.flavorBadge,
+											{ backgroundColor: theme.colors.primaryContainer },
+										]}
 									>
-										{tag}
-									</Chip>
+										<Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+											{flavor}
+										</Text>
+									</View>
+								))}
+							</View>
+						)}
+					</View>
+				)}
+
+				{/* ==================== 求推荐扩展信息 ==================== */}
+				{post_type === 'seeking' && (
+					<View style={styles.extraSection}>
+						<Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
+							更多信息（可选）
+						</Text>
+
+						{/* 预算范围 */}
+						<Text
+							style={[
+								styles.extraLabel,
+								{ color: theme.colors.outline, marginBottom: 8 },
+							]}
+						>
+							预算范围
+						</Text>
+						<View style={styles.budgetRow}>
+							<View style={styles.budgetInputWrap}>
+								<Text style={{ color: theme.colors.outline }}>¥</Text>
+								<RNTextInput
+									value={budgetMin}
+									onChangeText={setBudgetMin}
+									placeholder="最低"
+									placeholderTextColor={theme.colors.outline}
+									keyboardType="numeric"
+									style={[
+										styles.budgetInput,
+										{
+											color: theme.colors.onSurface,
+											borderBottomColor: theme.colors.outlineVariant,
+										},
+									]}
+								/>
+							</View>
+							<Text style={{ color: theme.colors.outline }}>—</Text>
+							<View style={styles.budgetInputWrap}>
+								<Text style={{ color: theme.colors.outline }}>¥</Text>
+								<RNTextInput
+									value={budgetMax}
+									onChangeText={setBudgetMax}
+									placeholder="最高"
+									placeholderTextColor={theme.colors.outline}
+									keyboardType="numeric"
+									style={[
+										styles.budgetInput,
+										{
+											color: theme.colors.onSurface,
+											borderBottomColor: theme.colors.outlineVariant,
+										},
+									]}
+								/>
+							</View>
+						</View>
+
+						{/* 口味偏好 */}
+						<View style={[styles.flavorSection, { marginTop: 20 }]}>
+							<Text style={[styles.extraLabel, { color: theme.colors.tertiary }]}>
+								❤️ 喜欢的口味
+							</Text>
+							<RNTextInput
+								value={preferFlavors}
+								onChangeText={setPreferFlavors}
+								placeholder="如：麻辣、酸甜（逗号分隔）"
+								placeholderTextColor={theme.colors.outline}
+								style={[
+									styles.extraInput,
+									{
+										color: theme.colors.onSurface,
+										borderBottomColor: theme.colors.outlineVariant,
+									},
+								]}
+							/>
+						</View>
+						{parsed_prefer_flavors.length > 0 && (
+							<View style={styles.flavorsDisplay}>
+								{parsed_prefer_flavors.map((flavor, idx) => (
+									<View
+										key={idx}
+										style={[
+											styles.flavorBadge,
+											{ backgroundColor: theme.colors.tertiaryContainer },
+										]}
+									>
+										<Text style={{ color: theme.colors.tertiary, fontSize: 12 }}>
+											{flavor}
+										</Text>
+									</View>
 								))}
 							</View>
 						)}
 
-						{/* 图片链接区 - 底部网格预览 */}
-						<View style={styles.imageSection}>
-							<Text style={[styles.imageSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}>
-								图片 ({filtered_images.length}/9)
+						<View style={[styles.flavorSection, { marginTop: 16 }]}>
+							<Text style={[styles.extraLabel, { color: theme.colors.error }]}>
+								🚫 不喜欢的口味
 							</Text>
-							{images.map((url, idx) => (
-								<View key={`image-${idx}`} style={styles.imageRow}>
-									<TextInput
-										style={[{ flex: 1 }, inputStyle, styles.imageInput]}
-										mode="flat"
-										dense
-										value={url}
-										onChangeText={(value) => handleChangeImage(idx, value)}
-										placeholder="粘贴图片链接"
-										placeholderTextColor={pTheme.colors.onSurfaceVariant}
-										underlineColor="transparent"
-									/>
-									{images.length > 1 && (
-										<IconButton 
-											icon="close" 
-											size={18}
-											onPress={() => handleRemoveImageField(idx)} 
-											iconColor={pTheme.colors.onSurfaceVariant}
-										/>
-									)}
-								</View>
-							))}
-							{images.length < 9 && (
-								<Pressable 
-									style={[styles.addImageBtn, { borderColor: pTheme.colors.outline }]} 
-									onPress={handleAddImageField}
+							<RNTextInput
+								value={avoid_flavors}
+								onChangeText={setAvoidFlavors}
+								placeholder="如：油炸、过甜（逗号分隔）"
+								placeholderTextColor={theme.colors.outline}
+								style={[
+									styles.extraInput,
+									{
+										color: theme.colors.onSurface,
+										borderBottomColor: theme.colors.outlineVariant,
+									},
+								]}
+							/>
+						</View>
+						{parsed_avoid_flavors.length > 0 && (
+							<View style={styles.flavorsDisplay}>
+								{parsed_avoid_flavors.map((flavor, idx) => (
+									<View
+										key={idx}
+										style={[
+											styles.flavorBadge,
+											{ backgroundColor: theme.colors.errorContainer },
+										]}
+									>
+										<Text style={{ color: theme.colors.error, fontSize: 12 }}>
+											{flavor}
+										</Text>
+									</View>
+								))}
+							</View>
+						)}
+					</View>
+				)}
+
+				{/* 底部占位 - 为Tab栏留空间 */}
+				<View style={{ height: 80 }} />
+			</View>
+		</ScrollView>
+	);
+
+	return (
+		<KeyboardAvoidingView
+			style={styles.container}
+			behavior={Platform.select({ ios: 'padding', android: undefined })}
+		>
+			<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+				{/* ==================== 顶部导航栏 ==================== */}
+				<View
+					style={[
+						styles.topBar,
+						{
+							paddingTop: insets.top,
+							backgroundColor: theme.colors.background,
+						},
+					]}
+				>
+					<View style={styles.topBarContent}>
+						{/* 左侧：预览/编辑 */}
+						<Pressable style={styles.topBarLeft} onPress={togglePreviewMode}>
+							<Text
+								style={[
+									styles.previewBtnText,
+									{
+										color: isPreviewMode
+											? theme.colors.primary
+											: theme.colors.onSurfaceVariant,
+									},
+								]}
+							>
+								{isPreviewMode ? '编辑' : '预览'}
+							</Text>
+						</Pressable>
+
+						{/* 中间：分段控制器 */}
+						<View
+							style={[
+								styles.segmentedControl,
+								{ backgroundColor: theme.colors.surfaceVariant },
+							]}
+						>
+							<Pressable
+								style={[
+									styles.segmentBtn,
+									post_type === 'share' && {
+										backgroundColor: theme.colors.surface,
+									},
+								]}
+								onPress={() => setPostType('share')}
+							>
+								<Text
+									style={[
+										styles.segmentText,
+										{
+											color:
+												post_type === 'share'
+													? theme.colors.primary
+													: theme.colors.onSurfaceVariant,
+											fontWeight: post_type === 'share' ? '600' : '400',
+										},
+									]}
 								>
-									<Ionicons name="add" size={20} color={pTheme.colors.onSurfaceVariant} />
-									<Text style={{ color: pTheme.colors.onSurfaceVariant, fontSize: 13 }}>添加图片</Text>
-								</Pressable>
-							)}
+									分享美食
+								</Text>
+							</Pressable>
+							<Pressable
+								style={[
+									styles.segmentBtn,
+									post_type === 'seeking' && {
+										backgroundColor: theme.colors.surface,
+									},
+								]}
+								onPress={() => setPostType('seeking')}
+							>
+								<Text
+									style={[
+										styles.segmentText,
+										{
+											color:
+												post_type === 'seeking'
+													? theme.colors.primary
+													: theme.colors.onSurfaceVariant,
+											fontWeight: post_type === 'seeking' ? '600' : '400',
+										},
+									]}
+								>
+									求推荐
+								</Text>
+							</Pressable>
 						</View>
 
-						{/* 分享详情 - 折叠/可选 */}
-						{post_type === 'share' && (
-							<View style={styles.extraSection}>
-								<View style={styles.extraRow}>
-									<TextInput 
-										mode="flat" 
-										value={cuisine} 
-										onChangeText={setCuisine}
-										style={[inputStyle, styles.halfInput]}
-										placeholder="菜系（可选）"
-										placeholderTextColor={pTheme.colors.onSurfaceVariant}
-										underlineColor="transparent"
-									/>
-									<TextInput
-										mode="flat"
-										value={price}
-										onChangeText={setPrice}
-										keyboardType="decimal-pad"
-										style={[inputStyle, styles.halfInput]}
-										placeholder="价格 ¥（可选）"
-										placeholderTextColor={pTheme.colors.onSurfaceVariant}
-										underlineColor="transparent"
-									/>
-								</View>
-							</View>
-						)}
-
-						{/* 求推荐偏好 */}
-						{post_type === 'seeking' && (
-							<View style={styles.extraSection}>
-								<View style={styles.extraRow}>
-									<TextInput
-										style={[{ flex: 1 }, inputStyle, styles.halfInput]}
-										mode="flat"
-										value={budgetMin}
-										onChangeText={setBudgetMin}
-										keyboardType="numeric"
-										placeholder="预算下限 ¥"
-										placeholderTextColor={pTheme.colors.onSurfaceVariant}
-										underlineColor="transparent"
-									/>
-									<Text style={{ color: pTheme.colors.onSurfaceVariant }}>—</Text>
-									<TextInput
-										style={[{ flex: 1 }, inputStyle, styles.halfInput]}
-										mode="flat"
-										value={budgetMax}
-										onChangeText={setBudgetMax}
-										keyboardType="numeric"
-										placeholder="预算上限 ¥"
-										placeholderTextColor={pTheme.colors.onSurfaceVariant}
-										underlineColor="transparent"
-									/>
-								</View>
-							</View>
-						)}
-
-						{/* 发布按钮 */}
-						<Button 
-							mode="contained" 
-							loading={loading} 
+						{/* 右侧：发布 */}
+						<Pressable
+							style={[
+								styles.publishBtn,
+								loading && styles.publishBtnDisabled,
+							]}
 							onPress={onSubmit}
-							style={styles.submitBtn}
-							contentStyle={styles.submitBtnContent}
-							labelStyle={styles.submitBtnLabel}
+							disabled={loading}
 						>
-							{editMode ? '保存修改' : '发布'}
-						</Button>
+							{loading ? (
+								<ActivityIndicator size={14} color="#fff" />
+							) : (
+								<Text style={styles.publishBtnText}>
+									{editMode ? '保存' : '发布'}
+								</Text>
+							)}
+						</Pressable>
 					</View>
-				</ScrollView>
+
+					{/* 分享类型：推荐 / 避雷 */}
+					{post_type === 'share' && !isPreviewMode && (
+						<View style={styles.subTypeRow}>
+							<Pressable
+								style={[
+									styles.subTypeBtn,
+									share_type === 'recommend' && {
+										backgroundColor: theme.colors.tertiaryContainer,
+										borderColor: theme.colors.tertiary,
+									},
+									share_type !== 'recommend' && {
+										borderColor: theme.colors.outlineVariant,
+									},
+								]}
+								onPress={() => setShareType('recommend')}
+							>
+								<Text
+									style={{
+										color:
+											share_type === 'recommend'
+												? theme.colors.tertiary
+												: theme.colors.onSurfaceVariant,
+										fontSize: 13,
+										fontWeight: share_type === 'recommend' ? '600' : '400',
+									}}
+								>
+									👍 推荐
+								</Text>
+							</Pressable>
+							<Pressable
+								style={[
+									styles.subTypeBtn,
+									share_type === 'warning' && {
+										backgroundColor: theme.colors.errorContainer,
+										borderColor: theme.colors.error,
+									},
+									share_type !== 'warning' && {
+										borderColor: theme.colors.outlineVariant,
+									},
+								]}
+								onPress={() => setShareType('warning')}
+							>
+								<Text
+									style={{
+										color:
+											share_type === 'warning'
+												? theme.colors.error
+												: theme.colors.onSurfaceVariant,
+										fontSize: 13,
+										fontWeight: share_type === 'warning' ? '600' : '400',
+									}}
+								>
+									⚠️ 避雷
+								</Text>
+							</Pressable>
+						</View>
+					)}
+				</View>
+
+				{/* ==================== 内容区域 ==================== */}
+				{isPreviewMode ? renderPreviewMode() : renderEditMode()}
 			</View>
+
+			{/* 位置选择器 */}
+			<CenterPicker
+				visible={canteenPickerOpen}
+				onClose={() => setCanteenPickerOpen(false)}
+				title="选择位置"
+				options={CANTEEN_OPTIONS}
+				selectedValue={canteen}
+				onSelect={(value) => setCanteen(value)}
+			/>
 		</KeyboardAvoidingView>
 	);
 }
 
 const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+	},
+	loadingWrapper: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+
+	// ==================== Top Bar ====================
+	topBar: {
+		paddingHorizontal: 16,
+		paddingBottom: 8,
+	},
+	topBarContent: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		height: 48,
+	},
+	topBarLeft: {
+		minWidth: 52,
+		paddingHorizontal: 8,
+		paddingVertical: 8,
+	},
+	segmentedControl: {
+		flexDirection: 'row',
+		borderRadius: 20,
+		padding: 3,
+		position: 'absolute',
+		left: '50%',
+		transform: [{ translateX: '-50%' }],
+	},
+	segmentBtn: {
+		paddingHorizontal: 16,
+		paddingVertical: 6,
+		borderRadius: 17,
+	},
+	segmentText: {
+		fontSize: 14,
+	},
+	previewBtnText: {
+		fontSize: 14,
+		fontWeight: '500',
+	},
+	publishBtn: {
+		backgroundColor: '#F97316',
+		paddingHorizontal: 14,
+		paddingVertical: 7,
+		borderRadius: 16,
+		minWidth: 52,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	publishBtnDisabled: {
+		opacity: 0.6,
+	},
+	publishBtnText: {
+		color: '#fff',
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	subTypeRow: {
+		flexDirection: 'row',
+		gap: 10,
+		paddingTop: 8,
+		paddingLeft: 40,
+	},
+	subTypeBtn: {
+		paddingHorizontal: 14,
+		paddingVertical: 6,
+		borderRadius: 16,
+		borderWidth: 1,
+	},
+
+	// ==================== Scroll Content ====================
+	scrollView: {
+		flex: 1,
+	},
+	scrollContent: {
+		paddingTop: 16,
+		paddingBottom: 40,
+		alignItems: 'center',
+	},
+	contentWrapper: {
+		width: '100%',
+	},
+
+	// ==================== Message Card ====================
 	messageCard: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 10,
 		paddingHorizontal: 14,
-		paddingVertical: 14,
+		paddingVertical: 12,
 		borderRadius: 12,
-		marginBottom: 20,
+		marginBottom: 16,
 	},
-	typeSection: {
-		marginBottom: 24,
-		gap: 14,
+	messageDismiss: {
+		margin: 0,
 	},
-	subTypeRow: {
-		flexDirection: 'row',
-		gap: 12,
-		marginTop: 6,
-	},
-	subTypeChip: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: 20,
-		borderWidth: 1,
-		borderColor: '#E5E5E5',
-	},
-	subTypeText: {
-		fontSize: 14,
-		fontWeight: '500',
-	},
+
+	// ==================== 沉浸式输入区 ====================
 	titleInput: {
-		marginBottom: 14,
-		fontSize: 16,
-		fontWeight: '600',
-		borderRadius: 12,
+		fontSize: 24,
+		fontWeight: '700',
+		paddingVertical: 8,
+		paddingHorizontal: 0,
+		backgroundColor: 'transparent',
+		marginBottom: 16,
 	},
 	contentInput: {
-		marginBottom: 6,
-		fontSize: 15,
-		borderRadius: 12,
-		paddingTop: 12,
+		fontSize: 16,
+		lineHeight: 26,
+		minHeight: 120,
+		paddingVertical: 0,
+		paddingHorizontal: 0,
+		backgroundColor: 'transparent',
 	},
 	charCount: {
 		alignSelf: 'flex-end',
 		fontSize: 12,
-		marginBottom: 18,
+		marginTop: 8,
+		marginBottom: 16,
 	},
-	fieldInput: {
-		marginBottom: 14,
-		borderRadius: 12,
-	},
-	chipRow: {
+
+	// ==================== Toolbar ====================
+	toolbarRow: {
 		flexDirection: 'row',
-		flexWrap: 'wrap',
-		gap: 8,
-		marginBottom: 18,
-		marginTop: -4,
+		gap: 10,
+		marginBottom: 12,
 	},
-	tagChip: {
-		height: 28,
-		borderRadius: 14,
-	},
-	imageSection: {
-		marginTop: 10,
-		marginBottom: 18,
-		gap: 12,
-	},
-	imageSectionTitle: {
-		fontSize: 14,
-		fontWeight: '500',
-		marginBottom: 6,
-	},
-	imageRow: {
+	toolbarBtn: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 6,
-	},
-	imageInput: {
-		fontSize: 13,
-		borderRadius: 10,
-	},
-	addImageBtn: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-		gap: 8,
-		paddingVertical: 12,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		borderRadius: 20,
 		borderWidth: 1,
-		borderStyle: 'dashed',
+	},
+	toolbarBtnText: {
+		fontSize: 13,
+		maxWidth: 100,
+	},
+
+	// ==================== Tag Input ====================
+	tagInputSection: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+		padding: 12,
+		borderRadius: 12,
+		marginBottom: 12,
+	},
+	tagTextInput: {
+		flex: 1,
+		fontSize: 14,
+		paddingVertical: 0,
+		backgroundColor: 'transparent',
+	},
+	tagInputDone: {
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: 14,
+	},
+	tagsDisplay: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+		marginBottom: 16,
+	},
+	tagChip: {
+		borderRadius: 16,
+	},
+
+	// ==================== Extra Section ====================
+	extraSection: {
+		marginTop: 24,
+		paddingTop: 20,
+	},
+	sectionTitle: {
+		fontSize: 14,
+		fontWeight: '500',
+		marginBottom: 16,
+	},
+	extraGrid: {
+		flexDirection: 'row',
+		gap: 20,
+	},
+	extraItem: {
+		flex: 1,
+	},
+	extraLabel: {
+		fontSize: 12,
+		marginBottom: 4,
+	},
+	extraInput: {
+		fontSize: 15,
+		paddingVertical: 8,
+		paddingHorizontal: 0,
+		backgroundColor: 'transparent',
+		borderBottomWidth: 1,
+	},
+	priceInputRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	priceInput: {
+		flex: 1,
+	},
+	flavorSection: {
+		marginTop: 16,
+	},
+	flavorsDisplay: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+		marginTop: 8,
+	},
+	flavorBadge: {
+		paddingHorizontal: 10,
+		paddingVertical: 4,
 		borderRadius: 12,
 	},
-	extraSection: {
-		marginBottom: 18,
-	},
-	extraRow: {
+
+	// ==================== Budget ====================
+	budgetRow: {
 		flexDirection: 'row',
-		gap: 14,
+		alignItems: 'center',
+		gap: 12,
+	},
+	budgetInputWrap: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	budgetInput: {
+		flex: 1,
+		fontSize: 15,
+		paddingVertical: 8,
+		paddingHorizontal: 0,
+		backgroundColor: 'transparent',
+		borderBottomWidth: 1,
+	},
+
+
+	// ==================== Preview Mode ====================
+	previewImageGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+		marginBottom: 20,
+	},
+	previewImageItem: {
+		width: '31%',
+		aspectRatio: 1,
+		borderRadius: 12,
+		overflow: 'hidden',
+	},
+	previewImage: {
+		width: '100%',
+		height: '100%',
+	},
+	previewTitle: {
+		fontWeight: '700',
+		marginBottom: 12,
+	},
+	previewMetaRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+		marginBottom: 16,
+	},
+	previewBadge: {
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderRadius: 12,
+	},
+	previewLocationBadge: {
+		flexDirection: 'row',
 		alignItems: 'center',
 	},
-	halfInput: {
-		flex: 1,
-		borderRadius: 12,
+	previewContent: {
+		fontSize: 16,
+		lineHeight: 26,
+		marginBottom: 16,
 	},
-	submitBtn: {
-		marginTop: 20,
-		borderRadius: 28,
-		elevation: 2,
+	previewTagsRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
 	},
-	submitBtnContent: {
-		paddingVertical: 10,
-	},
-	submitBtnLabel: {
-		fontSize: 17,
-		fontWeight: '600',
-		letterSpacing: 0.5,
+	previewTag: {
+		fontSize: 14,
+		fontWeight: '500',
 	},
 });
-

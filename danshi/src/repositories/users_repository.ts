@@ -44,6 +44,7 @@ export type UserPostListItem = {
   view_count?: number;
   comment_count?: number;
   cover_image?: string;
+  images?: string[];  // 某些 API 可能返回完整的 images 数组
   created_at?: string;
 };
 
@@ -341,17 +342,29 @@ export class MockUsersRepository implements UsersRepository {
     })),
   };
   private postsStore: Record<string, UserPostListItem[]> = {
-    '1234567890': Array.from({ length: 8 }).map((_, idx) => ({
-      id: `mock-post-knd-${idx + 1}`,
-      title: `南区食堂美食分享 ${idx + 1}`,
-      category: idx % 2 === 0 ? 'food' : 'recipe',
-      status: 'approved',
-      like_count: 20 + idx * 3,
-      view_count: 120 + idx * 15,
-      comment_count: 4 + idx,
-      cover_image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=640&auto=format&fit=crop',
-      created_at: new Date(Date.now() - idx * 86400000).toISOString(),
-    })),
+    '1234567890': Array.from({ length: 8 }).map((_, idx) => {
+      const images = [
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1482049016gy-g9ce01bac27e?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=640&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=640&auto=format&fit=crop',
+      ];
+      return {
+        id: `mock-post-knd-${idx + 1}`,
+        title: `南区食堂美食分享 ${idx + 1}`,
+        category: idx % 2 === 0 ? 'food' : 'recipe',
+        status: 'approved',
+        like_count: 20 + idx * 3,
+        view_count: 120 + idx * 15,
+        comment_count: 4 + idx,
+        cover_image: images[idx % images.length],
+        created_at: new Date(Date.now() - idx * 86400000).toISOString(),
+      };
+    }),
     'user-1': Array.from({ length: 15 }).map((_, idx) => ({
       id: `post-user1-${idx + 1}`,
       title: idx % 3 === 0 ? `北区川菜窗口推荐 ${idx + 1}` : idx % 3 === 1 ? `粤菜小炒测评 ${idx + 1}` : `食堂避雷指南 ${idx + 1}`,

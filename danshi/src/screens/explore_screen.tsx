@@ -1,18 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl, ViewStyle } from 'react-native';
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { Masonry } from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import {
-  Appbar,
   Text,
   useTheme as usePaperTheme,
   ActivityIndicator,
   Chip,
   SegmentedButtons,
   Button,
-  IconButton,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postsService } from '@/src/services/posts_service';
@@ -24,14 +22,12 @@ import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+// 品牌色
+const BRAND_ORANGE = '#F97316';
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
-
-type PostCardProps = {
-  post: Post;
-  onPress: (postId: string) => void;
-  style?: ViewStyle;
-};
 
 type SortValue = SortBy;
 
@@ -67,17 +63,10 @@ const FILTERS_SUPPORTED = false;
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
-  const gap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 14, xl: 18 });
-  const verticalGap = gap + 8;
-  const horizontalPadding = pickByBreakpoint(bp, { base: 12, sm: 14, md: 16, lg: 18, xl: 20 });
-  const verticalPadding = pickByBreakpoint(bp, { base: 12, sm: 14, md: 16, lg: 18, xl: 20 });
-  const headerHeight = pickByBreakpoint(bp, { base: 48, sm: 52, md: 56, lg: 60, xl: 64 });
-  const headerTitleStyle = useMemo(() => ({
-    fontSize: pickByBreakpoint(bp, { base: 18, sm: 18, md: 20, lg: 20, xl: 22 }),
-    fontWeight: '600' as const,
-  }), [bp]);
-  const typeBarVerticalPadding = pickByBreakpoint(bp, { base: 3, sm: 4, md: 6, lg: 8, xl: 8 });
-  const typeBarGap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 12, xl: 14 });
+  // 移动端列间距极小，紧凑布局
+  const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
+  const verticalGap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
+  const horizontalPadding = pickByBreakpoint(bp, { base: 4, sm: 6, md: 12, lg: 16, xl: 20 });
   const insets = useSafeAreaInsets();
   const pTheme = usePaperTheme();
 
@@ -120,10 +109,6 @@ export default function ExploreScreen() {
     if (filters.sortBy !== 'latest') {
       payload.sortBy = filters.sortBy;
     }
-    // if (filters.postType !== 'all') payload.post_type = filters.postType;
-    // if (filters.postType === 'share' && filters.shareType !== 'all') payload.share_type = filters.shareType;
-    // if (filters.category !== 'all') payload.category = filters.category;
-    // if (filters.canteenName) payload.canteen = filters.canteenName;
     return payload;
   }, [filters]);
 
@@ -173,6 +158,7 @@ export default function ExploreScreen() {
   );
 
   const content = useMemo(() => posts, [posts]);
+
   const postTypeOptions = useMemo(() => {
     if (!config.postTypes.length) {
       return [{ value: 'all' as const, label: '全部类型', description: '推荐最新趋势' }];
@@ -252,106 +238,83 @@ export default function ExploreScreen() {
   }, [filters.sortBy]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
-      <Appbar.Header
-        mode="center-aligned"
-        statusBarHeight={insets.top}
-        style={{ height: headerHeight }}
-      >
-        <Appbar.Content title="社区" titleStyle={headerTitleStyle} />
-        <Appbar.Action
-          icon="magnify"
+    <View style={[styles.container, { backgroundColor: pTheme.colors.background }]}>
+      {/* 顶部导航栏 */}
+      <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: pTheme.colors.surface }]}>
+        <Text style={[styles.headerTitle, { color: pTheme.colors.onSurface }]}>发现</Text>
+        <Pressable
+          style={styles.headerBtn}
           onPress={() => router.push('/search')}
           accessibilityLabel="搜索帖子"
-        />
-      </Appbar.Header>
-      <View
-        style={[styles.typeBarContainer, { paddingHorizontal: horizontalPadding, paddingVertical: typeBarVerticalPadding, gap: typeBarGap }]}
-      >
-        {/* <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flex: 1 }}
-          contentContainerStyle={[styles.typeBarScroll, { paddingRight: typeBarGap, gap: typeBarGap }]}
         >
-          {postTypeOptions.map((option) => (
-            <Chip
-              key={option.value}
-              selected={filters.postType === option.value}
-              onPress={() =>
-                setFilters((prev) => ({
-                  ...prev,
-                  postType: option.value,
-                  shareType: option.value === 'share' ? prev.shareType : 'all',
-                }))
-              }
-              mode={filters.postType === option.value ? 'flat' : 'outlined'}
-              compact
-              style={styles.typeBarChip}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </ScrollView>
-        <IconButton
-          icon="tune-variant"
-          onPress={() => setFiltersSheetVisible(true)}
-          style={styles.typeBarFilterButton}
-        /> */}
+          <Ionicons name="search-outline" size={24} color={pTheme.colors.onSurfaceVariant} />
+        </Pressable>
       </View>
+
+      {/* 主内容区 */}
       <ScrollView
-        style={{ backgroundColor: pTheme.colors.background }}
-        contentContainerStyle={{
-          paddingHorizontal: horizontalPadding,
-          paddingTop: verticalPadding,
-          paddingBottom: verticalPadding,
-          gap,
-        }}
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: insets.bottom + 24,
+          },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[pTheme.colors.primary]}
-            tintColor={pTheme.colors.primary}
+            colors={[BRAND_ORANGE]}
+            tintColor={BRAND_ORANGE}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {activeFilterChips.length ? (
+        {/* 筛选标签展示 */}
+        {activeFilterChips.length > 0 && (
           <View style={styles.activeFiltersRow}>
             {activeFilterChips.map((chip) => (
-              <Chip key={chip.key} mode="outlined" onClose={chip.onClear}>
+              <Chip key={chip.key} mode="outlined" onClose={chip.onClear} compact>
                 {chip.label}
               </Chip>
             ))}
           </View>
-        ) : null}
+        )}
 
-        {isInitialLoading ? (
+        {/* 加载状态 */}
+        {isInitialLoading && (
           <View style={styles.loadingWrapper}>
-            <ActivityIndicator />
-            <Text style={[styles.loadingText, { color: pTheme.colors.onSurfaceVariant }]}>加载中…</Text>
+            <ActivityIndicator size="large" color={BRAND_ORANGE} />
+            <Text style={styles.loadingText}>正在加载精彩内容…</Text>
           </View>
-        ) : null}
+        )}
 
-        {error && !isInitialLoading ? (
+        {/* 错误状态 */}
+        {error && !isInitialLoading && (
           <View style={styles.errorWrapper}>
-            <Text style={[styles.errorText, { color: pTheme.colors.error }]}>{error}</Text>
-            <Chip icon="refresh" mode="outlined" onPress={() => fetchPosts('initial')}>
-              重新加载
-            </Chip>
+            <Ionicons name="cloud-offline-outline" size={48} color="#EF4444" />
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable style={styles.retryBtn} onPress={() => fetchPosts('initial')}>
+              <Ionicons name="refresh" size={18} color={BRAND_ORANGE} />
+              <Text style={styles.retryText}>重新加载</Text>
+            </Pressable>
           </View>
-        ) : null}
+        )}
 
-        {!isInitialLoading && !content.length && !error ? (
+        {/* 空状态 */}
+        {!isInitialLoading && !content.length && !error && (
           <View style={styles.emptyWrapper}>
-            <Text variant="bodyLarge">暂无帖子</Text>
-            <Text variant="bodyMedium" style={[styles.emptyText, { color: pTheme.colors.onSurfaceVariant }]}>
-              打开发布页分享你的第一条动态吧～
-            </Text>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="restaurant" size={40} color="#9CA3AF" />
+            </View>
+            <Text style={styles.emptyTitle}>暂无内容</Text>
+            <Text style={styles.emptyText}>去发布第一条美食分享吧～</Text>
           </View>
-        ) : null}
+        )}
 
-        {content.length ? (
+        {/* 瀑布流列表 */}
+        {content.length > 0 && (
           <Masonry
             data={content}
             columns={{ base: 2, md: 2, lg: 3, xl: 4 }}
@@ -359,224 +322,276 @@ export default function ExploreScreen() {
             verticalGap={verticalGap}
             getItemHeight={(item) => estimateHeight(item)}
             keyExtractor={(item) => item.id}
-            renderItem={(item) => <PostCard post={item} onPress={onPress} appearance="flat" />}
+            renderItem={(item) => <PostCard post={item} onPress={onPress} />}
           />
-        ) : null}
+        )}
       </ScrollView>
-      {FILTERS_SUPPORTED ? (
-      <BottomSheet visible={filtersSheetVisible} onClose={() => setFiltersSheetVisible(false)} height={520}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.sheetContent}
-        >
-          <View style={styles.sheetHeader}>
-            <Text variant="titleMedium">筛选帖子</Text>
-            <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-              选择类型、排序与食堂筛选，集中管理所有筛选条件。
-            </Text>
-          </View>
 
-          <View style={styles.filterSection}>
-            <Text variant="labelLarge" style={styles.filterTitle}>
-              帖子类型
-            </Text>
-            <View style={styles.chipsRow}>
-              {postTypeOptions.map((option) => (
-                <Chip
-                  key={option.value}
-                  selected={filters.postType === option.value}
-                  onPress={() =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      postType: option.value,
-                      shareType: option.value === 'share' ? prev.shareType : 'all',
-                    }))
-                  }
-                  mode={filters.postType === option.value ? 'flat' : 'outlined'}
-                >
-                  {option.label}
-                </Chip>
-              ))}
+      {/* 筛选面板 */}
+      {FILTERS_SUPPORTED && (
+        <BottomSheet visible={filtersSheetVisible} onClose={() => setFiltersSheetVisible(false)} height={520}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
+            <View style={styles.sheetHeader}>
+              <Text variant="titleMedium">筛选帖子</Text>
+              <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
+                选择类型、排序与食堂筛选，集中管理所有筛选条件。
+              </Text>
             </View>
-            {filters.postType === 'share' && shareSubTypes.length ? (
-              <View style={styles.subFilterRow}>
-                {shareSubTypes.map((item) => (
+
+            <View style={styles.filterSection}>
+              <Text variant="labelLarge" style={styles.filterTitle}>
+                帖子类型
+              </Text>
+              <View style={styles.chipsRow}>
+                {postTypeOptions.map((option) => (
                   <Chip
-                    key={item.value}
-                    selected={filters.shareType === item.value}
+                    key={option.value}
+                    selected={filters.postType === option.value}
                     onPress={() =>
                       setFilters((prev) => ({
                         ...prev,
-                        shareType: prev.shareType === item.value ? 'all' : item.value,
+                        postType: option.value,
+                        shareType: option.value === 'share' ? prev.shareType : 'all',
                       }))
                     }
-                    mode={filters.shareType === item.value ? 'flat' : 'outlined'}
-                    compact
-                  >
-                    {`${item.icon ?? ''} ${item.label}`.trim()}
-                  </Chip>
-                ))}
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.filterSection}>
-            <Text variant="labelLarge" style={styles.filterTitle}>
-              排序
-            </Text>
-            <SegmentedButtons
-              value={filters.sortBy}
-              onValueChange={(value) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  sortBy: (value as SortValue) ?? prev.sortBy,
-                }))
-              }
-              buttons={SORT_OPTIONS.map((option) => ({
-                value: option.value,
-                label: option.label,
-                style: styles.segmentButton,
-              }))}
-            />
-            <Text variant="bodySmall" style={[styles.sortHint, { color: pTheme.colors.onSurfaceVariant }] }>
-              {sortHintText}
-            </Text>
-          </View>
-
-          <View style={styles.filterSection}>
-            <Text variant="labelLarge" style={styles.filterTitle}>
-              进阶筛选
-            </Text>
-            <View style={styles.advancedGroup}>
-              <Text
-                variant="labelMedium"
-                style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}
-              >
-                食堂 / 校区
-              </Text>
-              <View style={styles.chipsRow}>
-                <Chip
-                  selected={!filters.canteenName}
-                  onPress={() => setFilters((prev) => ({ ...prev, canteenName: undefined }))}
-                  mode={!filters.canteenName ? 'flat' : 'outlined'}
-                >
-                  全部食堂
-                </Chip>
-                {config.canteens.map((item) => (
-                  <Chip
-                    key={item.id}
-                    selected={filters.canteenName === item.name}
-                    onPress={() => setFilters((prev) => ({ ...prev, canteenName: item.name }))}
-                    mode={filters.canteenName === item.name ? 'flat' : 'outlined'}
-                  >
-                    {item.campus ? `${item.name}（${item.campus}）` : item.name}
-                  </Chip>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.advancedGroup}>
-              <Text
-                variant="labelMedium"
-                style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}
-              >
-                内容分区
-              </Text>
-              <View style={styles.subFilterRow}>
-                {[
-                  { label: '全部分区', value: 'all' as const },
-                  { label: '美食', value: 'food' as const },
-                  { label: '食谱', value: 'recipe' as const },
-                ].map((option) => (
-                  <Chip
-                    key={option.value}
-                    selected={filters.category === option.value}
-                    onPress={() => setFilters((prev) => ({ ...prev, category: option.value }))}
-                    mode={filters.category === option.value ? 'flat' : 'outlined'}
+                    mode={filters.postType === option.value ? 'flat' : 'outlined'}
                   >
                     {option.label}
                   </Chip>
                 ))}
               </View>
+              {filters.postType === 'share' && shareSubTypes.length > 0 && (
+                <View style={styles.subFilterRow}>
+                  {shareSubTypes.map((item) => (
+                    <Chip
+                      key={item.value}
+                      selected={filters.shareType === item.value}
+                      onPress={() =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          shareType: prev.shareType === item.value ? 'all' : item.value,
+                        }))
+                      }
+                      mode={filters.shareType === item.value ? 'flat' : 'outlined'}
+                      compact
+                    >
+                      {`${item.icon ?? ''} ${item.label}`.trim()}
+                    </Chip>
+                  ))}
+                </View>
+              )}
             </View>
 
-            {configLoading ? (
-              <Text variant="bodySmall" style={[styles.helperText, { color: pTheme.colors.onSurfaceVariant }] }>
-                正在加载配置数据…
+            <View style={styles.filterSection}>
+              <Text variant="labelLarge" style={styles.filterTitle}>
+                排序
               </Text>
-            ) : null}
-            {configError ? (
-              <Text variant="bodySmall" style={[styles.helperText, { color: pTheme.colors.error }] }>
-                {configError}
+              <SegmentedButtons
+                value={filters.sortBy}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    sortBy: (value as SortValue) ?? prev.sortBy,
+                  }))
+                }
+                buttons={SORT_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  style: styles.segmentButton,
+                }))}
+              />
+              <Text variant="bodySmall" style={[styles.sortHint, { color: pTheme.colors.onSurfaceVariant }]}>
+                {sortHintText}
               </Text>
-            ) : null}
-          </View>
+            </View>
 
-          <View style={styles.sheetActions}>
-            <Button
-              mode="outlined"
-              icon="refresh"
-              onPress={resetFilters}
-              disabled={!hasAnyFilters}
-            >
-              重置筛选
-            </Button>
-            <Button mode="contained" onPress={() => setFiltersSheetVisible(false)}>
-              完成
-            </Button>
-          </View>
-        </ScrollView>
-      </BottomSheet>
-      ) : null}
+            <View style={styles.filterSection}>
+              <Text variant="labelLarge" style={styles.filterTitle}>
+                进阶筛选
+              </Text>
+              <View style={styles.advancedGroup}>
+                <Text variant="labelMedium" style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}>
+                  食堂 / 校区
+                </Text>
+                <View style={styles.chipsRow}>
+                  <Chip
+                    selected={!filters.canteenName}
+                    onPress={() => setFilters((prev) => ({ ...prev, canteenName: undefined }))}
+                    mode={!filters.canteenName ? 'flat' : 'outlined'}
+                  >
+                    全部食堂
+                  </Chip>
+                  {config.canteens.map((item) => (
+                    <Chip
+                      key={item.id}
+                      selected={filters.canteenName === item.name}
+                      onPress={() => setFilters((prev) => ({ ...prev, canteenName: item.name }))}
+                      mode={filters.canteenName === item.name ? 'flat' : 'outlined'}
+                    >
+                      {item.campus ? `${item.name}（${item.campus}）` : item.name}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.advancedGroup}>
+                <Text variant="labelMedium" style={[styles.subSectionTitle, { color: pTheme.colors.onSurfaceVariant }]}>
+                  内容分区
+                </Text>
+                <View style={styles.subFilterRow}>
+                  {[
+                    { label: '全部分区', value: 'all' as const },
+                    { label: '美食', value: 'food' as const },
+                    { label: '食谱', value: 'recipe' as const },
+                  ].map((option) => (
+                    <Chip
+                      key={option.value}
+                      selected={filters.category === option.value}
+                      onPress={() => setFilters((prev) => ({ ...prev, category: option.value }))}
+                      mode={filters.category === option.value ? 'flat' : 'outlined'}
+                    >
+                      {option.label}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+
+              {configLoading && (
+                <Text variant="bodySmall" style={[styles.helperText, { color: pTheme.colors.onSurfaceVariant }]}>
+                  正在加载配置数据…
+                </Text>
+              )}
+              {configError && (
+                <Text variant="bodySmall" style={[styles.helperText, { color: pTheme.colors.error }]}>
+                  {configError}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.sheetActions}>
+              <Button mode="outlined" icon="refresh" onPress={resetFilters} disabled={!hasAnyFilters}>
+                重置筛选
+              </Button>
+              <Button mode="contained" onPress={() => setFiltersSheetVisible(false)}>
+                完成
+              </Button>
+            </View>
+          </ScrollView>
+        </BottomSheet>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 48,
+  container: {
+    flex: 1,
   },
-  loadingText: {},
-  errorWrapper: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 32,
-  },
-  errorText: {},
-  emptyWrapper: {
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 32,
-  },
-  emptyText: {},
-  typeBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  typeBarScroll: {
-    flexDirection: 'row',
-  },
-  typeBarChip: {
-    marginRight: 0,
-  },
-  typeBarFilterButton: {
-    margin: 0,
-  },
-  filterToggleRow: {
+
+  // ==================== 顶部导航 ====================
+  headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ==================== 滚动区 ====================
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 4,
     gap: 12,
   },
+
+  // ==================== 状态展示 ====================
+  loadingWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  errorWrapper: {
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 64,
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#EF4444',
+    textAlign: 'center',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#FFF7ED',
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F97316',
+  },
+  emptyWrapper: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+
+  // ==================== 筛选标签 ====================
   activeFiltersRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 4,
+  },
+  // 筛选面板
+  sheetContent: {
+    paddingBottom: 24,
+    gap: 16,
+  },
+  sheetHeader: {
+    gap: 4,
   },
   filterSection: {
     gap: 12,
@@ -606,13 +621,6 @@ const styles = StyleSheet.create({
   },
   sortHint: {},
   helperText: {},
-  sheetContent: {
-    paddingBottom: 24,
-    gap: 16,
-  },
-  sheetHeader: {
-    gap: 4,
-  },
   sheetActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -46,6 +46,26 @@ export const HOMETOWN_OPTIONS: SelectOption[] = [
     { label: '海外', value: 'Overseas' },
 ];
 
+// 食堂位置选项
+export const CANTEEN_OPTIONS: SelectOption[] = [
+    { label: '不选择', value: '' },
+    { label: '旦苑食堂', value: '旦苑食堂' },
+    { label: '北区食堂', value: '北区食堂' },
+    { label: '南区食堂', value: '南区食堂' },
+    { label: '南苑食堂', value: '南苑食堂' },
+    { label: '教工餐厅', value: '教工餐厅' },
+    { label: '南区民族餐厅', value: '南区民族餐厅' },
+    { label: '江湾食堂', value: '江湾食堂' },
+    { label: '江湾光华餐厅', value: '江湾光华餐厅' },
+    { label: '江湾北食堂', value: '江湾北食堂' },
+    { label: '江湾民族餐厅', value: '江湾民族餐厅' },
+    { label: '江湾餐车', value: '江湾餐车' },
+    { label: '枫林食堂', value: '枫林食堂' },
+    { label: '枫林民族餐厅', value: '枫林民族餐厅' },
+    { label: '护理学院餐厅', value: '护理学院餐厅' },
+    { label: '张江食堂', value: '张江食堂' },
+];
+
 export function findOptionLabel(options: SelectOption[], value?: string | null): string | undefined {
   if (!value) return undefined;
   const found = options.find((o) => o.value === value);

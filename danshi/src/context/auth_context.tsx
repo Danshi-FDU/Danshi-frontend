@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import type { User } from '@/src/models/User';
 import { AuthStorage } from '@/src/lib/auth/auth_storage';
 import { authService } from '@/src/services/auth_service';
@@ -9,9 +9,11 @@ export type AuthContextValue = {
   user: User | null; // full info（from /auth/me）
   preview: Pick<User, 'name' | 'avatar_url'> | null; // from JWT payload 
   isLoading: boolean;
+  sessionExpired: boolean; // 会话过期标记
   signIn: (token: string) => Promise<void>; 
   signOut: () => Promise<void>;
   refreshUser: (tokenOverride?: string) => Promise<void>; // refresh /me
+  clearSessionExpired: () => void; // 清除过期标记
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -21,6 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [preview, setPreview] = useState<Pick<User, 'name' | 'avatar_url'> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // from token get name and avtarUrl
   const computePreview = (token: string | null): Pick<User, 'name' | 'avatar_url'> | null => {
@@ -43,10 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const me = await authService.me();
           setUser(me);
-        } catch {
+        } catch (err) {
+          // Token 可能已过期，清除本地状态并标记会话过期
           await AuthStorage.clearToken();
+          await AuthStorage.clearRefreshToken();
           setUserToken(null);
           setPreview(null);
+          setUser(null);
+          // 只有当之前有 token 时才标记为会话过期（区分首次登录和会话过期）
+          setSessionExpired(true);
         }
       }
     } finally {
@@ -66,11 +74,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const me = await authService.me();
       setUser(me);
     } catch {
+      // Token 过期，清除状态并标记
       await AuthStorage.clearToken();
+      await AuthStorage.clearRefreshToken();
       setUserToken(null);
       setPreview(null);
+      setUser(null);
+      setSessionExpired(true);
     }
   };
+
+  const clearSessionExpired = useCallback(() => {
+    setSessionExpired(false);
+  }, []);
 
   const signIn = async (token: string) => {
     setIsLoading(true);
@@ -103,10 +119,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     preview,
     isLoading,
+    sessionExpired,
     signIn,
     signOut,
     refreshUser,
-  }), [userToken, user, preview, isLoading]);
+    clearSessionExpired,
+  }), [userToken, user, preview, isLoading, sessionExpired, clearSessionExpired]);
 
   return (
     <AuthContext.Provider value={value}>

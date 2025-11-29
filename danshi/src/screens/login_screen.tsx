@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/theme_context';
 import { useAuth } from '@/src/context/auth_context';
 import { router } from 'expo-router';
-import { Button, Card, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Text, TextInput, Banner } from 'react-native-paper';
 import { authService } from '@/src/services/auth_service';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
@@ -18,6 +18,18 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSessionBanner, setShowSessionBanner] = useState(false);
+
+  const { signIn, sessionExpired, clearSessionExpired } = useAuth();
+
+  // 监听会话过期状态
+  useEffect(() => {
+    if (sessionExpired) {
+      setShowSessionBanner(true);
+      // 清除 context 中的标记，避免重复显示
+      clearSessionExpired();
+    }
+  }, [sessionExpired, clearSessionExpired]);
 
   const validate = () => {
     if (!identifier) return '请输入邮箱或用户名';
@@ -26,8 +38,6 @@ export default function LoginScreen() {
     if (!password) return '请输入密码';
     return '';
   };
-
-  const { signIn } = useAuth();
 
   const onSubmit = async () => {
     setError('');
@@ -64,6 +74,22 @@ export default function LoginScreen() {
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
       <StatusBar style="auto" />
+      {/* 会话过期提示 Banner */}
+      <Banner
+        visible={showSessionBanner}
+        actions={[
+          {
+            label: '知道了',
+            onPress: () => setShowSessionBanner(false),
+          },
+        ]}
+        icon="clock-outline"
+        style={[styles.sessionBanner, { backgroundColor: colors.tertiaryContainer }]}
+      >
+        <Text style={{ color: colors.onTertiaryContainer }}>
+          登录已过期，请重新登录
+        </Text>
+      </Banner>
       <View style={styles.centerWrap}> 
         <View style={{ width: '100%', maxWidth }}>
           <Card
@@ -148,6 +174,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     backgroundColor: 'transparent',
+  },
+  sessionBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   centerWrap: {
     flex: 1,

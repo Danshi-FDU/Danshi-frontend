@@ -1,0 +1,536 @@
+import React, { useCallback, useState, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  Platform,
+  Pressable,
+  Image,
+  TextInput as RNTextInput,
+} from 'react-native';
+import { Text, IconButton, useTheme as usePaperTheme, ActivityIndicator } from 'react-native-paper';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { uploadService, type UploadSource } from '@/src/services/upload_service';
+import * as ImagePicker from 'expo-image-picker';
+
+interface ImageDropZoneProps {
+  images: string[];
+  onImagesChange: (images: string[]) => void;
+  maxImages?: number;
+  /** 是否允许拖拽上传 (仅 Web) */
+  enableDragDrop?: boolean;
+}
+
+/**
+ * 图片上传组件
+ * - Web 端：由于 CORS 限制，暂不支持拖拽上传，仅支持粘贴图片链接
+ * - 原生端：支持上传到 FDUHole 图片托管（需校园网）
+ * - 支持粘贴图片链接
+ */
+export default function ImageDropZone({
+  images,
+  onImagesChange,
+  maxImages = 9,
+  enableDragDrop = true,
+}: ImageDropZoneProps) {
+  const theme = usePaperTheme();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isWeb = Platform.OS === 'web';
+  
+  // Web 端由于 CORS 限制，暂不支持图片上传
+  const canUpload = !isWeb;
+
+  // 检查图片 URL 是否有效
+  const isValidImageUrl = useCallback((url: string) => {
+    return /^https?:\/\//i.test(url.trim());
+  }, []);
+
+  // 获取有效的图片列表
+  const validImages = images.filter((url) => url && isValidImageUrl(url));
+
+  // 处理图片链接变更
+  const handleChangeImage = useCallback(
+    (index: number, value: string) => {
+      const newImages = images.map((item, idx) => (idx === index ? value : item));
+      onImagesChange(newImages);
+    },
+    [images, onImagesChange]
+  );
+
+  // 添加图片链接输入框
+  const handleAddImageField = useCallback(() => {
+    if (images.length < maxImages) {
+      onImagesChange([...images, '']);
+    }
+  }, [images, maxImages, onImagesChange]);
+
+  // 删除图片
+  const handleRemoveImage = useCallback(
+    (index: number) => {
+      const newImages = images.length === 1 ? [''] : images.filter((_, idx) => idx !== index);
+      onImagesChange(newImages);
+    },
+    [images, onImagesChange]
+  );
+
+  // 添加已上传的图片 URL
+  const addUploadedImages = useCallback(
+    (urls: string[]) => {
+      // 移除空的输入框，添加新的 URL
+      const existingValidImages = images.filter((url) => url && isValidImageUrl(url));
+      const newImages = [...existingValidImages, ...urls].slice(0, maxImages);
+      // 如果还有空间，保留一个空输入框
+      if (newImages.length < maxImages) {
+        newImages.push('');
+      }
+      onImagesChange(newImages);
+    },
+    [images, maxImages, onImagesChange, isValidImageUrl]
+  );
+
+  // 上传文件 (Web 端)
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+
+      const availableSlots = maxImages - validImages.length;
+      if (availableSlots <= 0) {
+        setUploadError(`最多只能上传 ${maxImages} 张图片`);
+        return;
+      }
+
+      const filesToUpload = files.slice(0, availableSlots);
+      setUploadError(null);
+      setUploadingCount(filesToUpload.length);
+
+      try {
+        const sources: UploadSource[] = filesToUpload.map((file) => file as Blob);
+        const results = await uploadService.uploadImages(sources);
+        const urls = results.map((r) => r.url);
+        addUploadedImages(urls);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '上传失败，请稍后重试';
+        setUploadError(message);
+      } finally {
+        setUploadingCount(0);
+      }
+    },
+    [maxImages, validImages.length, addUploadedImages]
+  );
+
+  // 原生端：从图库选择图片
+  const pickImageFromLibrary = useCallback(async () => {
+    if (isWeb) return;
+
+    const availableSlots = maxImages - validImages.length;
+    if (availableSlots <= 0) {
+      setUploadError(`最多只能上传 ${maxImages} 张图片`);
+      return;
+    }
+
+    try {
+      // 请求权限
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setUploadError('需要相册权限才能选择图片');
+        return;
+      }
+
+      // 打开图库
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: availableSlots,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      setUploadError(null);
+      setUploadingCount(result.assets.length);
+
+      // 上传选中的图片
+      const sources: UploadSource[] = result.assets.map((asset: ImagePicker.ImagePickerAsset) => ({
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: asset.fileName || `image_${Date.now()}.jpg`,
+      }));
+
+      const uploadResults = await uploadService.uploadImages(sources);
+      const urls = uploadResults.map((r) => r.url);
+      addUploadedImages(urls);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '上传失败，请稍后重试';
+      setUploadError(message);
+    } finally {
+      setUploadingCount(0);
+    }
+  }, [isWeb, maxImages, validImages.length, addUploadedImages]);
+
+  // Web 端拖拽处理
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      const files = Array.from(e.dataTransfer.files).filter((file) =>
+        file.type.startsWith('image/')
+      );
+
+      if (files.length > 0) {
+        uploadFiles(files);
+      }
+    },
+    [uploadFiles]
+  );
+
+  // Web 端文件选择
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []).filter((file) =>
+        file.type.startsWith('image/')
+      );
+      if (files.length > 0) {
+        uploadFiles(files);
+      }
+      // 清空 input 以便重复选择相同文件
+      e.target.value = '';
+    },
+    [uploadFiles]
+  );
+
+  // 点击上传区域
+  const handleClickUpload = useCallback(() => {
+    if (isWeb && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, [isWeb]);
+
+  // 粘贴处理 (支持粘贴图片)
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const items = Array.from(e.clipboardData.items);
+      const imageItems = items.filter((item) => item.type.startsWith('image/'));
+
+      if (imageItems.length > 0) {
+        e.preventDefault();
+        const files: File[] = [];
+        for (const item of imageItems) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+        if (files.length > 0) {
+          uploadFiles(files);
+        }
+      }
+    },
+    [uploadFiles]
+  );
+
+  // Web 端渲染 - 由于 CORS 限制，仅支持粘贴图片链接
+  if (isWeb) {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>
+          图片 ({validImages.length}/{maxImages})
+        </Text>
+
+        {/* 错误提示 */}
+        {uploadError && (
+          <View style={[styles.errorBanner, { backgroundColor: theme.colors.errorContainer }]}>
+            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>{uploadError}</Text>
+            <IconButton
+              icon="close"
+              size={14}
+              iconColor={theme.colors.error}
+              onPress={() => setUploadError(null)}
+              style={styles.errorDismiss}
+            />
+          </View>
+        )}
+
+        {/* 图片网格 */}
+        <View style={styles.imageGrid}>
+          {/* 已有图片 */}
+          {images.map((url, idx) => (
+            <View
+              key={`img-${idx}`}
+              style={[
+                styles.imageGridItem,
+                { borderColor: theme.colors.outlineVariant },
+              ]}
+            >
+              {url && isValidImageUrl(url) ? (
+                <>
+                  <Image
+                    source={{ uri: url }}
+                    style={styles.imagePreview}
+                    resizeMode="cover"
+                  />
+                  <IconButton
+                    icon="close-circle"
+                    size={20}
+                    iconColor={theme.colors.error}
+                    style={styles.imageRemoveBtn}
+                    onPress={() => handleRemoveImage(idx)}
+                  />
+                </>
+              ) : (
+                <RNTextInput
+                  value={url}
+                  onChangeText={(value) => handleChangeImage(idx, value)}
+                  placeholder="粘贴链接"
+                  placeholderTextColor={theme.colors.outline}
+                  style={[styles.imageLinkInput, { color: theme.colors.onSurface }]}
+                />
+              )}
+            </View>
+          ))}
+
+          {/* 添加按钮 */}
+          {images.length < maxImages && (
+            <Pressable
+              style={[
+                styles.imageGridItem,
+                styles.addImageItem,
+                { borderColor: theme.colors.outlineVariant },
+              ]}
+              onPress={handleAddImageField}
+            >
+              <Ionicons name="add" size={28} color={theme.colors.outline} />
+              <Text style={[styles.addImageText, { color: theme.colors.outline }]}>
+                添加链接
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* 提示文字 */}
+        <Text style={[styles.hintText, { color: theme.colors.outline }]}>
+          Web 端请直接粘贴图片链接。图片上传功能请使用 App。
+        </Text>
+      </View>
+    );
+  }
+
+  // 非 Web 端或禁用拖拽时的渲染 (原有逻辑)
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>
+        图片 ({validImages.length}/{maxImages})
+      </Text>
+
+      {/* 错误提示 */}
+      {uploadError && (
+        <View style={[styles.errorBanner, { backgroundColor: theme.colors.errorContainer }]}>
+          <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>{uploadError}</Text>
+          <IconButton
+            icon="close"
+            size={14}
+            iconColor={theme.colors.error}
+            onPress={() => setUploadError(null)}
+            style={styles.errorDismiss}
+          />
+        </View>
+      )}
+
+      <View style={styles.imageGrid}>
+        {images.map((url, idx) => (
+          <View
+            key={`img-${idx}`}
+            style={[
+              styles.imageGridItem,
+              { borderColor: theme.colors.outlineVariant },
+            ]}
+          >
+            {url && isValidImageUrl(url) ? (
+              <>
+                <Image
+                  source={{ uri: url }}
+                  style={styles.imagePreview}
+                  resizeMode="cover"
+                />
+                <IconButton
+                  icon="close-circle"
+                  size={20}
+                  iconColor={theme.colors.error}
+                  style={styles.imageRemoveBtn}
+                  onPress={() => handleRemoveImage(idx)}
+                />
+              </>
+            ) : (
+              <RNTextInput
+                value={url}
+                onChangeText={(value) => handleChangeImage(idx, value)}
+                placeholder="粘贴链接"
+                placeholderTextColor={theme.colors.outline}
+                style={[styles.imageLinkInput, { color: theme.colors.onSurface }]}
+              />
+            )}
+          </View>
+        ))}
+
+        {/* 上传中指示器 */}
+        {uploadingCount > 0 && (
+          <View
+            style={[
+              styles.imageGridItem,
+              styles.uploadingItem,
+              { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryContainer },
+            ]}
+          >
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text style={[styles.uploadingText, { color: theme.colors.primary }]}>
+              上传中...
+            </Text>
+          </View>
+        )}
+
+        {/* 从图库选择按钮 */}
+        {images.length < maxImages && uploadingCount === 0 && (
+          <Pressable
+            style={[
+              styles.imageGridItem,
+              styles.uploadImageItem,
+              { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryContainer },
+            ]}
+            onPress={pickImageFromLibrary}
+          >
+            <Ionicons name="images-outline" size={24} color={theme.colors.primary} />
+            <Text style={[styles.uploadImageText, { color: theme.colors.primary }]}>
+              从图库选择
+            </Text>
+          </Pressable>
+        )}
+
+        {/* 添加链接按钮 */}
+        {images.length < maxImages && uploadingCount === 0 && (
+          <Pressable
+            style={[
+              styles.imageGridItem,
+              styles.addImageItem,
+              { borderColor: theme.colors.outlineVariant },
+            ]}
+            onPress={handleAddImageField}
+          >
+            <Ionicons name="link-outline" size={24} color={theme.colors.outline} />
+            <Text style={[styles.addImageText, { color: theme.colors.outline }]}>
+              粘贴链接
+            </Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* 提示文字 */}
+      <Text style={[styles.hintText, { color: theme.colors.outline }]}>
+        点击"从图库选择"上传本地图片，或粘贴图片链接
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+  },
+  errorDismiss: {
+    margin: 0,
+    width: 24,
+    height: 24,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  imageGridItem: {
+    width: '31%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imageRemoveBtn: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    margin: 0,
+  },
+  imageLinkInput: {
+    fontSize: 11,
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    width: '100%',
+    paddingHorizontal: 4,
+  },
+  addImageItem: {
+    borderStyle: 'dashed',
+  },
+  addImageText: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  uploadImageItem: {
+    borderStyle: 'solid',
+  },
+  uploadImageText: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  uploadingItem: {
+    borderStyle: 'solid',
+  },
+  uploadingText: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+});

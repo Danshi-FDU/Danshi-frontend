@@ -25,28 +25,36 @@ const formatCount = (value?: number) => {
 };
 
 // 将 UserPostListItem 转换为 Post 类型以便使用 PostCard
-const convertToPost = (item: UserPostListItem): Post => ({
-  id: item.id,
-  title: item.title,
-  content: '',
-  post_type: 'share',
-  share_type: 'recommend',
-  category: (item.category as 'food' | 'recipe') || 'food',
-  images: item.cover_image ? [item.cover_image] : [],
-  tags: [],
-  canteen: '',
-  author: undefined,
-  created_at: item.created_at || new Date().toISOString(),
-  updated_at: item.created_at || new Date().toISOString(),
-  stats: {
-    like_count: item.like_count || 0,
-    view_count: item.view_count || 0,
-    comment_count: item.comment_count || 0,
-    favorite_count: 0,
-  },
-  is_liked: false,
-  is_favorited: false,
-});
+const convertToPost = (item: UserPostListItem): Post => {
+  // 支持两种图片格式：images 数组或 cover_image 单图
+  const images = item.images?.length
+    ? item.images
+    : item.cover_image
+    ? [item.cover_image]
+    : [];
+  return {
+    id: item.id,
+    title: item.title,
+    content: '',
+    post_type: 'share',
+    share_type: 'recommend',
+    category: (item.category as 'food' | 'recipe') || 'food',
+    images,
+    tags: [],
+    canteen: '',
+    author: undefined,
+    created_at: item.created_at || new Date().toISOString(),
+    updated_at: item.created_at || new Date().toISOString(),
+    stats: {
+      like_count: item.like_count || 0,
+      view_count: item.view_count || 0,
+      comment_count: item.comment_count || 0,
+      favorite_count: 0,
+    },
+    is_liked: false,
+    is_favorited: false,
+  };
+};
 
 export const MyPostsScreen: React.FC = () => {
   const { user } = useAuth();
@@ -63,10 +71,10 @@ export const MyPostsScreen: React.FC = () => {
 
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
-  const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 8, lg: 12, xl: 16 });
-  const verticalGap = gap + 6;
-  const horizontalPadding = gap;
-  const verticalPadding = gap;
+  // 与探索界面保持一致的响应式间距
+  const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
+  const verticalGap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
+  const horizontalPadding = pickByBreakpoint(bp, { base: 4, sm: 6, md: 12, lg: 16, xl: 20 });
 
   const loadPosts = useCallback(
     async (isRefresh = false) => {
@@ -79,10 +87,20 @@ export const MyPostsScreen: React.FC = () => {
       setError(null);
       try {
         const data = await usersService.getUserPosts(user.id);
-        setPosts(data.posts);
-      } catch (err) {
-        const message = err instanceof AppError ? err.message : '读取数据失败，请稍后重试';
-        setError(message);
+        // 过滤掉不支持的帖子类型（如 companion）
+        const supportedPosts = data.posts.filter((item: any) => 
+          !item.post_type || item.post_type === 'share' || item.post_type === 'seeking'
+        );
+        setPosts(supportedPosts);
+      } catch (err: any) {
+        // 忽略 companion 类型相关的验证错误
+        if (err?.message?.includes('companion') || err?.message?.includes('PostType')) {
+          console.warn('后端返回了不支持的帖子类型，已忽略');
+          setPosts([]);
+        } else {
+          const message = err instanceof AppError ? err.message : '读取数据失败，请稍后重试';
+          setError(message);
+        }
       } finally {
         if (isRefresh) {
           setRefreshing(false);
@@ -224,11 +242,13 @@ export const MyPostsScreen: React.FC = () => {
         </View>
       ) : posts.length === 0 ? (
         <ScrollView
-          contentContainerStyle={styles.emptyContainer}
+          contentContainerStyle={[styles.emptyContainer, { paddingBottom: insets.bottom + 16 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
             />
           }
         >
@@ -238,16 +258,20 @@ export const MyPostsScreen: React.FC = () => {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingVertical: verticalPadding }}
+          contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingTop: 12, paddingBottom: insets.bottom + 16 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
             />
           }
+          showsVerticalScrollIndicator={false}
         >
           <Masonry<UserPostListItem>
             data={content}
+            columns={{ base: 2, md: 2, lg: 3, xl: 4 }}
             getItemHeight={estimateHeight}
             renderItem={renderPostCard}
             keyExtractor={(item) => item.id}

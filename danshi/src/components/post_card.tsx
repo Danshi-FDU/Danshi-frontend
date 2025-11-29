@@ -1,90 +1,166 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
-import { Card, Chip, Text, useTheme as usePaperTheme, IconButton, Menu } from 'react-native-paper';
+import React, { useState, useMemo } from 'react';
+import { StyleSheet, View, StyleProp, ViewStyle, Image, Pressable } from 'react-native';
+import { Text, useTheme as usePaperTheme, IconButton, Menu } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
 import { UserAvatar } from '@/src/components/user_avatar';
-
-const TYPE_LABEL: Record<Post['post_type'], string> = {
-  share: '分享',
-  seeking: '求助',
-};
 
 const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   recommend: '推荐',
   warning: '避雷',
 };
 
+// 品牌色
+const BRAND_ORANGE = '#F97316';
+
 type PostCardProps = {
   post: Post;
   onPress?: (postId: string) => void;
   style?: StyleProp<ViewStyle>;
   footer?: React.ReactNode;
-  appearance?: 'flat' | 'elevated';
+  appearance?: 'flat' | 'elevated' | 'outlined';
   showActions?: boolean;
   onEdit?: (postId: string) => void;
   onDelete?: (postId: string) => void;
 };
 
-export const PostCard: React.FC<PostCardProps> = ({ 
-  post, 
-  onPress, 
-  style, 
-  footer, 
+export const PostCard: React.FC<PostCardProps> = ({
+  post,
+  onPress,
+  style,
+  footer,
   appearance = 'flat',
   showActions = false,
   onEdit,
-  onDelete
+  onDelete,
 }) => {
   const theme = usePaperTheme();
   const [menuVisible, setMenuVisible] = useState(false);
   const firstImage = post.images?.[0];
-  const priceLabel =
-    post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
-      ? `￥${post.price.toFixed(2)}`
-      : null;
 
-  const chipItems: { key: string; label: string; mode: 'flat' | 'outlined' }[] = [
-    { key: 'type', label: TYPE_LABEL[post.post_type] ?? TYPE_LABEL.share, mode: 'outlined' },
-  ];
+  // 使用伪随机比例保持瀑布流参差不齐效果
+  const fixedAspectRatio = useMemo(() => {
+    const seed = post.id
+      ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      : 0;
+    const ratioVariants = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5];
+    return ratioVariants[seed % ratioVariants.length];
+  }, [post.id]);
 
-  if (post.post_type === 'share' && post.share_type) {
-    chipItems.push({ key: 'share', label: SHARE_LABEL[post.share_type], mode: 'outlined' });
-  }
+  // 价格显示逻辑
+  const priceLabel = useMemo(() => {
+    if (post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number') {
+      return `¥${post.price.toFixed(0)}`;
+    }
+    return null;
+  }, [post]);
 
-  chipItems.push({ key: 'category', label: post.category === 'recipe' ? '食谱' : '美食', mode: 'outlined' });
+  // 构建悬浮标签
+  const overlayTags = useMemo(() => {
+    const tags: { key: string; label: string; variant: 'location' | 'recommend' | 'warning' | 'default' }[] = [];
 
-  if (post.canteen) {
-    chipItems.push({ key: 'canteen', label: post.canteen, mode: 'outlined' });
-  }
+    // 位置标签
+    if (post.canteen) {
+      tags.push({ key: 'location', label: post.canteen, variant: 'location' });
+    }
+
+    // 类型标签
+    if (post.post_type === 'share' && post.share_type) {
+      tags.push({
+        key: 'shareType',
+        label: SHARE_LABEL[post.share_type],
+        variant: post.share_type,
+      });
+    }
+
+    return tags;
+  }, [post]);
 
   const handlePress = () => {
     if (onPress) onPress(post.id);
   };
 
+  // 获取标签样式
+  const getTagStyle = (variant: 'location' | 'recommend' | 'warning' | 'default') => {
+    switch (variant) {
+      case 'recommend':
+        return styles.tagRecommend;
+      case 'warning':
+        return styles.tagWarning;
+      case 'location':
+      default:
+        return styles.tagDefault;
+    }
+  };
+
+  const getTagTextStyle = (variant: 'location' | 'recommend' | 'warning' | 'default') => {
+    switch (variant) {
+      case 'recommend':
+        return styles.tagTextRecommend;
+      case 'warning':
+        return styles.tagTextWarning;
+      default:
+        return styles.tagTextDefault;
+    }
+  };
+
   return (
-    <Card
-      mode={appearance === 'flat' ? 'contained' : 'elevated'}
+    <Pressable
       onPress={handlePress}
-      style={[
+      style={({ pressed }) => [
         styles.card,
-        appearance === 'flat' ? [styles.flatCard, { backgroundColor: theme.colors.surface }] : null,
+        { backgroundColor: theme.colors.surface },
+        pressed && { opacity: 0.95, transform: [{ scale: 0.98 }] },
         style,
       ]}
       accessibilityLabel={`查看帖子 ${post.title}`}
       accessibilityRole={onPress ? 'button' : undefined}
     >
-      {firstImage ? <Card.Cover source={{ uri: firstImage }} style={styles.cardCover} /> : null}
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.tagRow}>
-          {chipItems.map((chip) => (
-            <Chip key={chip.key} compact mode={chip.mode} style={styles.tagChip} textStyle={styles.tagChipText}>
-              {chip.label}
-            </Chip>
-          ))}
-        </View>
+      {/* 封面图片区域 */}
+      <View style={styles.imageWrapper}>
+        {firstImage ? (
+          <Image
+            source={{ uri: firstImage }}
+            style={[
+              styles.coverImage,
+              { aspectRatio: fixedAspectRatio },
+            ]}
+            resizeMode="cover"
+          />
+        ) : (
+          // 精致占位图
+          <View style={[styles.placeholderContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <View style={styles.placeholderContent}>
+              <View style={[styles.placeholderLogo, { backgroundColor: theme.colors.outlineVariant }]}>
+                <Ionicons name="restaurant" size={24} color={theme.colors.onSurfaceVariant} />
+              </View>
+              <Text style={[styles.placeholderText, { color: theme.colors.onSurfaceVariant }]}>旦食</Text>
+            </View>
+          </View>
+        )}
+
+        {/* 悬浮标签 - 左下角 */}
+        {overlayTags.length > 0 && (
+          <View style={styles.overlayTagsWrap}>
+            {overlayTags.map((tag) => (
+              <View key={tag.key} style={[styles.overlayTag, getTagStyle(tag.variant)]}>
+                {tag.variant === 'location' && (
+                  <Ionicons name="location" size={10} color="#fff" style={styles.tagIcon} />
+                )}
+                <Text style={[styles.overlayTagText, getTagTextStyle(tag.variant)]} numberOfLines={1}>
+                  {tag.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* 信息区域 */}
+      <View style={styles.infoArea}>
+        {/* 标题 - 最多2行 */}
         <View style={styles.titleRow}>
-          <Text variant="titleMedium" numberOfLines={2} style={[styles.cardTitle, showActions && styles.cardTitleWithActions]}>
+          <Text numberOfLines={2} style={[styles.title, { color: theme.colors.onSurface }]}>
             {post.title}
           </Text>
           {showActions && (
@@ -94,9 +170,9 @@ export const PostCard: React.FC<PostCardProps> = ({
               anchor={
                 <IconButton
                   icon="dots-vertical"
-                  size={20}
+                  size={16}
                   onPress={() => setMenuVisible(true)}
-                  style={styles.actionButton}
+                  style={styles.actionBtn}
                 />
               }
             >
@@ -120,142 +196,275 @@ export const PostCard: React.FC<PostCardProps> = ({
             </Menu>
           )}
         </View>
-        <View style={styles.authorRow}>
-          {post.author ? (
-            <UserAvatar
-              userId={post.author.id}
-              name={post.author.name}
-              avatar_url={post.author.avatar_url}
-              show_name
-              size={16}
-            />
-          ) : (
-            <Text
-              variant="bodySmall"
-              numberOfLines={1}
-              style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}
-            >
-              匿名用户
-            </Text>
+
+        {/* 话题标签 + 价格 */}
+        <View style={styles.tagsRow}>
+          {post.tags && post.tags.length > 0 && (
+            <View style={styles.topicTags}>
+              {post.tags.slice(0, 2).map((tag, idx) => (
+                <Text key={idx} style={[styles.topicTag, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                  #{tag}
+                </Text>
+              ))}
+            </View>
           )}
-          {priceLabel ? (
-            <Text variant="bodySmall" style={[styles.middleMeta, { color: theme.colors.primary }] }>
-              {priceLabel}
-            </Text>
-          ) : null}
-          <View style={styles.likesRow}>
+          {priceLabel && <Text style={styles.priceTag}>{priceLabel}</Text>}
+        </View>
+
+        {/* 底部栏：头像+昵称 | 爱心+点赞数 */}
+        <View style={styles.footerRow}>
+          <View style={styles.authorWrap}>
+            {post.author ? (
+              <>
+                <UserAvatar
+                  userId={post.author.id}
+                  name={post.author.name}
+                  avatar_url={post.author.avatar_url}
+                  size={18}
+                  disabled
+                />
+                <Text numberOfLines={1} style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}>
+                  {post.author.name}
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.authorName, { color: theme.colors.onSurfaceVariant }]}>匿名用户</Text>
+            )}
+          </View>
+
+          <View style={styles.likeWrap}>
             <Ionicons
               name={post.is_liked ? 'heart' : 'heart-outline'}
-              size={16}
-              color={post.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
+              size={14}
+              color={post.is_liked ? '#EF4444' : theme.colors.onSurfaceVariant}
             />
-            <Text variant="bodySmall" style={[styles.likeCount, { color: theme.colors.onSurfaceVariant }] }>
+            <Text style={[styles.likeCount, { color: theme.colors.onSurfaceVariant }, post.is_liked && styles.likeCountActive]}>
               {post.stats?.like_count ?? 0}
             </Text>
           </View>
         </View>
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </Card.Content>
-    </Card>
+
+        {footer ? <View style={styles.customFooter}>{footer}</View> : null}
+      </View>
+    </Pressable>
   );
 };
 
+/**
+ * 估算卡片高度（用于瀑布流布局）
+ * 使用伪随机比例产生参差不齐的效果
+ */
 export function estimatePostCardHeight(post: Post, minHeight: number, maxHeight: number): number {
-  const base = post.images?.length ? 260 : 190;
-  const titleExtra = Math.min(140, (post.title?.length ?? 0) * 2.2);
-  const chipCount =
-    1 +
-    (post.post_type === 'share' && post.share_type ? 1 : 0) +
-    (post.category ? 1 : 0) +
-    (post.canteen ? 1 : 0);
-  const chipExtra = chipCount * 14;
-  const middleExtra =
-    post.post_type === 'share' && post.share_type === 'recommend' && typeof post.price === 'number'
-      ? 26
-      : 14;
-  const idSeed = post.id
-    ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0) % 48
+  // 信息区高度（标题2行 + 标签 + 底部栏）
+  const infoHeight = 88;
+
+  // 卡片宽度估算（双列布局，屏幕宽度约360-400，减去间距）
+  const cardWidth = 165;
+  let imageHeight = 120; // 默认占位图高度
+
+  if (post.images?.length) {
+    // 根据帖子 ID 生成伪随机比例，产生参差不齐的瀑布流效果
+    const seed = post.id
+      ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      : 0;
+    // 更大的变化范围，让瀑布流更有层次感
+    const ratioVariants = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5];
+    const ratio = ratioVariants[seed % ratioVariants.length];
+    imageHeight = cardWidth / ratio;
+  }
+
+  const totalHeight = imageHeight + infoHeight;
+  return Math.max(minHeight, Math.min(maxHeight, totalHeight));
+}
+
+/**
+ * 根据帖子 ID 生成固定的伪随机宽高比
+ * 用于保持瀑布流参差不齐的效果
+ */
+export function getPostImageAspectRatio(postId: string): number {
+  const seed = postId
+    ? Array.from(postId).reduce((acc, char) => acc + char.charCodeAt(0), 0)
     : 0;
-  const raw = base + titleExtra + chipExtra + middleExtra + idSeed;
-  return Math.max(minHeight, Math.min(maxHeight, raw));
+  const ratioVariants = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5];
+  return ratioVariants[seed % ratioVariants.length];
 }
 
 const styles = StyleSheet.create({
+  // 卡片容器 - 无阴影扁平风格
   card: {
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     overflow: 'hidden',
   },
-  flatCard: {
-    elevation: 0,
-    shadowColor: 'transparent',
-    borderWidth: 0,
-    borderColor: 'transparent',
+
+  // ==================== 封面图区域 ====================
+  imageWrapper: {
+    position: 'relative',
+    width: '100%',
+    minHeight: 100,
   },
-  cardCover: {
-    height: 150,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+  coverImage: {
+    width: '100%',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
   },
-  cardContent: {
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+
+  // 精致占位图
+  placeholderContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#F3F4F6',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  placeholderContent: {
+    alignItems: 'center',
     gap: 6,
   },
-  tagChip: {
-    height: 26,
-    borderRadius: 13,
+  placeholderLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tagChipText: {
-    fontSize: 11,
-    lineHeight: 14,
+  placeholderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 2,
   },
+
+  // ==================== 悬浮标签 ====================
+  overlayTagsWrap: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    gap: 4,
+    maxWidth: '85%',
+  },
+  overlayTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  overlayTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tagIcon: {
+    marginRight: 2,
+  },
+
+  // 标签变体
+  tagDefault: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  tagRecommend: {
+    backgroundColor: 'rgba(16,185,129,0.85)',
+  },
+  tagWarning: {
+    backgroundColor: 'rgba(239,68,68,0.85)',
+  },
+  tagTextDefault: {
+    color: '#FFFFFF',
+  },
+  tagTextRecommend: {
+    color: '#FFFFFF',
+  },
+  tagTextWarning: {
+    color: '#FFFFFF',
+  },
+
+  // ==================== 信息区域 ====================
+  infoArea: {
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 6,
+  },
+
+  // 标题
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 2,
   },
-  cardTitle: {
-    fontWeight: '600',
+  title: {
     flex: 1,
-    lineHeight: 22,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    color: '#1F2937',
   },
-  cardTitleWithActions: {
-    paddingRight: 8,
-  },
-  actionButton: {
+  actionBtn: {
     margin: 0,
-    marginTop: -8,
-    marginRight: -8,
+    marginTop: -4,
+    marginRight: -6,
   },
-  authorRow: {
+
+  // 话题标签 + 价格
+  tagsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    minHeight: 16,
+  },
+  topicTags: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  topicTag: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#9CA3AF',
+  },
+  priceTag: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+
+  // ==================== 底部栏 ====================
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 4,
   },
-  authorName: {
-    flexShrink: 1,
-  },
-  middleMeta: {
-    fontWeight: '600',
-  },
-  likesRow: {
+  authorWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginLeft: 'auto',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  authorName: {
+    fontSize: 11,
+    color: '#6B7280',
+    flex: 1,
+  },
+  likeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   likeCount: {
+    fontSize: 11,
+    color: '#9CA3AF',
     fontVariant: ['tabular-nums'],
   },
-  footer: {
-    marginTop: 6,
-    gap: 6,
+  likeCountActive: {
+    color: '#EF4444',
+  },
+
+  customFooter: {
+    marginTop: 4,
   },
 });
