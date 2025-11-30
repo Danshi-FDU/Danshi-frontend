@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://your_backend",
+        "EXPO_PUBLIC_USE_MOCK": "false"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://your_backend",
+        "EXPO_PUBLIC_USE_MOCK": "false"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

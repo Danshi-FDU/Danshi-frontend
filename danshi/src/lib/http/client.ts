@@ -40,6 +40,10 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
 
+    // 打印当前使用的 baseUrl，帮助调试
+    // eslint-disable-next-line no-console
+    console.log('[HttpClient] Using baseUrl:', baseUrl);
+
     try {
       const token = await opts.getAuthToken?.();
       const headers: Record<string, string> = {
@@ -88,18 +92,17 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
       return (data as unknown) as T;
     } catch (e: any) {
       // eslint-disable-next-line no-console
-      console.error('[HttpClient] Request failed:', method, path, e);
+      console.error('[HttpClient] Request failed:', method, path, 'baseUrl:', baseUrl, 'error:', e?.message, e);
       const name = (e && typeof e === 'object') ? (e as any).name : undefined;
       if (name === 'AbortError') {
         throw new AppError('请求超时', { code: 'TIMEOUT', cause: e });
       }
 
-      // 浏览器在遇到 CORS 问题或网络失败时通常抛出 TypeError: Failed to fetch
-      // 无法从浏览器端读取响应头/状态，故此处将其包装为更具可操作性的错误信息
+      // 原生 App 中 TypeError 通常表示网络不可达
       if (typeof e === 'object' && e instanceof TypeError) {
         throw new AppError(
-          '网络错误或 CORS 限制：无法完成请求（请检查后端是否返回 Access-Control-Allow-Origin 或使用代理）。',
-          { code: 'CORS_OR_NETWORK', cause: e }
+          `网络错误：无法连接到服务器 (${baseUrl})。请检查网络连接或服务器地址。`,
+          { code: 'NETWORK_ERROR', cause: e }
         );
       }
 
