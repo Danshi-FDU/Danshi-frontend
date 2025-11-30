@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, View, StyleSheet, Pressable, Animated, Easing } from 'react-native';
+import { Modal, View, StyleSheet, Pressable, Animated, Easing, Platform, KeyboardAvoidingView } from 'react-native';
 import { useTheme } from '@/src/context/theme_context';
 
 export type BottomSheetProps = {
@@ -27,7 +27,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, chil
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <View style={[styles.container]}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
           <Animated.View style={[styles.backdrop, { backgroundColor: '#000', opacity: backdropOpacity }]} />
         </Pressable>
@@ -44,7 +47,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, chil
           <View style={styles.handle} />
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

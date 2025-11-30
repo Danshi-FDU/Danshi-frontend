@@ -24,7 +24,6 @@ import { uploadService } from '@/src/services/upload_service';
 import { HOMETOWN_OPTIONS, findOptionLabel } from '@/src/constants/selects';
 import type { UserProfile } from '@/src/repositories/users_repository';
 
-const BRAND_ORANGE = '#F97316';
 
 export default function SettingsScreen() {
   const { mode, setMode } = useTheme();
@@ -40,12 +39,13 @@ export default function SettingsScreen() {
 
   // 表单字段
   const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
   const [hometown, setHometown] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   // Sheet 状态
-  const [sheet, setSheet] = useState<null | 'theme' | 'edit-name'>(null);
+  const [sheet, setSheet] = useState<null | 'theme' | 'edit-name' | 'edit-bio'>(null);
   const [hometownPickerOpen, setHometownPickerOpen] = useState(false);
   const [editValue, setEditValue] = useState('');
 
@@ -59,10 +59,11 @@ export default function SettingsScreen() {
     if (!profile) return false;
     return (
       name !== (profile.name ?? '') ||
+      bio !== (profile.bio ?? '') ||
       hometown !== (profile.hometown ?? '') ||
       avatarUrl !== (profile.avatar_url ?? null)
     );
-  }, [profile, name, hometown, avatarUrl]);
+  }, [profile, name, bio, hometown, avatarUrl]);
 
   const hometownLabel = useMemo(() => {
     return findOptionLabel(HOMETOWN_OPTIONS, hometown) || hometown || '未设置';
@@ -76,6 +77,7 @@ export default function SettingsScreen() {
       const fetchedProfile = await usersService.getUser(user.id);
       setProfile(fetchedProfile);
       setName(fetchedProfile.name ?? '');
+      setBio(fetchedProfile.bio ?? '');
       setHometown(fetchedProfile.hometown ?? '');
       setAvatarUrl(fetchedProfile.avatar_url ?? null);
     } catch (error) {
@@ -102,38 +104,96 @@ export default function SettingsScreen() {
     try {
       const input: Parameters<typeof usersService.updateUser>[1] = {
         name: name.trim() || undefined,
+        bio: bio.trim() || undefined,
         hometown: hometown.trim() || undefined,
-        avatar_url: avatarUrl,
+        avatar_url: avatarUrl ?? undefined,
       };
       console.log('[Settings] Saving profile with input:', JSON.stringify(input));
       console.log('[Settings] User ID:', user.id);
       await usersService.updateUser(user.id, input);
       // 更新 profile 状态，使 hasUnsavedChanges 变为 false
-      setProfile(prev => prev ? { ...prev, name: name.trim(), hometown: hometown.trim(), avatar_url: avatarUrl } : prev);
+      setProfile(prev => prev ? { ...prev, name: name.trim(), bio: bio.trim(), hometown: hometown.trim(), avatar_url: avatarUrl } : prev);
       refreshUser?.();
       // 显示成功提示，然后自动返回
-      Alert.alert('保存成功', '个人资料已更新', [
-        {
-          text: '确定',
-          onPress: () => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/myself');
-            }
+      const goBack = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/myself');
+        }
+      };
+      if (Platform.OS === 'web') {
+        // Web 端使用 window.alert
+        window.alert('保存成功：个人资料已更新');
+        goBack();
+      } else {
+        Alert.alert('保存成功', '个人资料已更新', [
+          {
+            text: '确定',
+            onPress: goBack,
           },
-        },
-      ]);
+        ]);
+      }
     } catch (error: any) {
       console.error('[Settings] Save failed:', error);
-      Alert.alert('保存失败', error?.message ?? '请稍后重试');
+      if (Platform.OS === 'web') {
+        window.alert('保存失败：' + (error?.message ?? '请稍后重试'));
+      } else {
+        Alert.alert('保存失败', error?.message ?? '请稍后重试');
+      }
     } finally {
       setSaving(false);
     }
-  }, [user?.id, name, hometown, avatarUrl, refreshUser]);
+  }, [user?.id, name, bio, hometown, avatarUrl, refreshUser]);
+
+  // Web 端文件上传处理
+  const handleWebFileUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      window.alert('请选择图片文件');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      window.alert('图片大小不能超过 5MB');
+      return;
+    }
+
+    // 创建本地预览
+    const localUrl = URL.createObjectURL(file);
+    setLocalAvatarUri(localUrl);
+    setUploadingAvatar(true);
+
+    try {
+      const uploadResult = await uploadService.uploadImage(file);
+      setAvatarUrl(uploadResult.url);
+      setLocalAvatarUri(null);
+      URL.revokeObjectURL(localUrl);
+    } catch (uploadError: any) {
+      window.alert('上传失败: ' + (uploadError?.message ?? '请检查网络连接'));
+      setLocalAvatarUri(null);
+      URL.revokeObjectURL(localUrl);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, []);
 
   // 选择头像
   const handlePickAvatar = useCallback(async () => {
+    // Web 端使用原生 file input
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          handleWebFileUpload(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // 移动端使用 expo-image-picker
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -171,19 +231,51 @@ export default function SettingsScreen() {
     } catch (error: any) {
       Alert.alert('选择失败', error?.message ?? '请稍后重试');
     }
+  }, [handleWebFileUpload]);
+
+  // Web 端拖拽上传状态
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Web 端拖拽处理
+  const handleDragOver = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
   }, []);
 
+  const handleDragLeave = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      handleWebFileUpload(file);
+    }
+  }, [handleWebFileUpload]);
+
   // 编辑字段
-  const handleOpenEdit = (field: 'name') => {
+  const handleOpenEdit = (field: 'name' | 'bio') => {
     if (field === 'name') {
       setEditValue(name);
       setSheet('edit-name');
+    } else if (field === 'bio') {
+      setEditValue(bio);
+      setSheet('edit-bio');
     }
   };
 
   const handleConfirmEdit = () => {
     if (sheet === 'edit-name') {
       setName(editValue);
+    } else if (sheet === 'edit-bio') {
+      setBio(editValue);
     }
     setSheet(null);
   };
@@ -219,17 +311,25 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('退出登录', '确定要退出当前账号吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '退出',
-        style: 'destructive',
-        onPress: () => {
-          signOut?.();
-          router.replace('/');
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('确定要退出当前账号吗？');
+      if (confirmed) {
+        signOut?.();
+        router.replace('/');
+      }
+    } else {
+      Alert.alert('退出登录', '确定要退出当前账号吗？', [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '退出',
+          style: 'destructive',
+          onPress: () => {
+            signOut?.();
+            router.replace('/');
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const displayAvatarUri = localAvatarUri || avatarUrl;
@@ -255,7 +355,7 @@ export default function SettingsScreen() {
           {/* 右侧：保存按钮 - 使用内联样式确保显示 */}
           <Pressable
             style={{
-              backgroundColor: '#F97316',
+              backgroundColor: pTheme.colors.primary,
               paddingHorizontal: 14,
               paddingVertical: 7,
               borderRadius: 16,
@@ -268,9 +368,9 @@ export default function SettingsScreen() {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size={14} color="#fff" />
+              <ActivityIndicator size={14} color={pTheme.colors.onPrimary} />
             ) : (
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>保存</Text>
+              <Text style={{ color: pTheme.colors.onPrimary, fontSize: 14, fontWeight: '600' }}>保存</Text>
             )}
           </Pressable>
         </View>
@@ -286,12 +386,25 @@ export default function SettingsScreen() {
         >
           {loading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={BRAND_ORANGE} />
+              <ActivityIndicator size="large" color={pTheme.colors.primary} />
             </View>
           ) : (
             <>
               {/* 头像编辑 */}
-              <View style={styles.avatarSection}>
+              <View 
+                style={[
+                  styles.avatarSection,
+                  Platform.OS === 'web' && isDragging && { 
+                    backgroundColor: pTheme.colors.primaryContainer,
+                    borderRadius: 16,
+                  }
+                ]}
+                {...(Platform.OS === 'web' ? {
+                  onDragOver: handleDragOver,
+                  onDragLeave: handleDragLeave,
+                  onDrop: handleDrop,
+                } : {})}
+              >
                 <Pressable style={styles.avatarContainer} onPress={handlePickAvatar} disabled={uploadingAvatar}>
                   {displayAvatarUri ? (
                     <Image source={{ uri: displayAvatarUri }} style={styles.avatar} />
@@ -302,16 +415,16 @@ export default function SettingsScreen() {
                   )}
                   {uploadingAvatar ? (
                     <View style={styles.avatarOverlay}>
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={pTheme.colors.onPrimary} />
                     </View>
                   ) : (
-                    <View style={styles.avatarBadge}>
-                      <Ionicons name="camera" size={16} color="#fff" />
+                    <View style={[styles.avatarBadge, { backgroundColor: pTheme.colors.primary, borderColor: pTheme.colors.surface }]}>
+                      <Ionicons name="camera" size={16} color={pTheme.colors.onPrimary} />
                     </View>
                   )}
                 </Pressable>
                 <Text style={[styles.avatarHint, { color: pTheme.colors.onSurfaceVariant }]}>
-                  点击更换头像
+                  {Platform.OS === 'web' ? '点击或拖拽图片更换头像' : '点击更换头像'}
                 </Text>
               </View>
 
@@ -324,6 +437,14 @@ export default function SettingsScreen() {
                   left={(props) => <List.Icon {...props} icon="account" />}
                   right={(props) => <List.Icon {...props} icon="chevron-right" />}
                   onPress={() => handleOpenEdit('name')}
+                />
+                <List.Item
+                  title="简介"
+                  description={bio || '未设置'}
+                  descriptionNumberOfLines={2}
+                  left={(props) => <List.Icon {...props} icon="text" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => handleOpenEdit('bio')}
                 />
                 <List.Item
                   title="家乡"
@@ -380,7 +501,7 @@ export default function SettingsScreen() {
             <Text style={{ color: pTheme.colors.onSurface }}>
               {m === 'system' ? '跟随系统' : m === 'light' ? '浅色模式' : '深色模式'}
             </Text>
-            {mode === m ? <Ionicons name="checkmark" size={18} color={BRAND_ORANGE} /> : null}
+            {mode === m ? <Ionicons name="checkmark" size={18} color={pTheme.colors.primary} /> : null}
           </Pressable>
         ))}
       </BottomSheet>
@@ -397,7 +518,30 @@ export default function SettingsScreen() {
           maxLength={20}
           autoFocus
         />
-        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={BRAND_ORANGE}>
+        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
+          确认
+        </Button>
+      </BottomSheet>
+
+      {/* 编辑简介 */}
+      <BottomSheet visible={sheet === 'edit-bio'} onClose={() => setSheet(null)} height={280}>
+        <Text style={styles.sheetTitle}>编辑简介</Text>
+        <TextInput
+          style={[styles.textInput, styles.bioInput, { backgroundColor: pTheme.colors.surfaceVariant, color: pTheme.colors.onSurface }]}
+          value={editValue}
+          onChangeText={setEditValue}
+          placeholder="介绍一下自己吧..."
+          placeholderTextColor={pTheme.colors.onSurfaceVariant}
+          maxLength={100}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          autoFocus
+        />
+        <Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>
+          {editValue.length}/100
+        </Text>
+        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
           确认
         </Button>
       </BottomSheet>
@@ -417,7 +561,7 @@ export default function SettingsScreen() {
         visible={snackbar.visible}
         onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
         duration={2000}
-        style={{ backgroundColor: snackbar.type === 'success' ? '#22c55e' : pTheme.colors.error }}
+        style={{ backgroundColor: snackbar.type === 'success' ? pTheme.colors.tertiary : pTheme.colors.error }}
       >
         {snackbar.message}
       </Snackbar>
@@ -444,7 +588,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   saveBtn: {
-    backgroundColor: '#F97316',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
@@ -456,7 +599,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveBtnText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -497,11 +639,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: BRAND_ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
   },
   avatarHint: {
     fontSize: 13,
@@ -527,6 +667,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 15,
+  },
+  bioInput: {
+    height: 100,
+    paddingTop: 12,
+    paddingBottom: 12,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: 4,
   },
   confirmBtn: {
     marginTop: 16,

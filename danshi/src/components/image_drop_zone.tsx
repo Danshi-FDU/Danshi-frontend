@@ -219,10 +219,22 @@ export default function ImageDropZone({
 
   // 点击上传区域
   const handleClickUpload = useCallback(() => {
-    if (isWeb && fileInputRef.current) {
-      fileInputRef.current.click();
+    if (isWeb) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.multiple = true;
+      input.onchange = (e) => {
+        const files = Array.from((e.target as HTMLInputElement).files || []).filter((file) =>
+          file.type.startsWith('image/')
+        );
+        if (files.length > 0) {
+          uploadFiles(files);
+        }
+      };
+      input.click();
     }
-  }, [isWeb]);
+  }, [isWeb, uploadFiles]);
 
   // 粘贴处理 (支持粘贴图片)
   const handlePaste = useCallback(
@@ -245,7 +257,7 @@ export default function ImageDropZone({
     [uploadFiles]
   );
 
-  // Web 端渲染 - 由于 CORS 限制，仅支持粘贴图片链接
+  // Web 端渲染 - 支持拖拽上传和文件选择
   if (isWeb) {
     return (
       <View style={styles.container}>
@@ -271,7 +283,7 @@ export default function ImageDropZone({
         {/* 图片网格 */}
         <View style={styles.imageGrid}>
           {/* 已有图片 */}
-          {images.map((url, idx) => (
+          {validImages.map((url, idx) => (
             <View
               key={`img-${idx}`}
               style={[
@@ -279,46 +291,61 @@ export default function ImageDropZone({
                 { borderColor: theme.colors.outlineVariant },
               ]}
             >
-              {url && isValidImageUrl(url) ? (
-                <>
-                  <Image
-                    source={{ uri: url }}
-                    style={styles.imagePreview}
-                    resizeMode="cover"
-                  />
-                  <IconButton
-                    icon="close-circle"
-                    size={20}
-                    iconColor={theme.colors.error}
-                    style={styles.imageRemoveBtn}
-                    onPress={() => handleRemoveImage(idx)}
-                  />
-                </>
-              ) : (
-                <RNTextInput
-                  value={url}
-                  onChangeText={(value) => handleChangeImage(idx, value)}
-                  placeholder="粘贴链接"
-                  placeholderTextColor={theme.colors.outline}
-                  style={[styles.imageLinkInput, { color: theme.colors.onSurface }]}
-                />
-              )}
+              <Image
+                source={{ uri: url }}
+                style={styles.imagePreview}
+                resizeMode="cover"
+              />
+              <IconButton
+                icon="close-circle"
+                size={20}
+                iconColor={theme.colors.error}
+                style={styles.imageRemoveBtn}
+                onPress={() => handleRemoveImage(idx)}
+              />
             </View>
           ))}
 
-          {/* 添加按钮 */}
-          {images.length < maxImages && (
+          {/* 上传中指示器 */}
+          {uploadingCount > 0 && (
+            <View
+              style={[
+                styles.imageGridItem,
+                styles.uploadingItem,
+                { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryContainer },
+              ]}
+            >
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.uploadingText, { color: theme.colors.primary }]}>
+                {uploadingCount} 张上传中
+              </Text>
+            </View>
+          )}
+
+          {/* 添加按钮 - 支持拖拽 */}
+          {validImages.length < maxImages && uploadingCount === 0 && (
             <Pressable
               style={[
                 styles.imageGridItem,
                 styles.addImageItem,
-                { borderColor: theme.colors.outlineVariant },
+                { 
+                  borderColor: theme.colors.primary,
+                  backgroundColor: isDragOver ? theme.colors.primaryContainer : 'transparent',
+                },
               ]}
-              onPress={handleAddImageField}
+              onPress={handleClickUpload}
+              // @ts-ignore - Web only props
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
-              <Ionicons name="add" size={28} color={theme.colors.outline} />
-              <Text style={[styles.addImageText, { color: theme.colors.outline }]}>
-                添加链接
+              <Ionicons 
+                name={isDragOver ? 'cloud-upload' : 'add'} 
+                size={28} 
+                color={theme.colors.primary} 
+              />
+              <Text style={[styles.addImageText, { color: theme.colors.primary }]}>
+                {isDragOver ? '松开上传' : '点击或拖拽'}
               </Text>
             </Pressable>
           )}
@@ -326,7 +353,7 @@ export default function ImageDropZone({
 
         {/* 提示文字 */}
         <Text style={[styles.hintText, { color: theme.colors.outline }]}>
-          Web 端请直接粘贴图片链接。图片上传功能请使用 App。
+          点击选择文件或拖拽图片上传
         </Text>
       </View>
     );

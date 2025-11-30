@@ -9,6 +9,7 @@ import {
 	Image,
 	TextInput as RNTextInput,
 	DimensionValue,
+	useWindowDimensions,
 } from 'react-native';
 import {
 	Button,
@@ -27,6 +28,8 @@ import { CANTEEN_OPTIONS } from '@/src/constants/selects';
 import CenterPicker from '@/src/components/overlays/center_picker';
 import ImageUploadGrid from '@/src/components/image_upload_grid';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useAuth } from '@/src/context/auth_context';
 import type {
 	Category,
 	CommonCreateBase,
@@ -54,12 +57,19 @@ export default function PostScreen({
 }: PostScreenProps = {}) {
 	const bp = useBreakpoint();
 	const router = useRouter();
+	const { width: windowWidth } = useWindowDimensions();
 	const maxWidth = pickByBreakpoint<DimensionValue>(bp, { base: '100%', sm: 540, md: 580, lg: 620, xl: 660 });
 	const horizontalPadding = pickByBreakpoint(bp, { base: 24, sm: 28, md: 32, lg: 36, xl: 40 });
 	const insets = useSafeAreaInsets();
 	const theme = usePaperTheme();
+	const tabBarHeight = useBottomTabBarHeight();
+	const bottomContentPadding = useMemo(() => tabBarHeight + 32, [tabBarHeight]);
+	const { user: currentUser } = useAuth();
 
-	// 预览模式状态
+	// 宽屏模式判断（宽度 >= 900px 时显示左右分栏）
+	const isWideScreen = windowWidth >= 1200;
+
+	// 预览模式状态（仅在窄屏时使用）
 	const [isPreviewMode, setIsPreviewMode] = useState(false);
 
 	// 表单状态
@@ -83,6 +93,11 @@ export default function PostScreen({
 	const [success, setSuccess] = useState('');
 	const [canteenPickerOpen, setCanteenPickerOpen] = useState(false);
 	const [showTagInput, setShowTagInput] = useState(false);
+
+	// 输入框聚焦状态
+	const [titleFocused, setTitleFocused] = useState(false);
+	const [contentFocused, setContentFocused] = useState(false);
+	const [focusedField, setFocusedField] = useState<string | null>(null);
 
 	// 编辑模式：从 initialData 初始化表单
 	React.useEffect(() => {
@@ -280,18 +295,21 @@ export default function PostScreen({
 	const renderPreviewMode = () => (
 		<ScrollView
 			style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
-			contentContainerStyle={[styles.scrollContent, { paddingHorizontal: horizontalPadding }]}
+			contentContainerStyle={[
+				styles.scrollContent,
+				{ paddingHorizontal: horizontalPadding, paddingBottom: bottomContentPadding },
+			]}
 			showsVerticalScrollIndicator={false}
 		>
 			<View style={[styles.contentWrapper, { maxWidth }]}>
 				{/* 预览：图片画廊 */}
 				{filtered_images.length > 0 && (
-					<View style={styles.previewImageGrid}>
+					<View style={styles.narrowPreviewImageGrid}>
 						{filtered_images.slice(0, 9).map((url, idx) => (
-							<View key={idx} style={styles.previewImageItem}>
+							<View key={idx} style={styles.narrowPreviewImageItem}>
 								<Image
 									source={{ uri: url }}
-									style={styles.previewImage}
+									style={styles.narrowPreviewImage}
 									resizeMode="cover"
 								/>
 							</View>
@@ -303,7 +321,7 @@ export default function PostScreen({
 				<Text
 					variant="headlineSmall"
 					style={[
-						styles.previewTitle,
+						styles.narrowPreviewTitle,
 						{ color: title ? theme.colors.onSurface : theme.colors.outline },
 					]}
 				>
@@ -311,11 +329,11 @@ export default function PostScreen({
 				</Text>
 
 				{/* 预览：元信息标签 */}
-				<View style={styles.previewMetaRow}>
+				<View style={styles.narrowPreviewMetaRow}>
 					{post_type === 'share' && (
 						<View
 							style={[
-								styles.previewBadge,
+								styles.narrowPreviewBadge,
 								{
 									backgroundColor:
 										share_type === 'recommend'
@@ -334,12 +352,12 @@ export default function PostScreen({
 									fontWeight: '600',
 								}}
 							>
-								{share_type === 'recommend' ? '👍 推荐' : '⚠️ 避雷'}
+								{share_type === 'recommend' ? '推荐' : '避雷'}
 							</Text>
 						</View>
 					)}
 					{canteen && (
-						<View style={styles.previewLocationBadge}>
+						<View style={styles.narrowPreviewLocationBadge}>
 							<Ionicons
 								name="location"
 								size={12}
@@ -361,7 +379,7 @@ export default function PostScreen({
 				{/* 预览：正文 */}
 				<Text
 					style={[
-						styles.previewContent,
+						styles.narrowPreviewContent,
 						{ color: content ? theme.colors.onSurface : theme.colors.outline },
 					]}
 				>
@@ -370,11 +388,11 @@ export default function PostScreen({
 
 				{/* 预览：话题标签 */}
 				{parsedTags.length > 0 && (
-					<View style={styles.previewTagsRow}>
+					<View style={styles.narrowPreviewTagsRow}>
 						{parsedTags.map((tag, idx) => (
 							<Text
 								key={idx}
-								style={[styles.previewTag, { color: theme.colors.primary }]}
+								style={[styles.narrowPreviewTag, { color: theme.colors.primary }]}
 							>
 								#{tag}
 							</Text>
@@ -389,7 +407,10 @@ export default function PostScreen({
 	const renderEditMode = () => (
 		<ScrollView
 			style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
-			contentContainerStyle={[styles.scrollContent, { paddingHorizontal: horizontalPadding }]}
+			contentContainerStyle={[
+				styles.scrollContent,
+				{ paddingHorizontal: horizontalPadding, paddingBottom: bottomContentPadding },
+			]}
 			keyboardShouldPersistTaps="handled"
 			showsVerticalScrollIndicator={false}
 		>
@@ -435,22 +456,29 @@ export default function PostScreen({
 
 				{/* ==================== 沉浸式输入区 ==================== */}
 
-				{/* 标题输入 - 大字体无边框 */}
+				{/* 标题输入 - 聚焦时显示边框 */}
 				<RNTextInput
 					value={title}
 					onChangeText={setTitle}
 					placeholder="填写标题"
 					placeholderTextColor={theme.colors.outline}
 					maxLength={80}
+					onFocus={() => setTitleFocused(true)}
+					onBlur={() => setTitleFocused(false)}
 					style={[
 						styles.titleInput,
 						{
 							color: theme.colors.onSurface,
+							borderColor: titleFocused ? theme.colors.primary : 'transparent',
+							borderWidth: titleFocused ? 2 : 0,
+							borderRadius: 8,
+							padding: titleFocused ? 12 : 0,
 						},
+						Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 					]}
 				/>
 
-				{/* 正文输入 - 无背景无边框 */}
+				{/* 正文输入 - 聚焦时显示边框 */}
 				<RNTextInput
 					value={content}
 					onChangeText={setContent}
@@ -458,7 +486,19 @@ export default function PostScreen({
 					placeholderTextColor={theme.colors.outline}
 					multiline
 					textAlignVertical="top"
-					style={[styles.contentInput, { color: theme.colors.onSurface }]}
+					onFocus={() => setContentFocused(true)}
+					onBlur={() => setContentFocused(false)}
+					style={[
+						styles.contentInput, 
+						{ 
+							color: theme.colors.onSurface,
+							borderColor: contentFocused ? theme.colors.primary : 'transparent',
+							borderWidth: contentFocused ? 2 : 0,
+							borderRadius: 8,
+							padding: contentFocused ? 12 : 0,
+						},
+						Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+					]}
 				/>
 				<Text style={[styles.charCount, { color: theme.colors.outline }]}>
 					{content_count} 字
@@ -470,11 +510,8 @@ export default function PostScreen({
 					<Pressable
 						style={[
 							styles.toolbarBtn,
-							canteen && {
-								backgroundColor: theme.colors.primaryContainer,
-								borderColor: theme.colors.primary,
-							},
-							!canteen && { borderColor: theme.colors.outlineVariant },
+							{ borderColor: canteen ? theme.colors.primary : theme.colors.outlineVariant },
+							canteen && { backgroundColor: theme.colors.primaryContainer },
 						]}
 						onPress={() => setCanteenPickerOpen(true)}
 					>
@@ -517,11 +554,8 @@ export default function PostScreen({
 					<Pressable
 						style={[
 							styles.toolbarBtn,
-							parsedTags.length > 0 && {
-								backgroundColor: theme.colors.primaryContainer,
-								borderColor: theme.colors.primary,
-							},
-							parsedTags.length === 0 && { borderColor: theme.colors.outlineVariant },
+							{ borderColor: parsedTags.length > 0 ? theme.colors.primary : theme.colors.outlineVariant },
+							parsedTags.length > 0 && { backgroundColor: theme.colors.primaryContainer },
 						]}
 						onPress={() => setShowTagInput(true)}
 					>
@@ -555,7 +589,10 @@ export default function PostScreen({
 					<View
 						style={[
 							styles.tagInputSection,
-							{ backgroundColor: theme.colors.surfaceVariant },
+							{ 
+								backgroundColor: theme.colors.surfaceVariant,
+								borderColor: theme.colors.primary,
+							},
 						]}
 					>
 						<RNTextInput
@@ -563,7 +600,11 @@ export default function PostScreen({
 							onChangeText={setTagsInput}
 							placeholder="输入话题，用逗号分隔"
 							placeholderTextColor={theme.colors.outline}
-							style={[styles.tagTextInput, { color: theme.colors.onSurface }]}
+							style={[
+								styles.tagTextInput, 
+								{ color: theme.colors.onSurface },
+								Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+							]}
 							autoFocus
 						/>
 						<Pressable
@@ -626,18 +667,22 @@ export default function PostScreen({
 									onChangeText={setCuisine}
 									placeholder="如：川菜、粤菜"
 									placeholderTextColor={theme.colors.outline}
+									onFocus={() => setFocusedField('cuisine')}
+									onBlur={() => setFocusedField(null)}
 									style={[
 										styles.extraInput,
 										{
 											color: theme.colors.onSurface,
-											borderBottomColor: theme.colors.outlineVariant,
+											borderBottomColor: focusedField === 'cuisine' ? theme.colors.primary : theme.colors.outlineVariant,
+											borderBottomWidth: focusedField === 'cuisine' ? 2 : 1,
 										},
+										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 									]}
 								/>
 							</View>
 							<View style={styles.extraItem}>
 								<Text style={[styles.extraLabel, { color: theme.colors.outline }]}>
-									人均价格
+									价格
 								</Text>
 								<View style={styles.priceInputRow}>
 									<Text style={{ color: theme.colors.outline }}>¥</Text>
@@ -647,13 +692,17 @@ export default function PostScreen({
 										placeholder="0"
 										placeholderTextColor={theme.colors.outline}
 										keyboardType="decimal-pad"
+										onFocus={() => setFocusedField('price')}
+										onBlur={() => setFocusedField(null)}
 										style={[
 											styles.extraInput,
 											styles.priceInput,
 											{
 												color: theme.colors.onSurface,
-												borderBottomColor: theme.colors.outlineVariant,
+												borderBottomColor: focusedField === 'price' ? theme.colors.primary : theme.colors.outlineVariant,
+												borderBottomWidth: focusedField === 'price' ? 2 : 1,
 											},
+											Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 										]}
 									/>
 								</View>
@@ -670,12 +719,16 @@ export default function PostScreen({
 								onChangeText={setFlavorsInput}
 								placeholder="如：麻辣、酸甜、清淡（逗号分隔）"
 								placeholderTextColor={theme.colors.outline}
+								onFocus={() => setFocusedField('flavors')}
+								onBlur={() => setFocusedField(null)}
 								style={[
 									styles.extraInput,
 									{
 										color: theme.colors.onSurface,
-										borderBottomColor: theme.colors.outlineVariant,
+										borderBottomColor: focusedField === 'flavors' ? theme.colors.primary : theme.colors.outlineVariant,
+										borderBottomWidth: focusedField === 'flavors' ? 2 : 1,
 									},
+									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 								]}
 							/>
 						</View>
@@ -724,12 +777,16 @@ export default function PostScreen({
 									placeholder="最低"
 									placeholderTextColor={theme.colors.outline}
 									keyboardType="numeric"
+									onFocus={() => setFocusedField('budgetMin')}
+									onBlur={() => setFocusedField(null)}
 									style={[
 										styles.budgetInput,
 										{
 											color: theme.colors.onSurface,
-											borderBottomColor: theme.colors.outlineVariant,
+											borderBottomColor: focusedField === 'budgetMin' ? theme.colors.primary : theme.colors.outlineVariant,
+											borderBottomWidth: focusedField === 'budgetMin' ? 2 : 1,
 										},
+										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 									]}
 								/>
 							</View>
@@ -742,12 +799,16 @@ export default function PostScreen({
 									placeholder="最高"
 									placeholderTextColor={theme.colors.outline}
 									keyboardType="numeric"
+									onFocus={() => setFocusedField('budgetMax')}
+									onBlur={() => setFocusedField(null)}
 									style={[
 										styles.budgetInput,
 										{
 											color: theme.colors.onSurface,
-											borderBottomColor: theme.colors.outlineVariant,
+											borderBottomColor: focusedField === 'budgetMax' ? theme.colors.primary : theme.colors.outlineVariant,
+											borderBottomWidth: focusedField === 'budgetMax' ? 2 : 1,
 										},
+										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 									]}
 								/>
 							</View>
@@ -756,19 +817,23 @@ export default function PostScreen({
 						{/* 口味偏好 */}
 						<View style={[styles.flavorSection, { marginTop: 20 }]}>
 							<Text style={[styles.extraLabel, { color: theme.colors.tertiary }]}>
-								❤️ 喜欢的口味
+								喜欢的口味
 							</Text>
 							<RNTextInput
 								value={preferFlavors}
 								onChangeText={setPreferFlavors}
 								placeholder="如：麻辣、酸甜（逗号分隔）"
 								placeholderTextColor={theme.colors.outline}
+								onFocus={() => setFocusedField('preferFlavors')}
+								onBlur={() => setFocusedField(null)}
 								style={[
 									styles.extraInput,
 									{
 										color: theme.colors.onSurface,
-										borderBottomColor: theme.colors.outlineVariant,
+										borderBottomColor: focusedField === 'preferFlavors' ? theme.colors.tertiary : theme.colors.outlineVariant,
+										borderBottomWidth: focusedField === 'preferFlavors' ? 2 : 1,
 									},
+									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 								]}
 							/>
 						</View>
@@ -792,19 +857,23 @@ export default function PostScreen({
 
 						<View style={[styles.flavorSection, { marginTop: 16 }]}>
 							<Text style={[styles.extraLabel, { color: theme.colors.error }]}>
-								🚫 不喜欢的口味
+								不喜欢的口味
 							</Text>
 							<RNTextInput
 								value={avoid_flavors}
 								onChangeText={setAvoidFlavors}
 								placeholder="如：油炸、过甜（逗号分隔）"
 								placeholderTextColor={theme.colors.outline}
+								onFocus={() => setFocusedField('avoidFlavors')}
+								onBlur={() => setFocusedField(null)}
 								style={[
 									styles.extraInput,
 									{
 										color: theme.colors.onSurface,
-										borderBottomColor: theme.colors.outlineVariant,
+										borderBottomColor: focusedField === 'avoidFlavors' ? theme.colors.error : theme.colors.outlineVariant,
+										borderBottomWidth: focusedField === 'avoidFlavors' ? 2 : 1,
 									},
+									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
 								]}
 							/>
 						</View>
@@ -828,11 +897,265 @@ export default function PostScreen({
 					</View>
 				)}
 
-				{/* 底部占位 - 为Tab栏留空间 */}
-				<View style={{ height: 80 }} />
 			</View>
 		</ScrollView>
 	);
+
+	// ==================== 宽屏预览面板（与帖子详情页一致）====================
+	const renderPreviewPanel = () => {
+		// 格式化日期
+		const formatDate = () => {
+			const now = new Date();
+			return `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		};
+
+		// 获取渐变颜色（与详情页一致）
+		const gradientColors = post_type === 'seeking' 
+			? { primary: '#667EEA', secondary: '#764BA2', accent: '#A78BFA' }  // 求助：蓝紫色
+			: share_type === 'warning' 
+				? { primary: '#F093FB', secondary: '#F5576C', accent: '#FDA4AF' }  // 避雷：粉红色
+				: { primary: '#F97316', secondary: '#F59E0B', accent: '#FDBA74' };  // 推荐：橙黄色
+
+		const hasImages = filtered_images.length > 0;
+
+		return (
+			<View style={styles.previewPanelContainer}>
+				<ScrollView
+					style={styles.previewPanelScroll}
+					contentContainerStyle={styles.previewPanelScrollContent}
+					showsVerticalScrollIndicator={false}
+				>
+					{/* 图片区域 / Fallback Cover */}
+					{hasImages ? (
+						<View style={styles.previewImageSection}>
+							<Image
+								source={{ uri: filtered_images[0] }}
+								style={styles.previewHeroImage}
+								resizeMode="cover"
+							/>
+							{filtered_images.length > 1 && (
+								<View style={styles.previewImageIndicator}>
+									<Text style={styles.previewImageIndicatorText}>
+										1/{filtered_images.length}
+									</Text>
+								</View>
+							)}
+						</View>
+					) : (
+						<View style={[styles.previewFallbackCover, { backgroundColor: gradientColors.primary }]}>
+							<View style={[styles.previewFallbackMesh1, { backgroundColor: gradientColors.secondary }]} />
+							<View style={[styles.previewFallbackMesh2, { backgroundColor: gradientColors.accent }]} />
+							<View style={styles.previewFallbackDecorations}>
+								<View style={[styles.previewFallbackCircle1, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+								<View style={[styles.previewFallbackCircle2, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+							</View>
+							<View style={styles.previewFallbackContent}>
+								<View style={styles.previewFallbackIconContainer}>
+									<Ionicons
+										name={post_type === 'seeking' ? 'help-circle' : share_type === 'warning' ? 'alert-circle' : 'heart'}
+										size={48}
+										color="rgba(255,255,255,0.85)"
+									/>
+								</View>
+								<View style={styles.previewFallbackTypeBadge}>
+									<Text style={styles.previewFallbackTypeBadgeText}>
+										{post_type === 'share' ? (share_type === 'recommend' ? '推荐' : '避雷') : '求助'}
+									</Text>
+								</View>
+							</View>
+						</View>
+					)}
+
+					{/* 作者栏 */}
+					<View style={[styles.previewAuthorBar, { backgroundColor: theme.colors.surface }]}>
+						<View style={styles.previewAuthorInfo}>
+							{currentUser?.avatar_url ? (
+								<Image source={{ uri: currentUser.avatar_url }} style={styles.previewAuthorAvatar} />
+							) : (
+								<View style={[styles.previewAuthorAvatarPlaceholder, { backgroundColor: theme.colors.primaryContainer }]}>
+									<Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: '600' }}>
+										{currentUser?.name?.[0] || '我'}
+									</Text>
+								</View>
+							)}
+							<View style={styles.previewAuthorTextWrap}>
+								<Text style={[styles.previewAuthorName, { color: theme.colors.onSurface }]} numberOfLines={1}>
+									{currentUser?.name || '我'}
+								</Text>
+								<Text style={[styles.previewAuthorMeta, { color: theme.colors.onSurfaceVariant }]}>
+									{formatDate()}
+								</Text>
+							</View>
+						</View>
+						<View style={[styles.previewFollowBtn, { backgroundColor: theme.colors.primary }]}>
+							<Text style={[styles.previewFollowBtnText, { color: theme.colors.onPrimary }]}>+ 关注</Text>
+						</View>
+					</View>
+
+					{/* 内容区域 */}
+					<View style={[styles.previewContentSection, { backgroundColor: theme.colors.surface }]}>
+						{/* 标题 */}
+						<Text style={[styles.previewTitle, { color: title ? theme.colors.onSurface : theme.colors.outline }]}>
+							{title || '标题预览'}
+						</Text>
+
+						{/* 正文 */}
+						<Text style={[styles.previewContentText, { color: content ? theme.colors.onSurface : theme.colors.outline }]}>
+							{content || '正文内容将在这里显示...'}
+						</Text>
+
+						{/* 结构化信息卡片 - 分享类型 */}
+						{post_type === 'share' && (cuisine || price || parsedFlavors.length > 0) && (
+							<View style={[styles.previewInfoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+								<View style={styles.previewInfoCardRow}>
+									{cuisine && (
+										<View style={styles.previewInfoCardItem}>
+											<Ionicons name="restaurant-outline" size={16} color={theme.colors.primary} />
+											<Text style={[styles.previewInfoCardLabel, { color: theme.colors.onSurfaceVariant }]}>菜系</Text>
+											<Text style={[styles.previewInfoCardValue, { color: theme.colors.onSurface }]}>{cuisine}</Text>
+										</View>
+									)}
+									{price && (
+										<View style={styles.previewInfoCardItem}>
+											<Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
+											<Text style={[styles.previewInfoCardLabel, { color: theme.colors.onSurfaceVariant }]}>人均</Text>
+											<Text style={[styles.previewInfoCardValue, { color: theme.colors.onSurface }]}>¥{price}</Text>
+										</View>
+									)}
+								</View>
+								{parsedFlavors.length > 0 && (
+									<View style={styles.previewInfoCardFlavors}>
+										{parsedFlavors.map((flavor, idx) => (
+											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onSecondaryContainer }]}>{flavor}</Text>
+											</View>
+										))}
+									</View>
+								)}
+							</View>
+						)}
+
+						{/* 结构化信息卡片 - 求助类型 */}
+						{post_type === 'seeking' && (budgetMin || budgetMax || parsed_prefer_flavors.length > 0 || parsed_avoid_flavors.length > 0) && (
+							<View style={[styles.previewInfoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+								{(budgetMin || budgetMax) && (
+									<View style={styles.previewInfoCardRow}>
+										<View style={styles.previewInfoCardItem}>
+											<Ionicons name="wallet-outline" size={16} color={theme.colors.primary} />
+											<Text style={[styles.previewInfoCardLabel, { color: theme.colors.onSurfaceVariant }]}>预算</Text>
+											<Text style={[styles.previewInfoCardValue, { color: theme.colors.onSurface }]}>
+												¥{budgetMin || '0'}-{budgetMax || '∞'}
+											</Text>
+										</View>
+									</View>
+								)}
+								{parsed_prefer_flavors.length > 0 && (
+									<View style={styles.previewInfoCardFlavors}>
+										<Text style={[styles.previewPreferenceLabel, { color: theme.colors.tertiary }]}>喜欢：</Text>
+										{parsed_prefer_flavors.map((f, idx) => (
+											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
+												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onTertiaryContainer }]}>{f}</Text>
+											</View>
+										))}
+									</View>
+								)}
+								{parsed_avoid_flavors.length > 0 && (
+									<View style={styles.previewInfoCardFlavors}>
+										<Text style={[styles.previewPreferenceLabel, { color: theme.colors.error }]}>忌口：</Text>
+										{parsed_avoid_flavors.map((f, idx) => (
+											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.errorContainer }]}>
+												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onErrorContainer }]}>{f}</Text>
+											</View>
+										))}
+									</View>
+								)}
+							</View>
+						)}
+
+						{/* 标签栏 */}
+						<View style={styles.previewTagsRow}>
+							{canteen && (
+								<View style={[styles.previewTagBadge, styles.previewLocationBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
+									<Ionicons name="location" size={12} color={theme.colors.onSurfaceVariant} />
+									<Text style={[styles.previewTagBadgeText, { color: theme.colors.onSurfaceVariant }]}>{canteen}</Text>
+								</View>
+							)}
+							{post_type === 'share' && (
+								<View style={[
+									styles.previewTagBadge,
+									share_type === 'warning' ? styles.previewWarningBadge : styles.previewRecommendBadge
+								]}>
+									<Text style={[
+										styles.previewTagBadgeText,
+										share_type === 'warning' ? styles.previewWarningText : styles.previewRecommendText
+									]}>
+										{share_type === 'recommend' ? '推荐' : '避雷'}
+									</Text>
+								</View>
+							)}
+							{post_type === 'seeking' && (
+								<View style={[styles.previewTagBadge, styles.previewSeekingBadge]}>
+									<Text style={[styles.previewTagBadgeText, styles.previewSeekingText]}>求助</Text>
+								</View>
+							)}
+							{parsedTags.map((tag, idx) => (
+								<Text key={idx} style={[styles.previewTopicTag, { color: theme.colors.primary }]}>
+									#{tag}
+								</Text>
+							))}
+						</View>
+
+						{/* 浏览量和时间 */}
+						<View style={styles.previewMetaRow}>
+							<Text style={[styles.previewMetaText, { color: theme.colors.outline }]}>0 浏览</Text>
+							<Text style={[styles.previewMetaText, { color: theme.colors.outline }]}>发布于 {formatDate()}</Text>
+						</View>
+					</View>
+
+					{/* 更多图片 */}
+					{filtered_images.length > 1 && (
+						<View style={[styles.previewMoreImagesSection, { backgroundColor: theme.colors.surface }]}>
+							<Text style={[styles.previewMoreImagesTitle, { color: theme.colors.onSurfaceVariant }]}>
+								全部图片 ({filtered_images.length})
+							</Text>
+							<View style={styles.previewImagesGrid}>
+								{filtered_images.map((url, idx) => (
+									<Image
+										key={idx}
+										source={{ uri: url }}
+										style={styles.previewGridImageItem}
+										resizeMode="cover"
+									/>
+								))}
+							</View>
+						</View>
+					)}
+				</ScrollView>
+
+				{/* 底部操作栏预览 */}
+				<View style={[styles.previewBottomBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant }]}>
+					<View style={[styles.previewCommentInput, { backgroundColor: theme.colors.surfaceVariant }]}>
+						<Ionicons name="chatbubble-outline" size={16} color={theme.colors.outline} />
+						<Text style={[styles.previewCommentInputText, { color: theme.colors.outline }]}>说点什么...</Text>
+					</View>
+					<View style={styles.previewBottomActions}>
+						<View style={styles.previewActionBtn}>
+							<Ionicons name="heart-outline" size={20} color={theme.colors.onSurfaceVariant} />
+							<Text style={[styles.previewActionCount, { color: theme.colors.onSurfaceVariant }]}>0</Text>
+						</View>
+						<View style={styles.previewActionBtn}>
+							<Ionicons name="bookmark-outline" size={20} color={theme.colors.onSurfaceVariant} />
+							<Text style={[styles.previewActionCount, { color: theme.colors.onSurfaceVariant }]}>0</Text>
+						</View>
+						<View style={styles.previewActionBtn}>
+							<Ionicons name="chatbubble-outline" size={20} color={theme.colors.onSurfaceVariant} />
+							<Text style={[styles.previewActionCount, { color: theme.colors.onSurfaceVariant }]}>0</Text>
+						</View>
+					</View>
+				</View>
+			</View>
+		);
+	};
 
 	return (
 		<KeyboardAvoidingView
@@ -850,22 +1173,27 @@ export default function PostScreen({
 						},
 					]}
 				>
+					{/* 第一行：预览/编辑 + 分段控制器 + 发布 */}
 					<View style={styles.topBarContent}>
-						{/* 左侧：预览/编辑 */}
-						<Pressable style={styles.topBarLeft} onPress={togglePreviewMode}>
-							<Text
-								style={[
-									styles.previewBtnText,
-									{
-										color: isPreviewMode
-											? theme.colors.primary
-											: theme.colors.onSurfaceVariant,
-									},
-								]}
-							>
-								{isPreviewMode ? '编辑' : '预览'}
-							</Text>
-						</Pressable>
+						{/* 左侧：预览/编辑（仅窄屏显示）*/}
+						{!isWideScreen ? (
+							<Pressable style={styles.topBarLeft} onPress={togglePreviewMode}>
+								<Text
+									style={[
+										styles.previewBtnText,
+										{
+											color: isPreviewMode
+												? theme.colors.primary
+												: theme.colors.onSurfaceVariant,
+										},
+									]}
+								>
+									{isPreviewMode ? '编辑' : '预览'}
+								</Text>
+							</Pressable>
+						) : (
+							<View style={styles.topBarLeft} />
+						)}
 
 						{/* 中间：分段控制器 */}
 						<View
@@ -928,30 +1256,31 @@ export default function PostScreen({
 						<Pressable
 							style={[
 								styles.publishBtn,
+								{ backgroundColor: theme.colors.primary },
 								loading && styles.publishBtnDisabled,
 							]}
 							onPress={onSubmit}
 							disabled={loading}
 						>
 							{loading ? (
-								<ActivityIndicator size={14} color="#fff" />
+								<ActivityIndicator size={14} color={theme.colors.onPrimary} />
 							) : (
-								<Text style={styles.publishBtnText}>
+								<Text style={[styles.publishBtnText, { color: theme.colors.onPrimary }]}>
 									{editMode ? '保存' : '发布'}
 								</Text>
 							)}
 						</Pressable>
 					</View>
 
-					{/* 分享类型：推荐 / 避雷 */}
-					{post_type === 'share' && !isPreviewMode && (
+					{/* 第二行：推荐/避雷子选项 */}
+					{post_type === 'share' && (isWideScreen || !isPreviewMode) && (
 						<View style={styles.subTypeRow}>
 							<Pressable
 								style={[
 									styles.subTypeBtn,
 									share_type === 'recommend' && {
-										backgroundColor: theme.colors.tertiaryContainer,
-										borderColor: theme.colors.tertiary,
+										backgroundColor: '#D1FAE5',
+										borderColor: '#059669',
 									},
 									share_type !== 'recommend' && {
 										borderColor: theme.colors.outlineVariant,
@@ -961,23 +1290,20 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color:
-											share_type === 'recommend'
-												? theme.colors.tertiary
-												: theme.colors.onSurfaceVariant,
+										color: share_type === 'recommend' ? '#059669' : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'recommend' ? '600' : '400',
 									}}
 								>
-									👍 推荐
+									推荐
 								</Text>
 							</Pressable>
 							<Pressable
 								style={[
 									styles.subTypeBtn,
 									share_type === 'warning' && {
-										backgroundColor: theme.colors.errorContainer,
-										borderColor: theme.colors.error,
+										backgroundColor: '#FEE2E2',
+										borderColor: '#DC2626',
 									},
 									share_type !== 'warning' && {
 										borderColor: theme.colors.outlineVariant,
@@ -987,15 +1313,12 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color:
-											share_type === 'warning'
-												? theme.colors.error
-												: theme.colors.onSurfaceVariant,
+										color: share_type === 'warning' ? '#DC2626' : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'warning' ? '600' : '400',
 									}}
 								>
-									⚠️ 避雷
+									避雷
 								</Text>
 							</Pressable>
 						</View>
@@ -1003,7 +1326,20 @@ export default function PostScreen({
 				</View>
 
 				{/* ==================== 内容区域 ==================== */}
-				{isPreviewMode ? renderPreviewMode() : renderEditMode()}
+				{isWideScreen ? (
+					// 宽屏：左右分栏布局
+					<View style={styles.wideScreenContainer}>
+						<View style={styles.wideScreenLeft}>
+							{renderEditMode()}
+						</View>
+						<View style={styles.wideScreenRight}>
+							{renderPreviewPanel()}
+						</View>
+					</View>
+				) : (
+					// 窄屏：切换模式
+					isPreviewMode ? renderPreviewMode() : renderEditMode()
+				)}
 			</View>
 
 			{/* 位置选择器 */}
@@ -1032,13 +1368,13 @@ const styles = StyleSheet.create({
 	// ==================== Top Bar ====================
 	topBar: {
 		paddingHorizontal: 16,
-		paddingBottom: 8,
+		paddingBottom: 12,
 	},
 	topBarContent: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		height: 48,
+		minHeight: 48,
 	},
 	topBarLeft: {
 		minWidth: 52,
@@ -1049,24 +1385,33 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		borderRadius: 20,
 		padding: 3,
-		position: 'absolute',
-		left: '50%',
-		transform: [{ translateX: '-50%' }],
 	},
 	segmentBtn: {
-		paddingHorizontal: 16,
-		paddingVertical: 6,
+		paddingHorizontal: 20,
+		paddingVertical: 8,
 		borderRadius: 17,
 	},
 	segmentText: {
 		fontSize: 14,
+	},
+	subTypeRow: {
+		flexDirection: 'row',
+		justifyContent: 'center',
+		gap: 12,
+		marginTop: 10,
+	},
+	subTypeBtn: {
+		paddingHorizontal: 20,
+		paddingVertical: 8,
+		borderRadius: 16,
+		borderWidth: 1,
+		borderColor: 'transparent',
 	},
 	previewBtnText: {
 		fontSize: 14,
 		fontWeight: '500',
 	},
 	publishBtn: {
-		backgroundColor: '#F97316',
 		paddingHorizontal: 14,
 		paddingVertical: 7,
 		borderRadius: 16,
@@ -1078,21 +1423,8 @@ const styles = StyleSheet.create({
 		opacity: 0.6,
 	},
 	publishBtnText: {
-		color: '#fff',
 		fontSize: 14,
 		fontWeight: '600',
-	},
-	subTypeRow: {
-		flexDirection: 'row',
-		gap: 10,
-		paddingTop: 8,
-		paddingLeft: 40,
-	},
-	subTypeBtn: {
-		paddingHorizontal: 14,
-		paddingVertical: 6,
-		borderRadius: 16,
-		borderWidth: 1,
 	},
 
 	// ==================== Scroll Content ====================
@@ -1101,7 +1433,6 @@ const styles = StyleSheet.create({
 	},
 	scrollContent: {
 		paddingTop: 16,
-		paddingBottom: 40,
 		alignItems: 'center',
 	},
 	contentWrapper: {
@@ -1160,6 +1491,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 8,
 		borderRadius: 20,
 		borderWidth: 1,
+		borderColor: 'transparent',
 	},
 	toolbarBtnText: {
 		fontSize: 13,
@@ -1174,7 +1506,8 @@ const styles = StyleSheet.create({
 		padding: 12,
 		borderRadius: 12,
 		marginBottom: 12,
-	},
+		borderWidth: 2,
+	},	
 	tagTextInput: {
 		flex: 1,
 		fontSize: 14,
@@ -1266,57 +1599,419 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 0,
 		backgroundColor: 'transparent',
 		borderBottomWidth: 1,
+		borderBottomColor: 'transparent',
 	},
 
 
-	// ==================== Preview Mode ====================
-	previewImageGrid: {
+	// ==================== Preview Mode (窄屏切换预览) ====================
+	narrowPreviewImageGrid: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 8,
 		marginBottom: 20,
 	},
-	previewImageItem: {
+	narrowPreviewImageItem: {
 		width: '31%',
 		aspectRatio: 1,
 		borderRadius: 12,
 		overflow: 'hidden',
 	},
-	previewImage: {
+	narrowPreviewImage: {
 		width: '100%',
 		height: '100%',
 	},
-	previewTitle: {
+	narrowPreviewTitle: {
 		fontWeight: '700',
 		marginBottom: 12,
 	},
-	previewMetaRow: {
+	narrowPreviewMetaRow: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 8,
 		marginBottom: 16,
 	},
-	previewBadge: {
+	narrowPreviewBadge: {
 		paddingHorizontal: 10,
 		paddingVertical: 4,
 		borderRadius: 12,
 	},
-	previewLocationBadge: {
+	narrowPreviewLocationBadge: {
 		flexDirection: 'row',
 		alignItems: 'center',
 	},
-	previewContent: {
+	narrowPreviewContent: {
 		fontSize: 16,
 		lineHeight: 26,
 		marginBottom: 16,
 	},
-	previewTagsRow: {
+	narrowPreviewTagsRow: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 8,
 	},
-	previewTag: {
+	narrowPreviewTag: {
 		fontSize: 14,
 		fontWeight: '500',
+	},
+
+	// ==================== Wide Screen Layout ====================
+	wideScreenContainer: {
+		flex: 1,
+		flexDirection: 'row',
+	},
+	wideScreenLeft: {
+		flex: 1,
+		minWidth: 400,
+	},
+	wideScreenRight: {
+		flex: 1,
+		borderLeftWidth: 1,
+		borderLeftColor: 'rgba(0,0,0,0.08)',
+	},
+
+	// ==================== Preview Panel (宽屏右侧预览 - 与详情页一致) ====================
+	previewPanelContainer: {
+		flex: 1,
+	},
+	previewPanelScroll: {
+		flex: 1,
+	},
+	previewPanelScrollContent: {
+		paddingBottom: 16,
+	},
+
+	// 图片区域
+	previewImageSection: {
+		position: 'relative',
+		width: '100%',
+	},
+	previewHeroImage: {
+		width: '100%',
+		aspectRatio: 4 / 3,
+	},
+	previewImageIndicator: {
+		position: 'absolute',
+		bottom: 12,
+		right: 12,
+		backgroundColor: 'rgba(0,0,0,0.6)',
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderRadius: 12,
+	},
+	previewImageIndicatorText: {
+		color: 'rgba(255,255,255,0.95)',
+		fontSize: 12,
+		fontWeight: '500',
+	},
+
+	// Fallback Cover
+	previewFallbackCover: {
+		width: '100%',
+		aspectRatio: 4 / 3,
+		position: 'relative',
+		overflow: 'hidden',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	previewFallbackMesh1: {
+		position: 'absolute',
+		width: '120%',
+		height: '120%',
+		top: '-30%',
+		right: '-30%',
+		borderRadius: 999,
+		opacity: 0.6,
+	},
+	previewFallbackMesh2: {
+		position: 'absolute',
+		width: '100%',
+		height: '100%',
+		bottom: '-40%',
+		left: '-20%',
+		borderRadius: 999,
+		opacity: 0.4,
+	},
+	previewFallbackDecorations: {
+		...StyleSheet.absoluteFillObject,
+	},
+	previewFallbackCircle1: {
+		position: 'absolute',
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		top: '10%',
+		left: '10%',
+	},
+	previewFallbackCircle2: {
+		position: 'absolute',
+		width: 80,
+		height: 80,
+		borderRadius: 40,
+		bottom: '20%',
+		right: '15%',
+	},
+	previewFallbackContent: {
+		alignItems: 'center',
+		zIndex: 1,
+	},
+	previewFallbackIconContainer: {
+		marginBottom: 12,
+	},
+	previewFallbackTypeBadge: {
+		backgroundColor: 'rgba(255,255,255,0.25)',
+		paddingHorizontal: 16,
+		paddingVertical: 6,
+		borderRadius: 16,
+	},
+	previewFallbackTypeBadgeText: {
+		color: 'rgba(255,255,255,0.95)',
+		fontSize: 14,
+		fontWeight: '600',
+	},
+
+	// 作者栏
+	previewAuthorBar: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+	},
+	previewAuthorInfo: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		flex: 1,
+	},
+	previewAuthorAvatar: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+	},
+	previewAuthorAvatarPlaceholder: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	previewAuthorTextWrap: {
+		marginLeft: 12,
+		flex: 1,
+	},
+	previewAuthorName: {
+		fontSize: 15,
+		fontWeight: '600',
+	},
+	previewAuthorMeta: {
+		fontSize: 12,
+		marginTop: 2,
+	},
+	previewFollowBtn: {
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		borderRadius: 20,
+	},
+	previewFollowBtnText: {
+		fontSize: 13,
+		fontWeight: '600',
+	},
+
+	// 内容区域
+	previewContentSection: {
+		paddingHorizontal: 16,
+		paddingVertical: 16,
+	},
+	previewTitle: {
+		fontSize: 20,
+		fontWeight: '700',
+		lineHeight: 28,
+		marginBottom: 12,
+	},
+	previewContentText: {
+		fontSize: 15,
+		lineHeight: 24,
+		marginBottom: 16,
+	},
+
+	// 信息卡片
+	previewInfoCard: {
+		borderRadius: 12,
+		padding: 14,
+		marginBottom: 16,
+	},
+	previewInfoCardRow: {
+		flexDirection: 'row',
+		gap: 24,
+	},
+	previewInfoCardItem: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+	},
+	previewInfoCardLabel: {
+		fontSize: 12,
+	},
+	previewInfoCardValue: {
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	previewInfoCardFlavors: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 10,
+	},
+	previewFlavorBadge: {
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderRadius: 12,
+	},
+	previewFlavorBadgeText: {
+		fontSize: 12,
+		fontWeight: '500',
+	},
+	previewPreferenceLabel: {
+		fontSize: 12,
+		fontWeight: '500',
+	},
+
+	// 标签栏
+	previewTagsRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		alignItems: 'center',
+		gap: 8,
+		marginBottom: 12,
+	},
+	previewTagBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 10,
+		paddingVertical: 5,
+		borderRadius: 14,
+		gap: 4,
+	},
+	previewTagBadgeText: {
+		fontSize: 12,
+		fontWeight: '500',
+	},
+	previewLocationBadge: {
+		// backgroundColor is set dynamically
+	},
+	previewRecommendBadge: {
+		backgroundColor: '#D1FAE5',
+	},
+	previewWarningBadge: {
+		backgroundColor: '#FEE2E2',
+	},
+	previewSeekingBadge: {
+		backgroundColor: '#EDE9FE',
+	},
+	previewRecommendText: {
+		color: '#059669',
+	},
+	previewWarningText: {
+		color: '#DC2626',
+	},
+	previewSeekingText: {
+		color: '#7C3AED',
+	},
+	previewTopicTag: {
+		fontSize: 13,
+		fontWeight: '500',
+	},
+
+	// Meta 信息
+	previewMetaRow: {
+		flexDirection: 'row',
+		gap: 16,
+	},
+	previewMetaText: {
+		fontSize: 12,
+	},
+
+	// 更多图片
+	previewMoreImagesSection: {
+		paddingHorizontal: 16,
+		paddingVertical: 16,
+		marginTop: 8,
+	},
+	previewMoreImagesTitle: {
+		fontSize: 14,
+		fontWeight: '600',
+		marginBottom: 12,
+	},
+	previewImagesGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+	},
+	previewGridImageItem: {
+		width: 100,
+		height: 100,
+		borderRadius: 8,
+	},
+
+	// 底部操作栏
+	previewBottomBar: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+		borderTopWidth: 1,
+	},
+	previewCommentInput: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+		borderRadius: 20,
+		gap: 8,
+	},
+	previewCommentInputText: {
+		fontSize: 14,
+	},
+	previewBottomActions: {
+		flexDirection: 'row',
+		gap: 16,
+		marginLeft: 12,
+	},
+	previewActionBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	previewActionCount: {
+		fontSize: 13,
+	},
+
+	// ==================== Preview Detail Card (旧的，保留兼容) ====================
+	previewDetailCard: {
+		borderRadius: 12,
+		padding: 16,
+	},
+	previewDetailLabel: {
+		fontSize: 12,
+		fontWeight: '500',
+		marginBottom: 8,
+	},
+	previewDetailContent: {
+		fontSize: 14,
+		lineHeight: 22,
+	},
+	previewMoreImages: {
+		marginTop: 16,
+	},
+	previewCardImageGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 6,
+	},
+	previewGridImage: {
+		width: 80,
+		height: 80,
+		borderRadius: 8,
 	},
 });

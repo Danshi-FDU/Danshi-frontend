@@ -74,9 +74,10 @@ export default function RegisterScreen() {
           <Card
             mode="outlined"
             style={{
-              backgroundColor: colors.surface,
+              backgroundColor: colors.surface + 'CC', // 增加透明度
               borderColor: cardBorderColor,
-              borderWidth: 1,
+              borderWidth: 0.5, // 更细
+              shadowOpacity: 0.05, // 极弱阴影
             }}
           >
             <Card.Content>
@@ -92,7 +93,7 @@ export default function RegisterScreen() {
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}
@@ -105,7 +106,7 @@ export default function RegisterScreen() {
                   autoCapitalize="none"
                   value={email}
                   onChangeText={setEmail}
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}
@@ -117,7 +118,7 @@ export default function RegisterScreen() {
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}
@@ -129,7 +130,7 @@ export default function RegisterScreen() {
                   secureTextEntry
                   value={confirm}
                   onChangeText={setConfirm}
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}

@@ -8,14 +8,14 @@ import type { Href } from 'expo-router';
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
 import { postsService } from '@/src/services/posts_service';
-import type { UserPostListItem } from '@/src/repositories/users_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 import { Masonry } from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
-import type { Post } from '@/src/models/Post';
+import type { UserPostListItem } from '@/src/repositories/users_repository';
+import { mapUserPostListItemToPost } from '@/src/utils/post_converters';
 
 const formatCount = (value?: number) => {
   if (value == null) return '--';
@@ -24,37 +24,6 @@ const formatCount = (value?: number) => {
   return `${(value / 10000).toFixed(1).replace(/\.0$/, '')}w`;
 };
 
-// 将 UserPostListItem 转换为 Post 类型以便使用 PostCard
-const convertToPost = (item: UserPostListItem): Post => {
-  // 支持两种图片格式：images 数组或 cover_image 单图
-  const images = item.images?.length
-    ? item.images
-    : item.cover_image
-    ? [item.cover_image]
-    : [];
-  return {
-    id: item.id,
-    title: item.title,
-    content: '',
-    post_type: 'share',
-    share_type: 'recommend',
-    category: (item.category as 'food' | 'recipe') || 'food',
-    images,
-    tags: [],
-    canteen: '',
-    author: undefined,
-    created_at: item.created_at || new Date().toISOString(),
-    updated_at: item.created_at || new Date().toISOString(),
-    stats: {
-      like_count: item.like_count || 0,
-      view_count: item.view_count || 0,
-      comment_count: item.comment_count || 0,
-      favorite_count: 0,
-    },
-    is_liked: false,
-    is_favorited: false,
-  };
-};
 
 export const MyPostsScreen: React.FC = () => {
   const { user } = useAuth();
@@ -68,6 +37,7 @@ export const MyPostsScreen: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
+  const bottomContentPadding = useMemo(() => insets.bottom + 24, [insets.bottom]);
 
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
@@ -91,7 +61,7 @@ export const MyPostsScreen: React.FC = () => {
         const supportedPosts = data.posts.filter((item: any) => 
           !item.post_type || item.post_type === 'share' || item.post_type === 'seeking'
         );
-        setPosts(supportedPosts);
+        setPosts(supportedPosts.map(mapUserPostListItemToPost));
       } catch (err: any) {
         // 忽略 companion 类型相关的验证错误
         if (err?.message?.includes('companion') || err?.message?.includes('PostType')) {
@@ -118,7 +88,7 @@ export const MyPostsScreen: React.FC = () => {
 
   const estimateHeight = useCallback(
     (item: UserPostListItem) => {
-      const post = convertToPost(item);
+      const post = mapUserPostListItemToPost(item);
       return estimatePostCardHeight(post, minHeight, maxHeight);
     },
     [maxHeight, minHeight]
@@ -179,7 +149,7 @@ export const MyPostsScreen: React.FC = () => {
 
   const renderPostCard = useCallback(
     (item: UserPostListItem) => {
-      const post = convertToPost(item);
+      const post = mapUserPostListItemToPost(item);
       return (
         <PostCard
           post={post}
@@ -242,13 +212,14 @@ export const MyPostsScreen: React.FC = () => {
         </View>
       ) : posts.length === 0 ? (
         <ScrollView
-          contentContainerStyle={[styles.emptyContainer, { paddingBottom: insets.bottom + 16 }]}
+          contentContainerStyle={[styles.emptyContainer, { paddingBottom: bottomContentPadding }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressViewOffset={0}
             />
           }
         >
@@ -258,13 +229,14 @@ export const MyPostsScreen: React.FC = () => {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingTop: 12, paddingBottom: insets.bottom + 16 }}
+          contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingTop: 12, paddingBottom: bottomContentPadding }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressViewOffset={0}
             />
           }
           showsVerticalScrollIndicator={false}

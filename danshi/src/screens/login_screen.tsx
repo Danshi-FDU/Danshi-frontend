@@ -97,9 +97,10 @@ export default function LoginScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: colors.surface,
+                backgroundColor: colors.surface + 'CC', // 增加透明度
                 borderColor: cardBorderColor,
-                borderWidth: 1,
+                borderWidth: 0.5, // 更细
+                shadowOpacity: 0.05, // 极弱阴影
               },
             ]}
           >
@@ -111,12 +112,12 @@ export default function LoginScreen() {
 
               <View style={{ gap: 20 }}>
                 <TextInput
-                  label="邮箱或用户名"
+                  label="邮箱"
                   mode="outlined"
                   autoCapitalize="none"
                   value={identifier}
                   onChangeText={setIdentifier}
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}
@@ -128,7 +129,7 @@ export default function LoginScreen() {
                   secureTextEntry
                   value={password}
                   onChangeText={setPassword}
-                  outlineColor={colors.surfaceVariant}
+                  outlineColor="transparent"
                   activeOutlineColor={colors.primary}
                   textColor={colors.onSurface}
                   theme={inputTheme}

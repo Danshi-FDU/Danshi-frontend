@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable, useWindowDimensions, TextInput } from 'react-native';
 import { Masonry } from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
@@ -23,9 +24,11 @@ import type { Href } from 'expo-router';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect } from '@react-navigation/native';
 
-// 品牌色
-const BRAND_ORANGE = '#F97316';
+
+// 断点：搜索栏显示 (3栏以上，即 lg)
+const SEARCHBAR_BREAKPOINT = 1024;
 
 type LoaderState = 'idle' | 'initial' | 'refresh';
 
@@ -63,12 +66,18 @@ const FILTERS_SUPPORTED = false;
 export default function ExploreScreen() {
   const { minHeight, maxHeight } = useWaterfallSettings();
   const bp = useBreakpoint();
+  const { width: windowWidth } = useWindowDimensions();
+  
+  // 3栏以上（≥1024px）显示搜索栏而非搜索图标
+  const showSearchBar = windowWidth >= SEARCHBAR_BREAKPOINT;
   // 移动端列间距极小，紧凑布局
   const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
   const verticalGap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
   const horizontalPadding = pickByBreakpoint(bp, { base: 4, sm: 6, md: 12, lg: 16, xl: 20 });
   const insets = useSafeAreaInsets();
   const pTheme = usePaperTheme();
+  const tabBarHeight = useBottomTabBarHeight();
+  const bottomContentPadding = useMemo(() => tabBarHeight + 24, [tabBarHeight]);
 
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -79,6 +88,7 @@ export default function ExploreScreen() {
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
   const [filtersSheetVisible, setFiltersSheetVisible] = useState(false);
+  const hasFocusedOnceRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -134,6 +144,16 @@ export default function ExploreScreen() {
   useEffect(() => {
     fetchPosts('initial');
   }, [fetchPosts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocusedOnceRef.current) {
+        hasFocusedOnceRef.current = true;
+        return;
+      }
+      fetchPosts('refresh');
+    }, [fetchPosts])
+  );
 
   const refreshing = loaderState === 'refresh';
   const isInitialLoading = loaderState === 'initial';
@@ -241,14 +261,36 @@ export default function ExploreScreen() {
     <View style={[styles.container, { backgroundColor: pTheme.colors.background }]}>
       {/* 顶部导航栏 */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: pTheme.colors.surface }]}>
-        <Text style={[styles.headerTitle, { color: pTheme.colors.onSurface }]}>发现</Text>
-        <Pressable
-          style={styles.headerBtn}
-          onPress={() => router.push('/search')}
-          accessibilityLabel="搜索帖子"
-        >
-          <Ionicons name="search-outline" size={24} color={pTheme.colors.onSurfaceVariant} />
-        </Pressable>
+        {showSearchBar ? (
+          // 中等及宽屏：标题 + 居中搜索栏 + 占位
+          <>
+            <Text style={[styles.headerTitle, { color: pTheme.colors.onSurface }]}>发现</Text>
+            <View style={styles.searchBarWrapper}>
+              <Pressable
+                style={[styles.searchBar, { backgroundColor: pTheme.colors.surfaceVariant }]}
+                onPress={() => router.push('/search')}
+              >
+                <Ionicons name="search-outline" size={20} color={pTheme.colors.onSurfaceVariant} />
+                <Text style={[styles.searchPlaceholder, { color: pTheme.colors.onSurfaceVariant }]}>
+                  搜索美食、食谱…
+                </Text>
+              </Pressable>
+            </View>
+            <View style={styles.headerPlaceholder} />
+          </>
+        ) : (
+          // 窄屏：标题 + 搜索图标
+          <>
+            <Text style={[styles.headerTitle, { color: pTheme.colors.onSurface }]}>发现</Text>
+            <Pressable
+              style={styles.headerBtn}
+              onPress={() => router.push('/search')}
+              accessibilityLabel="搜索帖子"
+            >
+              <Ionicons name="search-outline" size={24} color={pTheme.colors.onSurfaceVariant} />
+            </Pressable>
+          </>
+        )}
       </View>
 
       {/* 主内容区 */}
@@ -258,15 +300,17 @@ export default function ExploreScreen() {
           styles.scrollContent,
           {
             paddingHorizontal: horizontalPadding,
-            paddingBottom: insets.bottom + 24,
+            paddingBottom: bottomContentPadding,
           },
         ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[BRAND_ORANGE]}
-            tintColor={BRAND_ORANGE}
+            colors={[pTheme.colors.primary]}
+            tintColor={pTheme.colors.primary}
+            progressBackgroundColor={pTheme.colors.surface}
+            progressViewOffset={0}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -285,19 +329,19 @@ export default function ExploreScreen() {
         {/* 加载状态 */}
         {isInitialLoading && (
           <View style={styles.loadingWrapper}>
-            <ActivityIndicator size="large" color={BRAND_ORANGE} />
-            <Text style={styles.loadingText}>正在加载精彩内容…</Text>
+            <ActivityIndicator size="large" color={pTheme.colors.primary} />
+            <Text style={[styles.loadingText, { color: pTheme.colors.onSurfaceVariant }]}>正在加载精彩内容…</Text>
           </View>
         )}
 
         {/* 错误状态 */}
         {error && !isInitialLoading && (
           <View style={styles.errorWrapper}>
-            <Ionicons name="cloud-offline-outline" size={48} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryBtn} onPress={() => fetchPosts('initial')}>
-              <Ionicons name="refresh" size={18} color={BRAND_ORANGE} />
-              <Text style={styles.retryText}>重新加载</Text>
+            <Ionicons name="cloud-offline-outline" size={48} color={pTheme.colors.error} />
+            <Text style={[styles.errorText, { color: pTheme.colors.error }]}>{error}</Text>
+            <Pressable style={[styles.retryBtn, { backgroundColor: pTheme.colors.primaryContainer }]} onPress={() => fetchPosts('initial')}>
+              <Ionicons name="refresh" size={18} color={pTheme.colors.primary} />
+              <Text style={[styles.retryText, { color: pTheme.colors.primary }]}>重新加载</Text>
             </Pressable>
           </View>
         )}
@@ -305,11 +349,11 @@ export default function ExploreScreen() {
         {/* 空状态 */}
         {!isInitialLoading && !content.length && !error && (
           <View style={styles.emptyWrapper}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="restaurant" size={40} color="#9CA3AF" />
+            <View style={[styles.emptyIcon, { backgroundColor: pTheme.colors.surfaceVariant }]}>
+              <Ionicons name="restaurant" size={40} color={pTheme.colors.outline} />
             </View>
-            <Text style={styles.emptyTitle}>暂无内容</Text>
-            <Text style={styles.emptyText}>去发布第一条美食分享吧～</Text>
+            <Text style={[styles.emptyTitle, { color: pTheme.colors.onSurface }]}>暂无内容</Text>
+            <Text style={[styles.emptyText, { color: pTheme.colors.onSurfaceVariant }]}>去发布第一条美食分享吧～</Text>
           </View>
         )}
 
@@ -495,12 +539,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
   },
   headerBtn: {
     width: 40,
@@ -508,6 +550,30 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // 搜索栏容器（用于居中）
+  searchBarWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 搜索栏
+  searchBar: {
+    width: '100%',
+    maxWidth: 480,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+  },
+  searchPlaceholder: {
+    fontSize: 15,
+  },
+  // 右侧占位（平衡标题让搜索栏居中）
+  headerPlaceholder: {
+    width: 40,
   },
 
   // ==================== 滚动区 ====================
@@ -528,7 +594,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#6B7280',
   },
   errorWrapper: {
     alignItems: 'center',
@@ -537,7 +602,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 15,
-    color: '#EF4444',
     textAlign: 'center',
   },
   retryBtn: {
@@ -547,12 +611,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#FFF7ED',
   },
   retryText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F97316',
   },
   emptyWrapper: {
     alignItems: 'center',
@@ -563,18 +625,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#374151',
   },
   emptyText: {
     fontSize: 14,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
 

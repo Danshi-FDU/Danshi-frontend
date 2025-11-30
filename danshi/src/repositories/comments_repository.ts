@@ -51,13 +51,13 @@ class ApiCommentsRepository implements CommentsRepository {
 
   async listByPost(postId: string, params: CommentListParams = {}): Promise<CommentsListResponse> {
     const path = API_ENDPOINTS.COMMENTS.LIST_FOR_POST.replace(':postId', encodeURIComponent(postId));
-    const resp = await http.get(`${path}${this.buildQuery(params)}`);
+    const resp = await httpAuth.get(`${path}${this.buildQuery(params)}`);
     return unwrapApiResponse<CommentsListResponse>(resp, 200);
   }
 
   async listReplies(commentId: string, params: CommentRepliesParams = {}): Promise<CommentRepliesResponse> {
     const path = API_ENDPOINTS.COMMENTS.LIST_REPLIES.replace(':commentId', encodeURIComponent(commentId));
-    const resp = await http.get(`${path}${this.buildQuery(params)}`);
+    const resp = await httpAuth.get(`${path}${this.buildQuery(params)}`);
     return unwrapApiResponse<CommentRepliesResponse>(resp, 200);
   }
 

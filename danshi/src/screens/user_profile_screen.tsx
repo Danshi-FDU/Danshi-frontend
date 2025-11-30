@@ -14,9 +14,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Masonry } from '@/src/components/md3/masonry';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
+import { HOMETOWN_OPTIONS, findOptionLabel } from '@/src/constants/selects';
 
-// 品牌色
-const BRAND_ORANGE = '#F97316';
 
 const formatCount = (value?: number | null) => {
   if (value == null) return '0';
@@ -46,6 +45,7 @@ export default function UserProfileScreen() {
   const [error, setError] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [isProfileExpanded, setIsProfileExpanded] = useState(false);
 
   const isCurrentUser = currentUser?.id === userId;
 
@@ -199,7 +199,7 @@ export default function UserProfileScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={BRAND_ORANGE} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} progressBackgroundColor={theme.colors.surface} progressViewOffset={0} />
         }
       >
         {/* ==================== 顶部操作栏 ==================== */}
@@ -213,24 +213,24 @@ export default function UserProfileScreen() {
 
         {loading && !profile ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={BRAND_ORANGE} />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
             <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={48} color={theme.colors.error} />
             <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-            <Pressable style={styles.retryBtn} onPress={loadUserData}>
-              <Ionicons name="refresh" size={18} color={BRAND_ORANGE} />
-              <Text style={styles.retryText}>重新加载</Text>
+            <Pressable style={[styles.retryBtn, { backgroundColor: theme.colors.primaryContainer }]} onPress={loadUserData}>
+              <Ionicons name="refresh" size={18} color={theme.colors.primary} />
+              <Text style={[styles.retryText, { color: theme.colors.primary }]}>重新加载</Text>
             </Pressable>
           </View>
         ) : profile ? (
           <>
             {/* ==================== 用户信息区 ==================== */}
             <View style={[styles.profileSection, { backgroundColor: theme.colors.surface }]}>
-              {/* 头像 */}
-              <View style={styles.avatarWrapper}>
+              {/* 头像和用户信息并排 */}
+              <View style={styles.profileHeaderRow}>
                 <View style={styles.avatarContainer}>
                   {profile.avatar_url ? (
                     <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
@@ -240,64 +240,84 @@ export default function UserProfileScreen() {
                     </View>
                   )}
                 </View>
-              </View>
-
-              {/* 用户名和关注按钮 */}
-              <View style={styles.userInfoRow}>
-                <View style={styles.userNameSection}>
-                  <Text style={[styles.userName, { color: theme.colors.onSurface }]}>{profile.name}</Text>
-                  {profile.hometown && (
-                    <View style={styles.locationRow}>
-                      <Ionicons name="location-outline" size={14} color={theme.colors.onSurfaceVariant} />
-                      <Text style={[styles.locationText, { color: theme.colors.onSurfaceVariant }]}>
-                        {profile.hometown}
+                <View style={styles.userInfoColumn}>
+                  <View style={styles.userInfoRow}>
+                    <Pressable 
+                      style={styles.userNameSection}
+                      onPress={() => setIsProfileExpanded(!isProfileExpanded)}
+                    >
+                      <Text 
+                        style={[styles.userName, { color: theme.colors.onSurface }]}
+                        numberOfLines={isProfileExpanded ? undefined : 1}
+                      >
+                        {profile.name}
                       </Text>
-                    </View>
-                  )}
-                </View>
-                {!isCurrentUser && (
-                  <Pressable
-                    style={[
-                      styles.followBtn,
-                      profile.is_following
-                        ? { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }
-                        : { backgroundColor: BRAND_ORANGE }
-                    ]}
-                    onPress={handleFollowToggle}
-                    disabled={followLoading}
-                  >
-                    {followLoading ? (
-                      <ActivityIndicator size="small" color={profile.is_following ? theme.colors.onSurfaceVariant : '#fff'} />
-                    ) : (
-                      <>
-                        <Ionicons
-                          name={profile.is_following ? 'checkmark' : 'add'}
-                          size={16}
-                          color={profile.is_following ? theme.colors.onSurfaceVariant : '#fff'}
-                        />
-                        <Text
-                          style={[
-                            styles.followBtnText,
-                            { color: profile.is_following ? theme.colors.onSurfaceVariant : '#fff' }
-                          ]}
+                      {profile.bio ? (
+                        <Text 
+                          style={[styles.userBio, { color: theme.colors.onSurfaceVariant }]} 
+                          numberOfLines={isProfileExpanded ? undefined : 2}
                         >
-                          {profile.is_following ? '已关注' : '关注'}
+                          {profile.bio}
                         </Text>
-                      </>
+                      ) : null}
+                      {profile.email && (
+                        <Text 
+                          style={[styles.userEmail, { color: theme.colors.onSurfaceVariant }]}
+                          numberOfLines={isProfileExpanded ? undefined : 1}
+                        >
+                          {profile.email}
+                        </Text>
+                      )}
+                      {profile.hometown && profile.hometown !== 'Default' && (
+                        <View style={styles.locationRow}>
+                          <Ionicons name="location-outline" size={14} color={theme.colors.onSurfaceVariant} />
+                          <Text 
+                            style={[styles.locationText, { color: theme.colors.onSurfaceVariant }]}
+                            numberOfLines={isProfileExpanded ? undefined : 1}
+                          >
+                            {findOptionLabel(HOMETOWN_OPTIONS, profile.hometown) || profile.hometown}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                    {!isCurrentUser && (
+                      <Pressable
+                        style={[
+                          styles.followBtn,
+                          profile.is_following
+                            ? { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }
+                            : { backgroundColor: theme.colors.primary }
+                        ]}
+                        onPress={handleFollowToggle}
+                        disabled={followLoading}
+                      >
+                        {followLoading ? (
+                          <ActivityIndicator size="small" color={profile.is_following ? theme.colors.onSurfaceVariant : theme.colors.onPrimary} />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name={profile.is_following ? 'checkmark' : 'add'}
+                              size={16}
+                              color={profile.is_following ? theme.colors.onSurfaceVariant : theme.colors.onPrimary}
+                            />
+                            <Text
+                              style={[
+                                styles.followBtnText,
+                                { color: profile.is_following ? theme.colors.onSurfaceVariant : theme.colors.onPrimary }
+                              ]}
+                            >
+                              {profile.is_following ? '已关注' : '关注'}
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
                     )}
-                  </Pressable>
-                )}
+                  </View>
+                </View>
               </View>
-
-              {/* 个人简介 */}
-              {profile.bio && (
-                <Text style={[styles.bioText, { color: theme.colors.onSurfaceVariant }]} numberOfLines={3}>
-                  {profile.bio}
-                </Text>
-              )}
 
               {/* 数据栏 */}
-              <View style={[styles.statsRow, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <View style={styles.statsRow}>
                 <View style={styles.statItem}>
                   <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.post_count)}</Text>
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
@@ -316,20 +336,20 @@ export default function UserProfileScreen() {
             </View>
 
             {/* ==================== 帖子标题栏 ==================== */}
-            <View style={[styles.postsHeader, { backgroundColor: theme.colors.surface }]}>
-              <View style={[styles.postsHeaderBar, { borderBottomColor: theme.colors.outlineVariant }]}>
-                <View style={styles.postsHeaderItem}>
-                  <Ionicons name="grid" size={20} color={BRAND_ORANGE} />
-                  <Text style={styles.postsHeaderText}>TA的帖子</Text>
+            <View style={[styles.tabSection, { backgroundColor: theme.colors.surface }]}>
+              <View style={[styles.tabBar, { borderBottomColor: theme.colors.outlineVariant }]}>
+                <View style={[styles.tabItem, styles.tabItemActive, { borderBottomColor: theme.colors.primary }]}>
+                  <Ionicons name="grid" size={20} color={theme.colors.primary} />
+                  <Text style={[styles.tabText, { color: theme.colors.primary }]}>TA的帖子</Text>
                 </View>
               </View>
             </View>
 
             {/* ==================== 帖子列表 ==================== */}
-            <View style={styles.contentSection}>
+            <View style={[styles.contentSection, { backgroundColor: theme.colors.surface }]}>
               {postsLoading ? (
                 <View style={styles.loadingWrap}>
-                  <ActivityIndicator size="small" color={BRAND_ORANGE} />
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
                   <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
                 </View>
               ) : posts.length === 0 ? (
@@ -421,12 +441,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#FFF7ED',
   },
   retryText: {
     fontSize: 14,
     fontWeight: '600',
-    color: BRAND_ORANGE,
   },
 
   // ==================== Profile Section ====================
@@ -435,21 +453,17 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
   },
-  avatarWrapper: {
-    marginBottom: 16,
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
   },
   avatarContainer: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    borderWidth: 4,
-    borderColor: '#fff',
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
     elevation: 4,
   },
   avatar: {
@@ -462,11 +476,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  userInfoColumn: {
+    flex: 1,
+  },
   userInfoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   userNameSection: {
     flex: 1,
@@ -474,6 +490,15 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: '700',
+  },
+  userEmail: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  userBio: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   locationRow: {
     flexDirection: 'row',
@@ -483,11 +508,6 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 13,
-  },
-  bioText: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
   },
   followBtn: {
     flexDirection: 'row',
@@ -510,7 +530,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
   },
   statItem: {
     flex: 1,
@@ -530,15 +549,15 @@ const styles = StyleSheet.create({
     height: 24,
   },
 
-  // ==================== Posts Header ====================
-  postsHeader: {
+  // ==================== Tab Section ====================
+  tabSection: {
     marginTop: 12,
   },
-  postsHeaderBar: {
+  tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
   },
-  postsHeaderItem: {
+  tabItem: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -546,12 +565,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 14,
     borderBottomWidth: 2,
-    borderBottomColor: BRAND_ORANGE,
+    borderBottomColor: 'transparent',
   },
-  postsHeaderText: {
+  tabItemActive: {
+    borderBottomWidth: 2,
+  },
+  tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: BRAND_ORANGE,
   },
 
   // ==================== Content Section ====================

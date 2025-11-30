@@ -43,6 +43,7 @@ function RootStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="myself" />
         <Stack.Screen name="post" />
         <Stack.Screen name="user" />
         <Stack.Screen name="search" />

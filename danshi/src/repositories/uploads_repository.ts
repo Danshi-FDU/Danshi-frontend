@@ -73,12 +73,6 @@ class FDUHoleUploadsRepository implements UploadsRepository {
   private readonly uploadUrl = `${FDUHOLE_IMAGE_HOST}/api/uploadImage`;
 
   async uploadImage(file: UploadFilePayload): Promise<UploadImageResult> {
-    // Web 端由于 CORS 限制，无法直接上传到 FDUHole
-    // 需要在校园网环境下使用原生 App，或等待后端配置 CORS
-    if (Platform.OS === 'web') {
-      throw new Error('Web 端暂不支持图片上传，请使用 App 或直接粘贴图片链接');
-    }
-
     const form = new FormData();
     
     // FDUHole API 使用 "source" 作为字段名

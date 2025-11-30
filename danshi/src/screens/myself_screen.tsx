@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Image,
   Platform,
@@ -25,10 +26,9 @@ import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { mapUserPostListItemToPost } from '@/src/utils/post_converters';
 
-// 品牌色
-const BRAND_ORANGE = '#F97316';
-const BRAND_PINK = '#FB7185';
+
 
 const formatCount = (value?: number | null) => {
   if (value == null) return '0';
@@ -45,6 +45,8 @@ export default function MyselfScreen() {
   const theme = usePaperTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { minHeight, maxHeight } = useWaterfallSettings();
+  const tabBarHeight = useBottomTabBarHeight();
+  const bottomContentPadding = useMemo(() => tabBarHeight + 24, [tabBarHeight]);
 
   // 响应式间距 - 与探索界面保持一致
   const bp = useBreakpoint();
@@ -61,6 +63,7 @@ export default function MyselfScreen() {
   const [favorites, setFavorites] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [isProfileExpanded, setIsProfileExpanded] = useState(false);
 
   const displayName = useMemo(
     () => profile?.name ?? user?.name ?? '未登录',
@@ -107,40 +110,16 @@ export default function MyselfScreen() {
     try {
       const res = await usersService.getUserPosts(user.id, { limit: 20 });
       // 过滤掉不支持的帖子类型（如 companion）
-      const supportedPosts = res.posts.filter((item: any) => 
+      const supportedPosts = res.posts.filter((item: any) =>
         !item.post_type || item.post_type === 'share' || item.post_type === 'seeking'
       );
-      const converted: Post[] = supportedPosts.map((item) => {
-        // 支持两种图片格式：images 数组或 cover_image 单图
-        const images = item.images?.length
-          ? item.images
-          : item.cover_image
-          ? [item.cover_image]
-          : [];
-        return {
-          id: item.id,
-          title: item.title,
-          content: '',
-          post_type: 'share' as const,
-          share_type: 'recommend' as const,
-          category: (item.category as 'food' | 'recipe') || 'food',
-          images,
-          tags: [],
-          canteen: '',
-          author: undefined,
-          created_at: item.created_at || new Date().toISOString(),
-          updated_at: item.created_at || new Date().toISOString(),
-          stats: {
-            like_count: item.like_count || 0,
-            view_count: item.view_count || 0,
-            comment_count: item.comment_count || 0,
-            favorite_count: 0,
-          },
-          is_liked: false,
-          is_favorited: false,
-        };
-      });
-      setPosts(converted);
+      // 传递当前用户作为作者信息
+      const authorInfo = {
+        id: user.id,
+        name: profile?.name || user.name || '未知用户',
+        avatar_url: profile?.avatar_url || user.avatar_url || undefined,
+      };
+      setPosts(supportedPosts.map((item) => mapUserPostListItemToPost(item, { author: authorInfo })));
     } catch (error: any) {
       // 忽略 companion 类型相关的验证错误
       if (error?.message?.includes('companion') || error?.message?.includes('PostType')) {
@@ -152,7 +131,7 @@ export default function MyselfScreen() {
     } finally {
       setPostsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.name, user?.avatar_url, profile?.name, profile?.avatar_url]);
 
   // 加载收藏的帖子
   const loadFavorites = useCallback(async () => {
@@ -161,41 +140,12 @@ export default function MyselfScreen() {
     try {
       const res = await usersService.getUserFavorites(user.id, { limit: 20 });
       // 过滤掉不支持的帖子类型（如 companion）
-      const supportedPosts = res.posts.filter((item: any) => 
+      const supportedPosts = res.posts.filter((item: any) =>
         !item.post_type || item.post_type === 'share' || item.post_type === 'seeking'
       );
-      // 转换为 Post 类型
-      const converted: Post[] = supportedPosts.map((item) => {
-        // 支持两种图片格式：images 数组或 cover_image 单图
-        const images = item.images?.length
-          ? item.images
-          : item.cover_image
-          ? [item.cover_image]
-          : [];
-        return {
-          id: item.id,
-          title: item.title,
-          content: '',
-          post_type: 'share' as const,
-          share_type: 'recommend' as const,
-          category: (item.category as 'food' | 'recipe') || 'food',
-          images,
-          tags: [],
-          canteen: '',
-          author: undefined,
-          created_at: item.created_at || new Date().toISOString(),
-          updated_at: item.created_at || new Date().toISOString(),
-          stats: {
-            like_count: item.like_count || 0,
-            view_count: item.view_count || 0,
-            comment_count: item.comment_count || 0,
-            favorite_count: 0,
-          },
-          is_liked: false,
-          is_favorited: true,
-        };
-      });
-      setFavorites(converted);
+      setFavorites(
+        supportedPosts.map((item) => mapUserPostListItemToPost(item, { forceFavorite: true }))
+      );
     } catch (error: any) {
       // 忽略 companion 类型相关的验证错误
       if (error?.message?.includes('companion') || error?.message?.includes('PostType')) {
@@ -214,7 +164,10 @@ export default function MyselfScreen() {
     useCallback(() => {
       loadProfile();
       loadPosts();
-    }, [loadProfile, loadPosts])
+      if (activeTab === 'favorites') {
+        loadFavorites();
+      }
+    }, [loadProfile, loadPosts, loadFavorites, activeTab])
   );
 
   // 切换到收藏 tab 时加载收藏
@@ -231,7 +184,7 @@ export default function MyselfScreen() {
   }, [loadProfile, loadPosts, loadFavorites, activeTab]);
 
   const handleNavigateTo = (
-    path: '/(tabs)/myself/posts' | '/(tabs)/myself/followers' | '/(tabs)/myself/following'
+    path: '/myself/posts' | '/myself/followers' | '/myself/following'
   ) => {
     if (!user?.id) return;
     router.push(path);
@@ -253,10 +206,10 @@ export default function MyselfScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={{ paddingBottom: bottomContentPadding }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={BRAND_ORANGE} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} progressBackgroundColor={theme.colors.surface} progressViewOffset={0} />
         }
       >
         {/* ==================== 顶部操作栏 ==================== */}
@@ -270,7 +223,7 @@ export default function MyselfScreen() {
         {/* ==================== 用户信息区 ==================== */}
         <View style={[styles.profileSectionSimple, { backgroundColor: theme.colors.surface }]}>
           {/* 悬浮头像 */}
-          <View style={styles.avatarWrapper}>
+          <View style={styles.profileHeaderRow}>
             <Pressable
               style={styles.avatarContainer}
               onPress={() => router.push('/myself/settings')}
@@ -283,35 +236,52 @@ export default function MyselfScreen() {
                 </View>
               )}
             </Pressable>
-          </View>
-
-          {/* 用户名和编辑按钮 */}
-          <View style={styles.userInfoRow}>
-            <View style={styles.userNameSection}>
-              <Text style={[styles.userName, { color: theme.colors.onSurface }]}>{displayName}</Text>
-              {displayEmail ? <Text style={[styles.userEmail, { color: theme.colors.onSurfaceVariant }]}>{displayEmail}</Text> : null}
+            <View style={styles.userInfoColumn}>
+              <View style={styles.userInfoRow}>
+                <Pressable 
+                  style={styles.userNameSection}
+                  onPress={() => setIsProfileExpanded(!isProfileExpanded)}
+                >
+                  <Text 
+                    style={[styles.userName, { color: theme.colors.onSurface }]}
+                    numberOfLines={isProfileExpanded ? undefined : 1}
+                  >
+                    {displayName}
+                  </Text>
+                  {profile?.bio ? (
+                    <Text 
+                      style={[styles.userBio, { color: theme.colors.onSurfaceVariant }]} 
+                      numberOfLines={isProfileExpanded ? undefined : 2}
+                    >
+                      {profile.bio}
+                    </Text>
+                  ) : null}
+                  {displayEmail ? (
+                    <Text 
+                      style={[styles.userEmail, { color: theme.colors.onSurfaceVariant }]}
+                      numberOfLines={isProfileExpanded ? undefined : 1}
+                    >
+                      {displayEmail}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              </View>
             </View>
-            <Pressable
-              style={[styles.editProfileBtn, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }]}
-              onPress={() => router.push('/myself/settings')}
-            >
-              <Text style={[styles.editProfileText, { color: theme.colors.onSurfaceVariant }]}>编辑资料</Text>
-            </Pressable>
           </View>
 
           {/* 数据栏 */}
-          <View style={[styles.statsRow, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/(tabs)/myself/posts')}>
+          <View style={styles.statsRow}>
+            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/posts')}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.post_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/(tabs)/myself/followers')}>
+            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/followers')}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.follower_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>粉丝</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/(tabs)/myself/following')}>
+            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/following')}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.following_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>关注</Text>
             </Pressable>
@@ -322,28 +292,28 @@ export default function MyselfScreen() {
         <View style={[styles.tabSection, { backgroundColor: theme.colors.surface }]}>
           <View style={[styles.tabBar, { borderBottomColor: theme.colors.outlineVariant }]}>
             <Pressable
-              style={[styles.tabItem, activeTab === 'posts' && styles.tabItemActive]}
+              style={[styles.tabItem, activeTab === 'posts' && [styles.tabItemActive, { borderBottomColor: theme.colors.primary }]]}
               onPress={() => setActiveTab('posts')}
             >
               <Ionicons
                 name={activeTab === 'posts' ? 'grid' : 'grid-outline'}
                 size={20}
-                color={activeTab === 'posts' ? BRAND_ORANGE : theme.colors.onSurfaceVariant}
+                color={activeTab === 'posts' ? theme.colors.primary : theme.colors.onSurfaceVariant}
               />
-              <Text style={[styles.tabText, { color: theme.colors.onSurfaceVariant }, activeTab === 'posts' && styles.tabTextActive]}>
+              <Text style={[styles.tabText, { color: activeTab === 'posts' ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
                 帖子
               </Text>
             </Pressable>
             <Pressable
-              style={[styles.tabItem, activeTab === 'favorites' && styles.tabItemActive]}
+              style={[styles.tabItem, activeTab === 'favorites' && [styles.tabItemActive, { borderBottomColor: theme.colors.primary }]]}
               onPress={() => setActiveTab('favorites')}
             >
               <Ionicons
                 name={activeTab === 'favorites' ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color={activeTab === 'favorites' ? BRAND_ORANGE : theme.colors.onSurfaceVariant}
+                color={activeTab === 'favorites' ? theme.colors.primary : theme.colors.onSurfaceVariant}
               />
-              <Text style={[styles.tabText, { color: theme.colors.onSurfaceVariant }, activeTab === 'favorites' && styles.tabTextActive]}>
+              <Text style={[styles.tabText, { color: activeTab === 'favorites' ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
                 收藏
               </Text>
             </Pressable>
@@ -354,7 +324,7 @@ export default function MyselfScreen() {
         <View style={[styles.contentSection, { backgroundColor: theme.colors.surface }]}>
           {currentLoading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="small" color={BRAND_ORANGE} />
+              <ActivityIndicator size="small" color={theme.colors.primary} />
               <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
             </View>
           ) : currentPosts.length === 0 ? (
@@ -369,10 +339,10 @@ export default function MyselfScreen() {
               </Text>
               {activeTab === 'posts' && (
                 <Pressable
-                  style={styles.emptyBtn}
+                  style={[styles.emptyBtn, { backgroundColor: theme.colors.primary }]}
                   onPress={() => router.push('/(tabs)/post')}
                 >
-                  <Text style={styles.emptyBtnText}>去发布</Text>
+                  <Text style={[styles.emptyBtnText, { color: theme.colors.onPrimary }]}>去发布</Text>
                 </Pressable>
               )}
             </View>
@@ -410,12 +380,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
   },
   headerBtn: {
     width: 40,
@@ -427,26 +395,21 @@ const styles = StyleSheet.create({
 
   // ==================== Profile Section ====================
   profileSectionSimple: {
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
-  avatarWrapper: {
-    marginBottom: 16,
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
   },
   avatarContainer: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    borderWidth: 4,
-    borderColor: '#fff',
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
     elevation: 4,
   },
   avatar: {
@@ -461,9 +424,14 @@ const styles = StyleSheet.create({
   },
   userInfoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 12,
+  },
+  userInfoColumn: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   userNameSection: {
     flex: 1,
@@ -471,25 +439,25 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
   },
   userEmail: {
     fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+    marginTop: 4,
+  },
+  userBio: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   editProfileBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
   },
   editProfileText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
   },
 
   // ==================== Stats Row ====================
@@ -497,9 +465,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    paddingVertical: 16,
   },
   statItem: {
     flex: 1,
@@ -509,28 +475,23 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
     marginTop: 2,
   },
   statDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#E5E7EB',
   },
 
   // ==================== Tab Section ====================
   tabSection: {
-    backgroundColor: '#fff',
-    marginTop: 12,
+    marginTop: 0,
   },
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   tabItem: {
     flex: 1,
@@ -542,21 +503,19 @@ const styles = StyleSheet.create({
   },
   tabItemActive: {
     borderBottomWidth: 2,
-    borderBottomColor: BRAND_ORANGE,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#9CA3AF',
   },
   tabTextActive: {
-    color: BRAND_ORANGE,
+    // color is set dynamically
   },
 
   // ==================== Content Section ====================
   contentSection: {
     minHeight: 200,
-    paddingTop: 4,
+    paddingTop: 16,
   },
   loadingWrap: {
     alignItems: 'center',
@@ -565,7 +524,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#9CA3AF',
   },
   emptyWrap: {
     alignItems: 'center',
@@ -574,19 +532,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#9CA3AF',
   },
   emptyBtn: {
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: BRAND_ORANGE,
     borderRadius: 20,
   },
   emptyBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
   },
   postsGrid: {
     paddingBottom: 8,

@@ -40,12 +40,35 @@ export type UserPostListItem = {
   title: string;
   category?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'draft';
+  // 平铺格式的统计数据
   like_count?: number;
   view_count?: number;
   comment_count?: number;
+  favorite_count?: number;
+  // 嵌套格式的统计数据（某些 API 可能返回这种格式）
+  stats?: {
+    like_count?: number;
+    view_count?: number;
+    comment_count?: number;
+    favorite_count?: number;
+  };
   cover_image?: string;
   images?: string[];  // 某些 API 可能返回完整的 images 数组
   created_at?: string;
+  post_type?: 'share' | 'seeking';
+  share_type?: 'recommend' | 'warning';
+  content?: string;
+  updated_at?: string;
+  tags?: string[];
+  canteen?: string;
+  price?: number;
+  is_liked?: boolean;
+  is_favorited?: boolean;
+  author?: {
+    id: string;
+    name: string;
+    avatar_url?: string;
+  };
 };
 
 export type UserPostListResponse = {
@@ -109,7 +132,8 @@ export interface UsersRepository {
 export class ApiUsersRepository implements UsersRepository {
   async getUser(userId: string): Promise<UserProfile> {
     const url = `${API_ENDPOINTS.USERS.ROOT}/${encodeURIComponent(userId)}`;
-    const res = await http.get<ApiResponse<UserProfile>>(url);
+    // 使用 httpAuth 以便后端能识别当前用户身份，正确返回 is_following 状态
+    const res = await httpAuth.get<ApiResponse<UserProfile>>(url);
     return unwrapApiResponse<UserProfile>(res);
   }
   async updateUser(userId: string, input: UpdateUserInput): Promise<{ user: UserProfile }> {
@@ -125,7 +149,8 @@ export class ApiUsersRepository implements UsersRepository {
     }
     const path = API_ENDPOINTS.USERS.POSTS.replace(':userId', encodeURIComponent(userId));
     const url = qs.size ? `${path}?${qs.toString()}` : path;
-    const res = await http.get<ApiResponse<UserPostListResponse>>(url);
+    // 使用 httpAuth 以便后端能识别当前用户身份，正确返回 is_liked 等状态
+    const res = await httpAuth.get<ApiResponse<UserPostListResponse>>(url);
     return unwrapApiResponse<UserPostListResponse>(res);
   }
 
@@ -147,7 +172,7 @@ export class ApiUsersRepository implements UsersRepository {
     }
     const path = API_ENDPOINTS.USERS.FOLLOWING.replace(':userId', encodeURIComponent(userId));
     const url = qs.size ? `${path}?${qs.toString()}` : path;
-    const res = await http.get<ApiResponse<UserFollowListResponse>>(url);
+    const res = await httpAuth.get<ApiResponse<UserFollowListResponse>>(url);
     return unwrapApiResponse<UserFollowListResponse>(res);
   }
 
@@ -158,7 +183,7 @@ export class ApiUsersRepository implements UsersRepository {
     }
     const path = API_ENDPOINTS.USERS.FOLLOWERS.replace(':userId', encodeURIComponent(userId));
     const url = qs.size ? `${path}?${qs.toString()}` : path;
-    const res = await http.get<ApiResponse<UserFollowListResponse>>(url);
+    const res = await httpAuth.get<ApiResponse<UserFollowListResponse>>(url);
     return unwrapApiResponse<UserFollowListResponse>(res);
   }
 

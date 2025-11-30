@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Avatar, Button, List, Text, useTheme } from 'react-native-paper';
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
@@ -10,7 +11,7 @@ import type { FollowUserItem } from '@/src/repositories/users_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 
 const formatCount = (value?: number) => {
-  if (value == null) return '--';
+  if (value == null) return '0';
   if (value < 1000) return String(value);
   if (value < 10000) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   return `${(value / 10000).toFixed(1).replace(/\.0$/, '')}w`;
@@ -18,6 +19,133 @@ const formatCount = (value?: number) => {
 
 type ListType = 'followers' | 'following';
 
+// ==================== UserListItem 组件 ====================
+type UserListItemProps = {
+  user: FollowUserItem;
+  listType: ListType;
+  isProcessing: boolean;
+  onPress: () => void;
+  onFollowBack?: () => void;
+  onUnfollow?: () => void;
+};
+
+const UserListItem: React.FC<UserListItemProps> = ({
+  user,
+  listType,
+  isProcessing,
+  onPress,
+  onFollowBack,
+  onUnfollow,
+}) => {
+  const theme = usePaperTheme();
+  const isFollowed = !!user.is_following;
+  
+  // 判断是否互关
+  const isMutual = listType === 'followers' && isFollowed;
+
+  const renderActionButton = () => {
+    if (listType === 'followers') {
+      // 粉丝列表：显示回关或已关注
+      return (
+        <Pressable
+          style={[
+            styles.actionBtn,
+            isFollowed
+              ? { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }
+              : { backgroundColor: theme.colors.primary },
+          ]}
+          onPress={isFollowed ? undefined : onFollowBack}
+          disabled={isProcessing || isFollowed}
+        >
+          {isProcessing ? (
+            <ActivityIndicator size={14} color={isFollowed ? theme.colors.onSurfaceVariant : theme.colors.onPrimary} />
+          ) : (
+            <>
+              {isFollowed && (
+                <Ionicons name="checkmark" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+              )}
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  { color: isFollowed ? theme.colors.onSurfaceVariant : theme.colors.onPrimary },
+                ]}
+              >
+                {isMutual ? '互关' : isFollowed ? '已关注' : '回关'}
+              </Text>
+            </>
+          )}
+        </Pressable>
+      );
+    } else {
+      // 关注列表：显示已关注，点击可取消
+      return (
+        <Pressable
+          style={[
+            styles.actionBtn,
+            { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline },
+          ]}
+          onPress={onUnfollow}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <ActivityIndicator size={14} color={theme.colors.onSurfaceVariant} />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+              <Text style={[styles.actionBtnText, { color: theme.colors.onSurfaceVariant }]}>
+                已关注
+              </Text>
+            </>
+          )}
+        </Pressable>
+      );
+    }
+  };
+
+  return (
+    <Pressable
+      style={[styles.userCard, { backgroundColor: theme.colors.surface }]}
+      onPress={onPress}
+    >
+      {/* 左侧：头像 */}
+      <View style={styles.avatarContainer}>
+        {user.avatar_url ? (
+          <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primaryContainer }]}>
+            <Ionicons name="person" size={24} color={theme.colors.primary} />
+          </View>
+        )}
+      </View>
+
+      {/* 中间：用户信息 */}
+      <View style={styles.infoContainer}>
+        <Text style={[styles.userName, { color: theme.colors.onSurface }]} numberOfLines={1}>
+          {user.name}
+        </Text>
+        <Text style={[styles.userBio, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+          {user.bio || '这个用户还没有填写简介'}
+        </Text>
+        <View style={styles.statsRow}>
+          <Text style={[styles.statsText, { color: theme.colors.onSurfaceVariant }]}>
+            {formatCount(user.stats?.post_count)} 帖子
+          </Text>
+          <Text style={[styles.statsDot, { color: theme.colors.outline }]}>·</Text>
+          <Text style={[styles.statsText, { color: theme.colors.onSurfaceVariant }]}>
+            {formatCount(user.stats?.follower_count)} 粉丝
+          </Text>
+        </View>
+      </View>
+
+      {/* 右侧：操作按钮 */}
+      <View style={styles.actionContainer}>
+        {renderActionButton()}
+      </View>
+    </Pressable>
+  );
+};
+
+// ==================== 主屏幕 ====================
 const createFollowListScreen = (type: ListType) => {
   const Screen: React.FC = () => {
     const { user } = useAuth();
@@ -27,8 +155,9 @@ const createFollowListScreen = (type: ListType) => {
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
     const insets = useSafeAreaInsets();
-    const theme = useTheme();
+    const theme = usePaperTheme();
     const router = useRouter();
+    const bottomPadding = insets.bottom + 24;
 
     const load = useCallback(
       async (isRefresh = false) => {
@@ -112,71 +241,37 @@ const createFollowListScreen = (type: ListType) => {
 
     const renderItem = ({ item }: { item: FollowUserItem }) => {
       const isProcessing = !!actionLoading[item.id];
-      const isFollowed = !!item.is_following;
 
       return (
-        <List.Item
-          title={item.name}
-          description={item.bio ?? '这个用户还没有填写简介'}
-          descriptionNumberOfLines={2}
+        <UserListItem
+          user={item}
+          listType={type}
+          isProcessing={isProcessing}
           onPress={() => navigateToProfile(item.id)}
-          left={() => (
-            <Avatar.Image
-              size={48}
-              source={{ uri: item.avatar_url ?? 'https://api.dicebear.com/7.x/identicon/png?seed=danshi' }}
-            />
-          )}
-          right={() => (
-            <View style={styles.followMeta}>
-              <Text variant="labelSmall">
-                帖子 {formatCount(item.stats?.post_count)}
-              </Text>
-              <Text variant="labelSmall">
-                粉丝 {formatCount(item.stats?.follower_count)}
-              </Text>
-              {type === 'followers' ? (
-                <Button
-                  mode={isFollowed ? 'outlined' : 'contained'}
-                  compact
-                  disabled={isFollowed || isProcessing}
-                  loading={isProcessing}
-                  onPress={() => handleFollowBack(item.id)}
-                >
-                  {isFollowed ? '已关注' : '回关'}
-                </Button>
-              ) : (
-                <Button
-                  mode="text"
-                  compact
-                  textColor={theme.colors.error}
-                  disabled={isProcessing}
-                  loading={isProcessing}
-                  onPress={() => handleUnfollow(item.id)}
-                >
-                  取消关注
-                </Button>
-              )}
-            </View>
-          )}
+          onFollowBack={() => handleFollowBack(item.id)}
+          onUnfollow={() => handleUnfollow(item.id)}
         />
       );
     };
 
     if (!user?.id) {
       return (
-        <View style={[styles.centered, { paddingTop: insets.top + 48 }]}>
-          <Text variant="bodyMedium">请先登录后再查看列表</Text>
+        <View style={[styles.centered, { paddingTop: insets.top + 48, backgroundColor: theme.colors.background }]}>
+          <Ionicons name="lock-closed-outline" size={48} color={theme.colors.outlineVariant} />
+          <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>请先登录</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+            登录后即可查看列表
+          </Text>
         </View>
       );
     }
 
     return (
-      <View
-        style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}
-      >
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator animating size="large" />
+            <ActivityIndicator animating size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
           </View>
         ) : (
           <FlatList
@@ -184,21 +279,43 @@ const createFollowListScreen = (type: ListType) => {
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => load(true)}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
+                progressViewOffset={0}
+              />
             }
-            contentContainerStyle={items.length === 0 ? styles.emptyListContent : undefined}
+            contentContainerStyle={[
+              styles.listContent,
+              items.length === 0 && styles.emptyListContent,
+              { paddingBottom: bottomPadding },
+            ]}
+            ItemSeparatorComponent={() => (
+              <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />
+            )}
             ListEmptyComponent={
-              <View style={styles.centered}>
-                <Text variant="bodyMedium">暂无数据</Text>
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name={type === 'followers' ? 'people-outline' : 'heart-outline'}
+                  size={56}
+                  color={theme.colors.outlineVariant}
+                />
+                <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+                  {type === 'followers' ? '还没有粉丝' : '还没有关注任何人'}
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                  {type === 'followers' ? '发布更多精彩内容来吸引粉丝吧' : '去发现页面找找感兴趣的用户吧'}
+                </Text>
               </View>
             }
           />
         )}
         {error ? (
-          <View style={styles.errorContainer}>
-            <Text variant="bodySmall" style={{ color: theme.colors.error }}>
-              {error}
-            </Text>
+          <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
+            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
           </View>
         ) : null}
       </View>
@@ -221,18 +338,124 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   emptyListContent: {
     flexGrow: 1,
     justifyContent: 'center',
   },
-  followMeta: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    gap: 4,
+  separator: {
+    height: 1,
+    marginVertical: 4,
   },
+
+  // ==================== User Card ====================
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+  },
+  avatarContainer: {
+    marginRight: 14,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  avatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  userBio: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statsText: {
+    fontSize: 12,
+  },
+  statsDot: {
+    fontSize: 12,
+    marginHorizontal: 6,
+  },
+  actionContainer: {
+    alignItems: 'flex-end',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    minWidth: 72,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // ==================== Empty State ====================
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+
+  // ==================== Error ====================
   errorContainer: {
-    padding: 16,
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    flex: 1,
   },
 });
 

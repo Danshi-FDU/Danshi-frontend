@@ -10,8 +10,6 @@ const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   warning: '避雷',
 };
 
-// 品牌色
-const BRAND_ORANGE = '#F97316';
 
 type PostCardProps = {
   post: Post;
@@ -145,7 +143,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             {overlayTags.map((tag) => (
               <View key={tag.key} style={[styles.overlayTag, getTagStyle(tag.variant)]}>
                 {tag.variant === 'location' && (
-                  <Ionicons name="location" size={10} color="#fff" style={styles.tagIcon} />
+                  <Ionicons name="location" size={10} color="rgba(255,255,255,0.95)" style={styles.tagIcon} />
                 )}
                 <Text style={[styles.overlayTagText, getTagTextStyle(tag.variant)]} numberOfLines={1}>
                   {tag.label}
@@ -208,7 +206,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               ))}
             </View>
           )}
-          {priceLabel && <Text style={styles.priceTag}>{priceLabel}</Text>}
+          {priceLabel && <Text style={[styles.priceTag, { color: theme.colors.error }]}>{priceLabel}</Text>}
         </View>
 
         {/* 底部栏：头像+昵称 | 爱心+点赞数 */}
@@ -236,9 +234,9 @@ export const PostCard: React.FC<PostCardProps> = ({
             <Ionicons
               name={post.is_liked ? 'heart' : 'heart-outline'}
               size={14}
-              color={post.is_liked ? '#EF4444' : theme.colors.onSurfaceVariant}
+              color={post.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
             />
-            <Text style={[styles.likeCount, { color: theme.colors.onSurfaceVariant }, post.is_liked && styles.likeCountActive]}>
+            <Text style={[styles.likeCount, { color: post.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant }]}>
               {post.stats?.like_count ?? 0}
             </Text>
           </View>
@@ -292,7 +290,6 @@ export function getPostImageAspectRatio(postId: string): number {
 const styles = StyleSheet.create({
   // 卡片容器 - 无阴影扁平风格
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -313,7 +310,6 @@ const styles = StyleSheet.create({
   placeholderContainer: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#F3F4F6',
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
     alignItems: 'center',
@@ -327,14 +323,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeholderText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
     letterSpacing: 2,
   },
 
@@ -400,7 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
-    color: '#1F2937',
   },
   actionBtn: {
     margin: 0,
@@ -423,12 +416,10 @@ const styles = StyleSheet.create({
   topicTag: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#9CA3AF',
   },
   priceTag: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#EF4444',
   },
 
   // ==================== 底部栏 ====================
@@ -447,7 +438,6 @@ const styles = StyleSheet.create({
   },
   authorName: {
     fontSize: 11,
-    color: '#6B7280',
     flex: 1,
   },
   likeWrap: {
@@ -457,11 +447,10 @@ const styles = StyleSheet.create({
   },
   likeCount: {
     fontSize: 11,
-    color: '#9CA3AF',
     fontVariant: ['tabular-nums'],
   },
   likeCountActive: {
-    color: '#EF4444',
+    // color is set dynamically
   },
 
   customFooter: {

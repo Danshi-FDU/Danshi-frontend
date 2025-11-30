@@ -1,50 +1,165 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { Tabs, Redirect } from 'expo-router';
+import { View, StyleSheet, Platform, useWindowDimensions, Pressable, Text as RNText, Image } from 'react-native';
+import { Tabs, Redirect, usePathname, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '@/src/context/theme_context';
 import { HapticTab } from '@/src/components/haptic_tab';
 import { useAuth } from '@/src/context/auth_context';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// 品牌橙色
-const BRAND_ORANGE = '#F97316';
+// 侧边栏显示的断点 (2-3栏之间，即 md)
+const SIDEBAR_BREAKPOINT = 768;
+
+// 侧边栏导航项
+const SIDEBAR_ITEMS = [
+  { name: 'explore', title: '发现', icon: 'compass', iconOutline: 'compass-outline', href: '/(tabs)/explore' },
+  { name: 'post', title: '发布', icon: 'add-circle', iconOutline: 'add-circle-outline', href: '/(tabs)/post' },
+  { name: 'myself', title: '我的', icon: 'person', iconOutline: 'person-outline', href: '/(tabs)/myself' },
+];
+
+// 侧边栏组件
+function Sidebar() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const getActiveTab = () => {
+    if (pathname.includes('/explore')) return 'explore';
+    if (pathname.includes('/post')) return 'post';
+    if (pathname.includes('/myself')) return 'myself';
+    return 'explore';
+  };
+
+  const activeTab = getActiveTab();
+
+  return (
+    <View
+      style={[
+        styles.sidebar,
+        {
+          backgroundColor: theme.colors.surfaceContainerLow,
+          paddingTop: insets.top + 16,
+          paddingBottom: insets.bottom + 16,
+          borderRightColor: theme.effective === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        },
+      ]}
+    >
+      {/* 用户头像 */}
+      <Pressable 
+        style={styles.sidebarAvatar}
+        onPress={() => router.push('/(tabs)/myself')}
+      >
+        {user?.avatar_url ? (
+          <Image
+            source={{ uri: user.avatar_url }}
+            style={styles.avatarImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <Ionicons name="person" size={26} color={theme.colors.onSurfaceVariant} />
+          </View>
+        )}
+      </Pressable>
+
+      {/* 导航项 */}
+      <View style={styles.sidebarNav}>
+        {SIDEBAR_ITEMS.map((item) => {
+          const isActive = activeTab === item.name;
+          const iconName = isActive ? item.icon : item.iconOutline;
+
+          return (
+            <Pressable
+              key={item.name}
+              style={({ pressed }) => [
+                styles.sidebarItem,
+                isActive && {
+                  backgroundColor: theme.effective === 'dark' ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.1)',
+                },
+                pressed && {
+                  backgroundColor: theme.effective === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                },
+              ]}
+              onPress={() => router.push(item.href as any)}
+            >
+              <Ionicons
+                name={iconName as any}
+                size={24}
+                color={isActive ? theme.colors.primary : theme.colors.onSurfaceVariant}
+              />
+              <RNText
+                style={[
+                  styles.sidebarLabel,
+                  {
+                    color: isActive ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                    fontWeight: isActive ? '600' : '400',
+                  },
+                ]}
+              >
+                {item.title}
+              </RNText>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const theme = useTheme();
   const { userToken, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  // 与评论界面底部栏保持一致: minHeight 56 + paddingBottom (Math.max(insets.bottom, 12))
+  const tabBarBaseHeight = 56;
+  const tabBarPadding = Math.max(insets.bottom, 12);
+  const tabBarTotalHeight = tabBarBaseHeight + tabBarPadding;
+
+  // 是否显示侧边栏
+  const showSidebar = windowWidth >= SIDEBAR_BREAKPOINT;
 
   const screenOptions = React.useMemo(
     () => ({
       headerShown: false,
-      tabBarStyle: {
-        position: 'absolute' as const,
-        backgroundColor: Platform.OS === 'ios' ? 'transparent' : (theme.effective === 'dark' ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)'),
-        borderTopWidth: 0,
-        elevation: 0,
-        height: 64,
-        paddingBottom: 8,
-        paddingTop: 8,
-      },
+      tabBarStyle: showSidebar
+        ? { display: 'none' as const }
+        : {
+            position: 'absolute' as const,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: Platform.OS === 'ios' ? 'transparent' : (theme.effective === 'dark' ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)'),
+            borderTopWidth: 0,
+            elevation: 8,
+            zIndex: 100,
+            height: tabBarTotalHeight,
+            overflow: 'visible' as const,
+          },
       tabBarBackground: () =>
-        Platform.OS === 'ios' ? (
+        Platform.OS === 'ios' && !showSidebar ? (
           <BlurView
             intensity={80}
             tint={theme.effective === 'dark' ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
         ) : null,
-      sceneContainerStyle: { backgroundColor: theme.background },
-      tabBarActiveTintColor: theme.colors.onSurface,
+      sceneContainerStyle: {
+        backgroundColor: theme.background,
+        paddingBottom: showSidebar ? 0 : tabBarTotalHeight,
+      },
+      tabBarActiveTintColor: theme.colors.primary,
       tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-      tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const, marginTop: 2 },
+      tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
       tabBarButton: (props: any) => <HapticTab {...props} />,
-      // Tab 切换动画 - 使用淡入淡出更流畅
       animation: 'fade' as const,
       lazy: true,
       freezeOnBlur: true,
     }),
-    [theme]
+    [theme, tabBarPadding, tabBarTotalHeight, showSidebar]
   );
 
   if (isLoading) return null;
@@ -52,6 +167,50 @@ export default function TabsLayout() {
     return <Redirect href="/login" />;
   }
 
+  // 宽屏布局：侧边栏 + 内容区
+  if (showSidebar) {
+    return (
+      <View style={styles.wideContainer}>
+        <Sidebar />
+        <View style={styles.wideContent}>
+          <Tabs initialRouteName="explore" screenOptions={screenOptions}>
+            <Tabs.Screen
+              name="explore"
+              options={{
+                title: '发现',
+                tabBarIcon: ({ color, size, focused }) => (
+                  <Ionicons name={focused ? 'compass' : 'compass-outline'} size={size} color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="post"
+              options={{
+                title: '',
+                tabBarIcon: () => (
+                  <View style={[styles.fabContainer, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}>
+                    <Ionicons name="add" size={28} color={theme.colors.onPrimary} />
+                  </View>
+                ),
+                tabBarLabelStyle: { display: 'none' },
+              }}
+            />
+            <Tabs.Screen
+              name="myself"
+              options={{
+                title: '我的',
+                tabBarIcon: ({ color, size, focused }) => (
+                  <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
+                ),
+              }}
+            />
+          </Tabs>
+        </View>
+      </View>
+    );
+  }
+
+  // 窄屏布局：底部 Tab Bar
   return (
     <Tabs initialRouteName="explore" screenOptions={screenOptions}>
       <Tabs.Screen
@@ -68,8 +227,8 @@ export default function TabsLayout() {
         options={{
           title: '',
           tabBarIcon: () => (
-            <View style={styles.fabContainer}>
-              <Ionicons name="add" size={28} color="#FFFFFF" />
+            <View style={[styles.fabContainer, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}>
+              <Ionicons name="add" size={28} color={theme.colors.onPrimary} />
             </View>
           ),
           tabBarLabelStyle: { display: 'none' },
@@ -89,16 +248,61 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  // 宽屏容器
+  wideContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  wideContent: {
+    flex: 1,
+  },
+
+  // 侧边栏
+  sidebar: {
+    width: 280,
+    borderRightWidth: 1,
+    paddingHorizontal: 20,
+  },
+  sidebarAvatar: {
+    paddingHorizontal: 12,
+    paddingBottom: 28,
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sidebarNav: {
+    flex: 1,
+    gap: 6,
+  },
+  sidebarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  sidebarLabel: {
+    fontSize: 16,
+  },
+
+  // FAB 按钮（窄屏）
   fabContainer: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: BRAND_ORANGE,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -20,
-    // 增强橙色阴影
-    shadowColor: BRAND_ORANGE,
     shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },

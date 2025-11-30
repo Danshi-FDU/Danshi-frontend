@@ -1,6 +1,5 @@
 import { USE_MOCK, API_ENDPOINTS } from '@/src/constants/app';
 import { unwrapApiResponse } from '@/src/lib/http/response';
-import { http } from '@/src/lib/http/client';
 import { httpAuth } from '@/src/lib/http/http_auth';
 import type {
   Post,
@@ -57,13 +56,13 @@ class ApiPostsRepository implements PostsRepository {
       }
     }
     const path = `${API_ENDPOINTS.POSTS.GETPOSTPRE}${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const resp = await http.get(path);
+    const resp = await httpAuth.get(path);
     return unwrapApiResponse<PostsListResponse>(resp, 200);
   }
 
   async get(postId: string): Promise<Post> {
     const path = API_ENDPOINTS.POSTS.GETPOSTALL.replace(':postId', encodeURIComponent(postId));
-    const resp = await http.get(path);
+    const resp = await httpAuth.get(path);
     return unwrapApiResponse<Post>(resp, 200);
   }
 

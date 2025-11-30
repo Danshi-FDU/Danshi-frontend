@@ -6,8 +6,6 @@ import {
   Pressable,
   Image,
   useWindowDimensions,
-  TextInput as RNTextInput,
-  Keyboard,
 } from 'react-native';
 import { Text, IconButton, useTheme as usePaperTheme, ActivityIndicator } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -26,6 +24,7 @@ interface ImageUploadGridProps {
  * - 虚线边框添加按钮
  * - 圆角图片预览
  * - 右上角删除按钮
+ * - Web 端支持拖拽上传和点击选择文件
  */
 export default function ImageUploadGrid({
   images,
@@ -36,6 +35,7 @@ export default function ImageUploadGrid({
   const { width: screenWidth } = useWindowDimensions();
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const isWeb = Platform.OS === 'web';
 
@@ -74,25 +74,84 @@ export default function ImageUploadGrid({
     [images, maxImages, onImagesChange, isValidImageUrl]
   );
 
-  // Web 端：输入链接模式
-  const [showLinkInput, setShowLinkInput] = useState(false);
-  const [linkInputValue, setLinkInputValue] = useState('');
-  const linkInputRef = useRef<RNTextInput>(null);
-
-  const handleAddLink = useCallback(() => {
-    if (linkInputValue && isValidImageUrl(linkInputValue)) {
-      addUploadedImages([linkInputValue.trim()]);
-      setLinkInputValue('');
-      setShowLinkInput(false);
-      Keyboard.dismiss();
+  // Web 端：处理文件上传
+  const handleWebFileUpload = useCallback(async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    const imageFiles = fileArray.filter(f => f.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+      setUploadError('请选择图片文件');
+      return;
     }
-  }, [linkInputValue, isValidImageUrl, addUploadedImages]);
 
-  const handleCancelLink = useCallback(() => {
-    setLinkInputValue('');
-    setShowLinkInput(false);
-    Keyboard.dismiss();
+    const availableSlots = maxImages - validImages.length;
+    if (availableSlots <= 0) {
+      setUploadError(`最多只能上传 ${maxImages} 张图片`);
+      return;
+    }
+
+    const filesToUpload = imageFiles.slice(0, availableSlots);
+    
+    // 检查文件大小
+    const oversizedFile = filesToUpload.find(f => f.size > 5 * 1024 * 1024);
+    if (oversizedFile) {
+      setUploadError('图片大小不能超过 5MB');
+      return;
+    }
+
+    setUploadError(null);
+    setUploadingCount(filesToUpload.length);
+
+    try {
+      const uploadResults = await uploadService.uploadImages(filesToUpload);
+      const urls = uploadResults.map((r) => r.url);
+      addUploadedImages(urls);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '上传失败，请稍后重试';
+      setUploadError(message);
+    } finally {
+      setUploadingCount(0);
+    }
+  }, [maxImages, validImages.length, addUploadedImages]);
+
+  // Web 端：点击选择文件
+  const handleWebClick = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        handleWebFileUpload(files);
+      }
+    };
+    input.click();
+  }, [handleWebFileUpload]);
+
+  // Web 端：拖拽处理
+  const handleDragOver = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
   }, []);
+
+  const handleDragLeave = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleWebFileUpload(files);
+    }
+  }, [handleWebFileUpload]);
 
   // 原生端：从图库选择图片
   const pickImageFromLibrary = useCallback(async () => {
@@ -139,11 +198,6 @@ export default function ImageUploadGrid({
       setUploadingCount(0);
     }
   }, [maxImages, validImages.length, addUploadedImages]);
-
-  // Web 端处理
-  const handleWebAdd = useCallback(() => {
-    setShowLinkInput(true);
-  }, []);
 
   const canAddMore = validImages.length < maxImages && uploadingCount === 0;
 
@@ -214,49 +268,8 @@ export default function ImageUploadGrid({
           </View>
         )}
 
-        {/* Web 端链接输入框 */}
-        {isWeb && showLinkInput && (
-          <View
-            style={[
-              styles.gridItem,
-              styles.linkInputItem,
-              {
-                width: itemSize,
-                height: itemSize,
-                borderColor: theme.colors.primary,
-                backgroundColor: theme.colors.surface,
-              },
-            ]}
-          >
-            <RNTextInput
-              ref={linkInputRef}
-              value={linkInputValue}
-              onChangeText={setLinkInputValue}
-              placeholder="粘贴图片链接"
-              placeholderTextColor={theme.colors.outline}
-              autoFocus
-              style={[styles.linkTextInput, { color: theme.colors.onSurface }]}
-              onSubmitEditing={handleAddLink}
-            />
-            <View style={styles.linkInputRow}>
-              <Pressable
-                style={[styles.linkConfirmBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={handleAddLink}
-              >
-                <Ionicons name="checkmark" size={16} color={theme.colors.onPrimary} />
-              </Pressable>
-              <Pressable
-                style={[styles.linkCancelBtn, { borderColor: theme.colors.outline }]}
-                onPress={handleCancelLink}
-              >
-                <Ionicons name="close" size={16} color={theme.colors.outline} />
-              </Pressable>
-            </View>
-          </View>
-        )}
-
         {/* 添加按钮 */}
-        {canAddMore && !showLinkInput && (
+        {canAddMore && (
           <Pressable
             style={[
               styles.gridItem,
@@ -264,16 +277,22 @@ export default function ImageUploadGrid({
               {
                 width: itemSize,
                 height: itemSize,
-                borderColor: theme.colors.outline,
+                borderColor: isDragging ? theme.colors.primary : theme.colors.primary,
+                backgroundColor: isDragging ? theme.colors.primaryContainer : 'transparent',
               },
             ]}
-            onPress={isWeb ? handleWebAdd : pickImageFromLibrary}
+            onPress={isWeb ? handleWebClick : pickImageFromLibrary}
+            {...(isWeb ? {
+              onDragOver: handleDragOver,
+              onDragLeave: handleDragLeave,
+              onDrop: handleDrop,
+            } : {})}
           >
-            <View style={[styles.addIconCircle, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <Ionicons name="add" size={24} color={theme.colors.onSurfaceVariant} />
+            <View style={[styles.addIconCircle, { backgroundColor: theme.colors.primaryContainer }]}>
+              <Ionicons name="add" size={24} color={theme.colors.primary} />
             </View>
-            <Text style={[styles.addText, { color: theme.colors.outline }]}>
-              {isWeb ? '添加链接' : '添加图片'}
+            <Text style={[styles.addText, { color: theme.colors.primary }]}>
+              {isWeb ? (isDragging ? '松开上传' : '点击或拖拽') : '添加图片'}
             </Text>
           </Pressable>
         )}
@@ -363,41 +382,6 @@ const styles = StyleSheet.create({
   uploadingText: {
     fontSize: 11,
     fontWeight: '500',
-  },
-  linkInputItem: {
-    borderWidth: 1.5,
-    borderStyle: 'solid',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 8,
-  },
-  linkTextInput: {
-    fontSize: 11,
-    textAlign: 'center',
-    width: '100%',
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    backgroundColor: 'transparent',
-  },
-  linkInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  linkConfirmBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  linkCancelBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   countHint: {
     fontSize: 12,

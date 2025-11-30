@@ -10,6 +10,7 @@ import {
   Share,
   useWindowDimensions,
   FlatList,
+  Platform,
 } from 'react-native';
 import {
   ActivityIndicator,
@@ -23,12 +24,29 @@ import { useRouter } from 'expo-router';
 import { postsService } from '@/src/services/posts_service';
 import { usersService } from '@/src/services/users_service';
 import type { Post, SeekingPost, SharePost } from '@/src/models/Post';
-import type { Comment, CommentReply, CommentsPagination } from '@/src/models/Comment';
+import type { Comment, CommentEntity, CommentReply, CommentsPagination } from '@/src/models/Comment';
 import { CommentItem } from '@/src/components/comments/comment_item';
 import { CommentComposer } from '@/src/components/comments/comment_composer';
 import ImageViewer from '@/src/components/image_viewer';
 import { commentsService } from '@/src/services/comments_service';
+
+// 扁平化嵌套回复：将三级及更深的回复全部提升为二级
+function flattenReplies(replies: CommentReply[]): CommentReply[] {
+  const result: CommentReply[] = [];
+  for (const reply of replies) {
+    // 添加当前回复（不含其 replies 字段）
+    const { replies: nestedReplies, ...replyWithoutNested } = reply as CommentReply & { replies?: CommentReply[] };
+    result.push(replyWithoutNested);
+    // 递归扁平化嵌套回复
+    if (nestedReplies?.length) {
+      result.push(...flattenReplies(nestedReplies));
+    }
+  }
+  return result;
+}
+const REPLY_PREVIEW_COUNT = 3;
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
+import { useAuth } from '@/src/context/auth_context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 // 响应式断点
@@ -59,6 +77,15 @@ type Props = {
   postId: string;
 };
 
+// 跨平台 alert 辅助函数
+function showAlert(title: string, message?: string) {
+  if (Platform.OS === 'web') {
+    window.alert(message ? `${title}: ${message}` : title);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 function formatDate(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -84,6 +111,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { user: currentUser } = useAuth();
 
   const [post, setPost] = useState<Post | null>(null);
   const [loader, setLoader] = useState<LoaderState>('initial');
@@ -91,13 +119,20 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [actionLoading, setActionLoading] = useState({ like: false, favorite: false, follow: false });
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentSort, setCommentSort] = useState<'latest' | 'hot'>('latest');
-  const [commentPagination, setCommentPagination] = useState({ page: 1, total: 0, total_pages: 1 });
+  const [commentPagination, setCommentPagination] = useState<CommentsPagination>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 1,
+  });
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentReplies, setCommentReplies] = useState<Record<string, CommentReply[]>>({});
   const [commentRepliesPagination, setCommentRepliesPagination] = useState<Record<string, CommentsPagination>>({});
   const [commentRepliesLoading, setCommentRepliesLoading] = useState<Record<string, boolean>>({});
   const [commentRepliesExpanded, setCommentRepliesExpanded] = useState<Record<string, boolean>>({});
   const [commentSheetVisible, setCommentSheetVisible] = useState(false);
+  const [threadVisible, setThreadVisible] = useState(false);
+  const [threadRootComment, setThreadRootComment] = useState<Comment | null>(null);
   const [commentInput, setCommentInput] = useState('');
   const [commentReplyTarget, setCommentReplyTarget] = useState<Comment | CommentReply | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -136,9 +171,36 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       const res = await commentsService.listByPost(postIdValue, { sortBy: sort, limit: 10 });
       setComments(res.comments);
       setCommentPagination(res.pagination);
-      setCommentReplies({});
-      setCommentRepliesPagination({});
-      setCommentRepliesExpanded({});
+      setCommentReplies((prev) => {
+        if (!Object.keys(prev).length) return prev;
+        const next: Record<string, CommentReply[]> = {};
+        for (const comment of res.comments) {
+          if (prev[comment.id]) {
+            next[comment.id] = prev[comment.id];
+          }
+        }
+        return next;
+      });
+      setCommentRepliesPagination((prev) => {
+        if (!Object.keys(prev).length) return prev;
+        const next: Record<string, CommentsPagination> = {};
+        for (const comment of res.comments) {
+          if (prev[comment.id]) {
+            next[comment.id] = prev[comment.id];
+          }
+        }
+        return next;
+      });
+      setCommentRepliesExpanded((prev) => {
+        if (!Object.keys(prev).length) return prev;
+        const next: Record<string, boolean> = {};
+        for (const comment of res.comments) {
+          if (prev[comment.id]) {
+            next[comment.id] = prev[comment.id];
+          }
+        }
+        return next;
+      });
     } catch (e) {
       console.warn('load comments failed', e);
     } finally {
@@ -179,6 +241,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   useEffect(() => {
     if (post?.id) fetchComments(post.id, commentSort);
   }, [post?.id, commentSort, fetchComments]);
+
+  useEffect(() => {
+    if (!threadRootComment) return;
+    const updated = comments.find((c) => c.id === threadRootComment.id);
+    if (updated && updated !== threadRootComment) {
+      setThreadRootComment(updated);
+    }
+  }, [comments, threadRootComment]);
 
   const refreshing = loader === 'refresh';
   const isInitialLoading = loader === 'initial';
@@ -264,6 +334,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const handleToggleFollow = useCallback(async () => {
     if (!post?.author?.id) return;
+    if (currentUser?.id === post.author.id) {
+      showAlert('提示', '不能关注自己');
+      return;
+    }
     setActionLoading((prev) => ({ ...prev, follow: true }));
     try {
       const { is_following } = isFollowed
@@ -271,11 +345,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         : await usersService.followUser(post.author.id);
       setIsFollowed(is_following);
     } catch (e) {
-      Alert.alert('操作失败', (e as Error)?.message ?? '请稍后重试');
+      showAlert('操作失败', (e as Error)?.message ?? '请稍后重试');
     } finally {
       setActionLoading((prev) => ({ ...prev, follow: false }));
     }
-  }, [post?.author?.id, isFollowed]);
+  }, [post?.author?.id, isFollowed, currentUser?.id]);
 
   const patchCommentEntity = useCallback((targetId: string, patch: Partial<Comment | CommentReply>) => {
     setComments((prev) => {
@@ -330,23 +404,69 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     setCommentReplyTarget(null);
   }, []);
 
-  const handleToggleReplies = useCallback(async (commentId: string, expand: boolean) => {
-    if (!expand) {
-      setCommentRepliesExpanded((prev) => ({ ...prev, [commentId]: false }));
-      return;
-    }
+  const fetchRepliesForComment = useCallback(async (commentId: string, page = 1, append = false) => {
     setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: true }));
     try {
-      const res = await commentsService.listReplies(commentId, { limit: 20 });
-      setCommentReplies((prev) => ({ ...prev, [commentId]: res.replies }));
+      const res = await commentsService.listReplies(commentId, { limit: 20, page });
+      const flattened = flattenReplies(res.replies ?? []);
+      setCommentReplies((prev) => {
+        const existing = append ? prev[commentId] ?? [] : [];
+        const merged = append ? [...existing, ...flattened] : flattened;
+        return { ...prev, [commentId]: merged };
+      });
       setCommentRepliesPagination((prev) => ({ ...prev, [commentId]: res.pagination }));
-      setCommentRepliesExpanded((prev) => ({ ...prev, [commentId]: true }));
     } catch (e) {
-      Alert.alert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
+      showAlert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
     } finally {
       setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
     }
   }, []);
+
+  const handleShowRepliesPanel = useCallback((entity: CommentEntity) => {
+    const rootComment = 'reply_count' in entity
+      ? entity
+      : comments.find((c) => c.id === entity.parent_id) ?? null;
+    if (!rootComment) return;
+    setThreadRootComment(rootComment);
+    setThreadVisible(true);
+    if (!commentReplies[rootComment.id] && rootComment.replies?.length) {
+      setCommentReplies((prev) => ({
+        ...prev,
+        [rootComment.id]: flattenReplies(rootComment.replies ?? []),
+      }));
+    }
+    const hasReplies = commentReplies[rootComment.id]?.length;
+    if (!hasReplies && (rootComment.reply_count ?? 0) > 0) {
+      fetchRepliesForComment(rootComment.id).catch(() => {});
+    }
+  }, [comments, commentReplies, fetchRepliesForComment]);
+
+  const handleCloseThreadSheet = useCallback(() => {
+    setThreadVisible(false);
+  }, []);
+
+  const handleLoadMoreThreadReplies = useCallback(() => {
+    if (!threadRootComment) return;
+    const pagination = commentRepliesPagination[threadRootComment.id];
+    const nextPage = (pagination?.page ?? 1) + 1;
+    if (pagination && nextPage > (pagination.total_pages ?? Infinity)) return;
+    fetchRepliesForComment(threadRootComment.id, nextPage, true).catch(() => {});
+  }, [threadRootComment, commentRepliesPagination, fetchRepliesForComment]);
+
+  const handleReloadThreadReplies = useCallback(() => {
+    if (!threadRootComment) return;
+    fetchRepliesForComment(threadRootComment.id).catch(() => {});
+  }, [threadRootComment, fetchRepliesForComment]);
+
+  const handleDesktopToggleReplies = useCallback((comment: Comment) => {
+    setCommentRepliesExpanded((prev) => {
+      const nextExpanded = !prev[comment.id];
+      if (nextExpanded && !commentReplies[comment.id]) {
+        fetchRepliesForComment(comment.id).catch(() => {});
+      }
+      return { ...prev, [comment.id]: nextExpanded };
+    });
+  }, [commentReplies, fetchRepliesForComment]);
 
   const handleOpenImageViewer = useCallback((index: number) => {
     setImageViewer({ visible: true, index });
@@ -372,12 +492,12 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(post.id);
-        Alert.alert('已复制', '帖子 ID 已复制到剪贴板');
+        showAlert('已复制', '帖子 ID 已复制到剪贴板');
       } else {
         await Share.share({ message: `帖子 ID：${post.id}` });
       }
     } catch {
-      Alert.alert('复制失败', `请手动复制帖子 ID：${post.id}`);
+      showAlert('复制失败', `请手动复制帖子 ID：${post.id}`);
     }
   }, [post]);
 
@@ -386,15 +506,98 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     const content = commentInput.trim();
     if (!content) return;
     try {
-      await commentsService.create(post.id, {
+      // 统一扁平化：任何深度的回复都映射到顶级评论 parent_id。
+      let parent_id: string | undefined; let reply_to_user_id: string | undefined;
+      if (commentReplyTarget) {
+        if (!commentReplyTarget.parent_id) {
+          // 直接回复顶级
+          parent_id = commentReplyTarget.id;
+          reply_to_user_id = commentReplyTarget.author?.id;
+        } else {
+          // 回复某条回复：确保 parent_id 指向真正的顶级评论
+          const directParentId = commentReplyTarget.parent_id;
+          // 如果 directParentId 在顶级 comments 中，说明它就是顶级
+          const isTop = comments.some((c) => c.id === directParentId);
+          if (isTop) {
+            parent_id = directParentId;
+            reply_to_user_id = commentReplyTarget.author?.id;
+          } else {
+            // 可能出现“第三层”旧数据：尝试在所有顶级的 replies 中找到其父，取其 parent_id 作为顶级
+            let resolvedTop: string | undefined;
+            for (const c of comments) {
+              if (c.replies?.some((r) => r.id === directParentId)) {
+                resolvedTop = c.id; break;
+              }
+            }
+            parent_id = resolvedTop ?? directParentId; // 兜底：即使没找到也用 directParentId
+            reply_to_user_id = commentReplyTarget.author?.id;
+          }
+        }
+      }
+      const createdEntity = await commentsService.create(post.id, {
         content,
-        parent_id: commentReplyTarget?.parent_id ?? commentReplyTarget?.id,
-        reply_to_user_id: commentReplyTarget?.author?.id,
+        parent_id,
+        reply_to_user_id,
       });
+      const isReply = !!parent_id;
+      if (isReply && createdEntity) {
+        const newReply = createdEntity as CommentReply;
+        let updatedReplyLength = 0;
+        setCommentReplies((prev) => {
+          const prevList = prev[parent_id!] ?? [];
+          const merged = [newReply, ...prevList];
+          updatedReplyLength = merged.length;
+          return { ...prev, [parent_id!]: merged };
+        });
+        setCommentRepliesPagination((prev) => {
+          const prevPagination = prev[parent_id!];
+          const limit = prevPagination?.limit ?? 20;
+          const total = prevPagination?.total != null
+            ? prevPagination.total + 1
+            : updatedReplyLength;
+          const total_pages = Math.max(1, Math.ceil(total / limit));
+          return {
+            ...prev,
+            [parent_id!]: {
+              page: prevPagination?.page ?? 1,
+              limit,
+              total,
+              total_pages,
+            },
+          };
+        });
+        setComments((prev) => prev.map((comment) => {
+          if (comment.id !== parent_id) return comment;
+          const previewSource = flattenReplies(comment.replies ?? []);
+          const preview = [newReply, ...previewSource].slice(0, REPLY_PREVIEW_COUNT);
+          return {
+            ...comment,
+            reply_count: (comment.reply_count ?? 0) + 1,
+            replies: preview,
+          };
+        }));
+      } else if (!isReply && createdEntity) {
+        const newComment = createdEntity as Comment;
+        setComments((prev) => [newComment, ...prev]);
+        setCommentPagination((prev) => {
+          const limit = (prev as CommentsPagination).limit ?? 10;
+          const total = (prev.total ?? 0) + 1;
+          const total_pages = Math.max(1, Math.ceil(total / limit));
+          return { ...prev, limit, total, total_pages };
+        });
+      }
       setCommentInput('');
       setCommentReplyTarget(null);
       setCommentSheetVisible(false);
       await fetchComments(post.id, commentSort);
+      // 如果是回复评论，自动展开该评论的回复列表以显示新回复
+      if (parent_id) {
+        try {
+          await fetchRepliesForComment(parent_id);
+        } catch (e) {
+          console.warn('auto refresh replies failed', e);
+        }
+      }
       setPost((prev) =>
         prev ? {
           ...prev,
@@ -402,7 +605,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         } : prev
       );
     } catch (e) {
-      Alert.alert('评论失败', (e as Error)?.message ?? '暂时无法发表评论');
+      showAlert('评论失败', (e as Error)?.message ?? '暂时无法发表评论');
     }
   }, [commentInput, commentReplyTarget, post, fetchComments, commentSort]);
 
@@ -419,6 +622,93 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const favoriteCount = post?.stats?.favorite_count ?? 0;
   const viewCount = post?.stats?.view_count ?? 0;
   const commentCount = post?.stats?.comment_count ?? commentPagination.total;
+  const threadRepliesList = threadRootComment ? commentReplies[threadRootComment.id] ?? [] : [];
+  const threadPaginationInfo = threadRootComment ? commentRepliesPagination[threadRootComment.id] : undefined;
+  const threadReplyTotal = Math.max(
+    threadPaginationInfo?.total ?? threadRootComment?.reply_count ?? 0,
+    threadRepliesList.length,
+  );
+  const threadLoading = threadRootComment ? !!commentRepliesLoading[threadRootComment.id] : false;
+  const threadHasMore = threadReplyTotal > threadRepliesList.length;
+
+  const threadSheet = (
+    <BottomSheet
+      visible={threadVisible}
+      onClose={handleCloseThreadSheet}
+      height={Math.min(windowHeight * 0.9, 640)}
+    >
+      {threadRootComment ? (
+        <View style={styles.threadSheet}>
+          <View style={styles.threadSheetHeader}>
+            <Pressable style={styles.threadSheetClose} onPress={handleCloseThreadSheet}>
+              <Ionicons name="chevron-down" size={20} color={theme.colors.onSurfaceVariant} />
+            </Pressable>
+            <Text style={styles.threadSheetTitle}>共 {threadReplyTotal} 条回复</Text>
+            <View style={styles.threadSheetHeaderSpacer} />
+          </View>
+          <ScrollView
+            style={styles.threadSheetScroll}
+            contentContainerStyle={styles.threadSheetContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <CommentItem
+              comment={threadRootComment}
+              showReplySummary={false}
+              onLike={handleToggleCommentLike}
+              onReply={handleReplyToComment}
+            />
+            <View style={[styles.threadDividerLine, { backgroundColor: theme.colors.surfaceVariant }]} />
+            {threadRepliesList.length ? (
+              threadRepliesList.map((reply) => (
+                <CommentItem
+                  key={reply.id}
+                  comment={reply}
+                  showReplySummary={false}
+                  onLike={handleToggleCommentLike}
+                  onReply={handleReplyToComment}
+                />
+              ))
+            ) : threadReplyTotal > 0 ? (
+              <View style={styles.threadLoading}>
+                {threadLoading ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Button
+                    mode="text"
+                    onPress={handleReloadThreadReplies}
+                    textColor={theme.colors.primary}
+                  >
+                    重新加载回复
+                  </Button>
+                )}
+              </View>
+            ) : (
+              <View style={styles.threadEmpty}>
+                <Ionicons name="chatbubble-ellipses-outline" size={32} color={theme.colors.onSurfaceVariant} />
+                <Text style={[styles.threadEmptyText, { color: theme.colors.onSurfaceVariant }]}>还没有回复</Text>
+              </View>
+            )}
+            {threadHasMore ? (
+              <Button
+                mode="outlined"
+                onPress={handleLoadMoreThreadReplies}
+                loading={threadLoading}
+                disabled={threadLoading}
+                style={styles.threadLoadMore}
+                textColor={theme.colors.primary}
+              >
+                查看更多回复
+              </Button>
+            ) : null}
+          </ScrollView>
+        </View>
+      ) : (
+        <View style={styles.threadEmptyState}>
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>请选择要查看的评论</Text>
+        </View>
+      )}
+    </BottomSheet>
+  );
 
   // 根据帖子类型生成渐变色
   const gradientColors = useMemo(() => {
@@ -523,7 +813,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           />
         )}
         <View style={styles.authorTextWrap}>
-          <Text style={styles.authorName}>{post?.author?.name ?? '匿名用户'}</Text>
+          <Text style={styles.authorName} numberOfLines={1}>{post?.author?.name ?? '匿名用户'}</Text>
           <Text style={[styles.authorMeta, { color: theme.colors.onSurfaceVariant }]}>
             {formatDate(post?.created_at)}
           </Text>
@@ -567,29 +857,31 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       {/* 结构化信息卡片 */}
       {sharePostData && (sharePostData.cuisine || typeof sharePostData.price === 'number' || (sharePostData.flavors && sharePostData.flavors.length > 0)) ? (
         <View style={[styles.infoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <View style={styles.infoCardRow}>
-            {sharePostData.cuisine ? (
-              <View style={styles.infoCardItem}>
-                <Ionicons name="restaurant-outline" size={16} color={theme.colors.primary} />
-                <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>菜系</Text>
-                <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>{sharePostData.cuisine}</Text>
-              </View>
-            ) : null}
-            {typeof sharePostData.price === 'number' ? (
-              <View style={styles.infoCardItem}>
-                <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
-                <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>人均</Text>
-                <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>¥{sharePostData.price}</Text>
-              </View>
-            ) : null}
-          </View>
+          {sharePostData.cuisine ? (
+            <View style={styles.infoCardLine}>
+              <Ionicons name="restaurant-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>菜系</Text>
+              <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>{sharePostData.cuisine}</Text>
+            </View>
+          ) : null}
+          {typeof sharePostData.price === 'number' ? (
+            <View style={styles.infoCardLine}>
+              <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>价格</Text>
+              <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>¥{sharePostData.price}</Text>
+            </View>
+          ) : null}
           {sharePostData.flavors && sharePostData.flavors.length > 0 ? (
-            <View style={styles.infoCardFlavors}>
-              {sharePostData.flavors.map((flavor, idx) => (
-                <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
-                  <Text style={[styles.flavorBadgeText, { color: theme.colors.onSecondaryContainer }]}>{flavor}</Text>
-                </View>
-              ))}
+            <View style={styles.infoCardLine}>
+              <Ionicons name="heart-outline" size={16} color={theme.colors.tertiary} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>口味</Text>
+              <View style={styles.infoCardTags}>
+                {sharePostData.flavors.map((flavor, idx) => (
+                  <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+                    <Text style={[styles.flavorBadgeText, { color: theme.colors.onSecondaryContainer }]}>{flavor}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -598,35 +890,39 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       {/* SeekingPost 信息 */}
       {seekingPostData && (seekingPostData.budget_range || seekingPostData.preferences) ? (
         <View style={[styles.infoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <View style={styles.infoCardRow}>
-            {seekingPostData.budget_range ? (
-              <View style={styles.infoCardItem}>
-                <Ionicons name="wallet-outline" size={16} color={theme.colors.primary} />
-                <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>预算</Text>
-                <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>
-                  ¥{seekingPostData.budget_range.min}-{seekingPostData.budget_range.max}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+          {seekingPostData.budget_range ? (
+            <View style={styles.infoCardLine}>
+              <Ionicons name="wallet-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>预算</Text>
+              <Text style={[styles.infoCardValue, { color: theme.colors.onSurface }]}>
+                ¥{seekingPostData.budget_range.min}-{seekingPostData.budget_range.max}
+              </Text>
+            </View>
+          ) : null}
           {seekingPostData.preferences?.prefer_flavors && seekingPostData.preferences.prefer_flavors.length > 0 ? (
-            <View style={styles.infoCardFlavors}>
-              <Text style={[styles.preferenceLabel, { color: theme.colors.tertiary }]}>喜欢：</Text>
-              {seekingPostData.preferences.prefer_flavors.map((f, idx) => (
-                <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
-                  <Text style={[styles.flavorBadgeText, { color: theme.colors.onTertiaryContainer }]}>{f}</Text>
-                </View>
-              ))}
+            <View style={styles.infoCardLine}>
+              <Ionicons name="heart-outline" size={16} color={theme.colors.tertiary} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>喜欢</Text>
+              <View style={styles.infoCardTags}>
+                {seekingPostData.preferences.prefer_flavors.map((f, idx) => (
+                  <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
+                    <Text style={[styles.flavorBadgeText, { color: theme.colors.onTertiaryContainer }]}>{f}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
           {seekingPostData.preferences?.avoid_flavors && seekingPostData.preferences.avoid_flavors.length > 0 ? (
-            <View style={styles.infoCardFlavors}>
-              <Text style={[styles.preferenceLabel, { color: theme.colors.error }]}>忌口：</Text>
-              {seekingPostData.preferences.avoid_flavors.map((f, idx) => (
-                <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.errorContainer }]}>
-                  <Text style={[styles.flavorBadgeText, { color: theme.colors.onErrorContainer }]}>{f}</Text>
-                </View>
-              ))}
+            <View style={styles.infoCardLine}>
+              <Ionicons name="close-circle-outline" size={16} color={theme.colors.error} />
+              <Text style={[styles.infoCardLabel, { color: theme.colors.onSurfaceVariant }]}>忌口</Text>
+              <View style={styles.infoCardTags}>
+                {seekingPostData.preferences.avoid_flavors.map((f, idx) => (
+                  <View key={idx} style={[styles.flavorBadge, { backgroundColor: theme.colors.errorContainer }]}>
+                    <Text style={[styles.flavorBadgeText, { color: theme.colors.onErrorContainer }]}>{f}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -636,15 +932,25 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       <View style={styles.tagsRow}>
         {/* 位置 */}
         {post?.canteen ? (
-          <View style={[styles.tagBadge, styles.locationBadge]}>
-            <Ionicons name="location" size={12} color="#6B7280" />
-            <Text style={styles.tagBadgeText}>{post.canteen}</Text>
+          <View style={[styles.tagBadge, styles.locationBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <Ionicons name="location" size={12} color={theme.colors.onSurfaceVariant} />
+            <Text style={[styles.tagBadgeText, { color: theme.colors.onSurfaceVariant }]}>{post.canteen}</Text>
           </View>
         ) : null}
         {/* 类型标签 */}
         {post && (
-          <View style={[styles.tagBadge, sharePostData?.share_type === 'warning' ? styles.warningBadge : styles.recommendBadge]}>
-            <Text style={[styles.tagBadgeText, sharePostData?.share_type === 'warning' ? styles.warningText : styles.recommendText]}>
+          <View style={[
+            styles.tagBadge,
+            post.post_type === 'seeking' 
+              ? styles.seekingBadge 
+              : (sharePostData?.share_type === 'warning' ? styles.warningBadge : styles.recommendBadge)
+          ]}>
+            <Text style={[
+              styles.tagBadgeText,
+              post.post_type === 'seeking'
+                ? styles.seekingText
+                : (sharePostData?.share_type === 'warning' ? styles.warningText : styles.recommendText)
+            ]}>
               {sharePostData && sharePostData.share_type ? SHARE_LABEL[sharePostData.share_type] : TYPE_LABEL[post.post_type]}
             </Text>
           </View>
@@ -670,11 +976,13 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   );
 
   // ==================== 评论区渲染 ====================
-  const renderCommentsSection = () => (
-    <View
-      style={styles.commentsSection}
-      onLayout={(e) => { commentsOffsetRef.current = e.nativeEvent.layout.y; }}
-    >
+  const renderCommentsSection = () => {
+    const commentsBottomPadding = Math.max(insets.bottom, 12) + 72;
+    return (
+      <View
+        style={styles.commentsSection}
+        onLayout={(e) => { commentsOffsetRef.current = e.nativeEvent.layout.y; }}
+      >
       {/* 评论头部 */}
       <View style={styles.commentsHeader}>
         <Text style={styles.commentsTitle}>共 {commentCount} 条评论</Text>
@@ -695,23 +1003,74 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Text>
         </View>
       ) : comments.length ? (
-        <View style={styles.commentsList}>
+        <View style={[styles.commentsList, { paddingBottom: commentsBottomPadding }]}>
           {comments.map((item) => {
+            const cachedReplies = commentReplies[item.id];
+            const previewReplies = flattenReplies(item.replies ?? []);
+            const availableReplies = cachedReplies?.length ? cachedReplies : previewReplies;
+            const collapsedReplies = availableReplies.slice(0, REPLY_PREVIEW_COUNT);
             const expanded = !!commentRepliesExpanded[item.id];
-            const repliesPreview = expanded ? commentReplies[item.id] ?? [] : (item.replies ?? []).slice(0, 2);
-            const replyTotal = commentRepliesPagination[item.id]?.total ?? item.reply_count ?? repliesPreview.length;
+            const repliesPreview = expanded ? availableReplies : collapsedReplies;
+            const backendReplyTotal = commentRepliesPagination[item.id]?.total ?? item.reply_count ?? 0;
+            const totalReplyCount = Math.max(backendReplyTotal, availableReplies.length, previewReplies.length);
+            const showReplySummary = !isDesktop && totalReplyCount > REPLY_PREVIEW_COUNT;
+            const shouldInlineReplies = totalReplyCount > 0 && totalReplyCount <= REPLY_PREVIEW_COUNT;
+            const remainingReplies = Math.max(totalReplyCount - repliesPreview.length, 0);
             return (
               <View key={item.id} style={styles.commentItem}>
                 <CommentItem
                   comment={item}
-                  replyPreview={replyTotal > 0 ? repliesPreview : undefined}
-                  replyTotal={replyTotal > 0 ? replyTotal : undefined}
-                  repliesExpanded={expanded}
+                  depth={0}
+                  replyCount={showReplySummary ? totalReplyCount : undefined}
                   onLike={handleToggleCommentLike}
                   onReply={handleReplyToComment}
-                  onToggleReplies={handleToggleReplies}
-                  loadingReplies={!!commentRepliesLoading[item.id]}
+                  onShowReplies={showReplySummary ? handleShowRepliesPanel : undefined}
+                  showReplySummary={showReplySummary}
                 />
+                {shouldInlineReplies ? (
+                  <View style={styles.repliesBlock}>
+                    {repliesPreview.map((reply) => (
+                      <CommentItem
+                        key={reply.id}
+                        comment={reply}
+                        isReply
+                        depth={1}
+                        showReplySummary={false}
+                        onLike={handleToggleCommentLike}
+                        onReply={handleReplyToComment}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+                {isDesktop && totalReplyCount > REPLY_PREVIEW_COUNT ? (
+                  <View style={styles.repliesBlock}>
+                    {repliesPreview.map((reply) => (
+                      <CommentItem
+                        key={reply.id}
+                        comment={reply}
+                        isReply
+                        depth={1}
+                        showReplySummary={false}
+                        onLike={handleToggleCommentLike}
+                        onReply={handleReplyToComment}
+                      />
+                    ))}
+                    <Button
+                      mode="text"
+                      icon={expanded ? 'chevron-up' : 'chevron-down'}
+                      onPress={() => handleDesktopToggleReplies(item)}
+                      loading={commentRepliesLoading[item.id] && expanded}
+                      textColor={theme.colors.primary}
+                      uppercase={false}
+                    >
+                      {expanded
+                        ? '收起回复'
+                        : remainingReplies > 0
+                          ? `展开更多回复 (${remainingReplies})`
+                          : `共${totalReplyCount}条回复 >`}
+                    </Button>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -724,12 +1083,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Text>
         </View>
       )}
-    </View>
-  );
+      </View>
+    );
+  };
 
   // ==================== 底部操作栏渲染 ====================
+  const bottomBarPadding = Math.max(insets.bottom, 12);
   const renderBottomBar = () => (
-    <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8, backgroundColor: theme.colors.surface }]}>
+    <View style={[styles.bottomBar, { paddingBottom: bottomBarPadding, backgroundColor: theme.colors.surface }]}>
       {/* 输入框 */}
       <Pressable
         style={[styles.commentInput, { backgroundColor: theme.colors.surfaceVariant }]}
@@ -745,37 +1106,27 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           <Ionicons
             name={post?.is_liked ? 'heart' : 'heart-outline'}
             size={22}
-            color={post?.is_liked ? '#EF4444' : theme.colors.onSurfaceVariant}
+            color={post?.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant}
           />
-          {likeCount > 0 && (
-            <Text style={[styles.actionCount, { color: post?.is_liked ? '#EF4444' : theme.colors.onSurfaceVariant }]}>
-              {likeCount}
-            </Text>
-          )}
+          <Text style={[styles.actionCount, { color: post?.is_liked ? theme.colors.error : theme.colors.onSurfaceVariant }]}>
+            {likeCount}
+          </Text>
         </Pressable>
 
         <Pressable style={styles.actionBtn} onPress={handleToggleFavorite} disabled={actionLoading.favorite}>
           <Ionicons
             name={post?.is_favorited ? 'bookmark' : 'bookmark-outline'}
             size={22}
-            color={post?.is_favorited ? '#F59E0B' : theme.colors.onSurfaceVariant}
+            color={post?.is_favorited ? theme.colors.primary : theme.colors.onSurfaceVariant}
           />
-          {favoriteCount > 0 && (
-            <Text style={[styles.actionCount, { color: post?.is_favorited ? '#F59E0B' : theme.colors.onSurfaceVariant }]}>
-              {favoriteCount}
-            </Text>
-          )}
+          <Text style={[styles.actionCount, { color: post?.is_favorited ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
+            {favoriteCount}
+          </Text>
         </Pressable>
 
         <Pressable style={styles.actionBtn} onPress={handleOpenCommentSheet}>
           <Ionicons name="chatbubble-outline" size={22} color={theme.colors.onSurfaceVariant} />
-          {commentCount > 0 && (
-            <Text style={[styles.actionCount, { color: theme.colors.onSurfaceVariant }]}>{commentCount}</Text>
-          )}
-        </Pressable>
-
-        <Pressable style={styles.actionBtn} onPress={() => setShareSheetVisible(true)}>
-          <Ionicons name="share-outline" size={22} color={theme.colors.onSurfaceVariant} />
+          <Text style={[styles.actionCount, { color: theme.colors.onSurfaceVariant }]}>{commentCount}</Text>
         </Pressable>
       </View>
     </View>
@@ -792,14 +1143,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           style={[styles.desktopBackBtn, { top: insets.top + 12 }]}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.colors.onPrimary} />
         </Pressable>
 
         <View style={[styles.desktopContainer, { paddingTop: insets.top }]}>
           {/* 左侧图片区 */}
-          <View style={[styles.desktopLeft, { width: leftPanelWidth }]}>
+          <View style={[styles.desktopLeft, { width: leftPanelWidth, height: windowHeight - insets.top }]}>
             {isInitialLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.colors.onPrimary} />
             ) : hasImages ? (
               <>
                 <FlatList
@@ -817,7 +1168,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                       <Image
                         source={{ uri: item }}
                         style={{ width: leftPanelWidth, height: windowHeight - insets.top }}
-                        resizeMode="contain"
+                        resizeMode="cover"
                       />
                     </Pressable>
                   )}
@@ -861,7 +1212,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             <ScrollView
               style={styles.desktopContent}
               contentContainerStyle={{ paddingBottom: 16 }}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} progressBackgroundColor={theme.colors.surface} progressViewOffset={0} />}
               showsVerticalScrollIndicator={false}
             >
               {isInitialLoading ? (
@@ -877,7 +1228,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               ) : post ? (
                 <>
                   {renderContentSection()}
-                  <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+                  <View style={[styles.divider, { backgroundColor: theme.colors.surfaceVariant }]} />
                   {renderCommentsSection()}
                 </>
               ) : null}
@@ -912,8 +1263,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             onSubmit={handleSubmitComment}
             replyTarget={commentReplyTarget?.author?.name}
             onCancelReply={handleCancelReply}
+            currentUser={currentUser ? { id: currentUser.id, name: currentUser.name || '', avatar_url: currentUser.avatar_url } : undefined}
           />
         </BottomSheet>
+
+        {!isDesktop && threadSheet}
 
         <ImageViewer
           visible={imageViewer.visible}
@@ -931,10 +1285,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       {/* 顶部导航 - 悬浮在图片/Hero上 */}
       <View style={[styles.mobileHeader, { paddingTop: insets.top }]}>
         <Pressable style={[styles.headerBtn, !hasImages && styles.headerBtnLight]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={theme.colors.onPrimary} />
         </Pressable>
         <Pressable style={[styles.headerBtn, !hasImages && styles.headerBtnLight]} onPress={() => setShareSheetVisible(true)}>
-          <Ionicons name="share-outline" size={22} color="#fff" />
+          <Ionicons name="share-outline" size={22} color={theme.colors.onPrimary} />
         </Pressable>
       </View>
 
@@ -942,7 +1296,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} progressBackgroundColor={theme.colors.surface} progressViewOffset={0} />}
         showsVerticalScrollIndicator={false}
       >
         {isInitialLoading ? (
@@ -969,7 +1323,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             {renderContentSection()}
 
             {/* 分隔线 */}
-            <View style={[styles.divider, { backgroundColor: theme.colors.outlineVariant }]} />
+            <View style={[styles.divider, { backgroundColor: theme.colors.surfaceVariant }]} />
 
             {/* 评论 */}
             {renderCommentsSection()}
@@ -1006,8 +1360,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           onSubmit={handleSubmitComment}
           replyTarget={commentReplyTarget?.author?.name}
           onCancelReply={handleCancelReply}
+          currentUser={currentUser ? { id: currentUser.id, name: currentUser.name || '', avatar_url: currentUser.avatar_url } : undefined}
         />
       </BottomSheet>
+
+      {!isDesktop && threadSheet}
 
       <ImageViewer
         visible={imageViewer.visible}
@@ -1056,10 +1413,8 @@ const styles = StyleSheet.create({
   // ==================== Image Carousel ====================
   carouselContainer: {
     position: 'relative',
-    backgroundColor: '#000',
   },
   carouselImage: {
-    backgroundColor: '#1a1a1a',
   },
   imageIndicator: {
     position: 'absolute',
@@ -1071,7 +1426,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   imageIndicatorText: {
-    color: '#fff',
+    color: 'rgba(255,255,255,0.95)',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1098,7 +1453,6 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
   },
   authorMeta: {
     fontSize: 12,
@@ -1112,10 +1466,13 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     minWidth: 72,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   followBtnText: {
     fontSize: 13,
     fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
   },
 
   // ==================== Content Section ====================
@@ -1127,54 +1484,53 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 28,
-    color: '#111827',
   },
   contentText: {
     fontSize: 15,
     lineHeight: 26,
-    color: '#374151',
   },
 
   // ==================== Info Card ====================
   infoCard: {
     borderRadius: 12,
     padding: 14,
-    gap: 10,
+    gap: 14,
   },
-  infoCardRow: {
+  infoCardLine: {
     flexDirection: 'row',
-    gap: 20,
-  },
-  infoCardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 8,
+    minHeight: 24,
   },
   infoCardLabel: {
     fontSize: 13,
+    width: 36,
+    lineHeight: 24,
   },
   infoCardValue: {
     fontSize: 14,
     fontWeight: '600',
+    lineHeight: 24,
   },
-  infoCardFlavors: {
+  infoCardTags: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     alignItems: 'center',
-  },
-  preferenceLabel: {
-    fontSize: 13,
-    fontWeight: '500',
   },
   flavorBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flavorBadgeText: {
     fontSize: 12,
     fontWeight: '500',
+    lineHeight: 16,
+    textAlign: 'center',
   },
 
   // ==================== Tags Row ====================
@@ -1195,10 +1551,9 @@ const styles = StyleSheet.create({
   tagBadgeText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#4B5563',
   },
   locationBadge: {
-    backgroundColor: '#F3F4F6',
+    // backgroundColor is set dynamically
   },
   recommendBadge: {
     backgroundColor: '#D1FAE5',
@@ -1206,11 +1561,17 @@ const styles = StyleSheet.create({
   warningBadge: {
     backgroundColor: '#FEE2E2',
   },
+  seekingBadge: {
+    backgroundColor: '#EDE9FE',
+  },
   recommendText: {
     color: '#059669',
   },
   warningText: {
     color: '#DC2626',
+  },
+  seekingText: {
+    color: '#7C3AED',
   },
   topicTag: {
     fontSize: 13,
@@ -1246,7 +1607,6 @@ const styles = StyleSheet.create({
   commentsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
   },
   sortBtn: {
     flexDirection: 'row',
@@ -1254,8 +1614,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
   },
   sortBtnText: {
     fontSize: 12,
@@ -1281,6 +1639,68 @@ const styles = StyleSheet.create({
   emptyCommentsText: {
     fontSize: 14,
   },
+  repliesBlock: {
+    marginTop: 8,
+    gap: 12,
+    marginBottom: 12,
+  },
+  threadSheet: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  },
+  threadSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  threadSheetClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  threadSheetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  threadSheetHeaderSpacer: {
+    width: 32,
+    height: 32,
+  },
+  threadSheetScroll: {
+    flex: 1,
+  },
+  threadSheetContent: {
+    paddingBottom: 24,
+  },
+  threadDividerLine: {
+    height: 1,
+    marginVertical: 8,
+  },
+  threadLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  threadEmpty: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 24,
+  },
+  threadEmptyText: {
+    fontSize: 13,
+  },
+  threadLoadMore: {
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  threadEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
 
   // ==================== Bottom Bar ====================
   bottomBar: {
@@ -1292,9 +1712,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingTop: 10,
+    minHeight: 56,
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
   },
   commentInput: {
     flex: 1,
@@ -1314,14 +1733,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    minWidth: 44,
+    gap: 4,
   },
   actionCount: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
   },
 
   // ==================== Share Sheet ====================
@@ -1331,7 +1751,6 @@ const styles = StyleSheet.create({
   shareSheetTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1F2937',
   },
   shareSheetBtns: {
     flexDirection: 'row',
@@ -1355,9 +1774,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   desktopLeft: {
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
   },
   desktopImageIndicator: {
     position: 'absolute',
@@ -1373,7 +1790,8 @@ const styles = StyleSheet.create({
   },
   // 桌面端无图渐变样式
   desktopNoImageHero: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1416,7 +1834,6 @@ const styles = StyleSheet.create({
   },
   desktopRight: {
     flex: 1,
-    maxWidth: 480,
   },
   desktopHeader: {
     paddingHorizontal: 16,
@@ -1556,12 +1973,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     lineHeight: 32,
-    color: '#111827',
   },
   noImageContentText: {
     fontSize: 16,
     lineHeight: 28,
-    color: '#374151',
   },
   // 美化信息卡片
   infoCardEnhanced: {
