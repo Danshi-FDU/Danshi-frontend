@@ -374,9 +374,45 @@
   - 完整信息：上下文会在后台调用 `/auth/me` 获取完整 `User` 并回填到 `user`，覆盖预览信息。
   - 字段兼容性：昵称兼容 `nickname`/`name`，头像兼容 `avatarUrl`/`avatar`。
 
-- 刷新策略（当前实现）：
-  - 提供 `authService.refresh()` 方法；上层可在需要时触发刷新并更新本地令牌。
-  - 可选增强：在 `http_auth` 中加入 401 拦截 → 尝试 `refresh()` → 成功后重试原请求（未默认开启，待后端契约确认后再接入）。
+### 5.1 双 Token 刷新机制
+
+系统采用双 Token 机制，确保用户长期登录体验：
+
+- **Access Token（访问令牌）**：有效期 1 小时，用于 API 请求认证
+- **Refresh Token（刷新令牌）**：有效期 30 天，用于刷新 Access Token
+
+#### 实现清单
+
+| 模块 | 功能 | 文件 |
+|------|------|------|
+| **存储层** | `getRefreshToken()` / `setRefreshToken()` / `clearRefreshToken()` | `auth_storage.ts` |
+| **API 层** | `API_ENDPOINTS.AUTH.REFRESH` 端点、`refresh(refreshToken)` 调用 | `constants/app.ts`、`auth_repository.ts` |
+| **服务层** | 登录/注册时保存 `refresh_token`、`refresh()` 刷新方法、`logout()` 清除双 token | `auth_service.ts` |
+| **HTTP 层** | `isTokenExpiredError()` 判断 401、`refreshAccessToken()` 自动刷新、刷新成功后重试原请求、刷新失败抛出 `AUTH_EXPIRED`、并发刷新锁 | `http_auth.ts` |
+| **状态层** | `sessionExpired` 状态标记、`clearSessionExpired()` 清除标记 | `auth_context.tsx` |
+| **UI 层** | 监听 `sessionExpired`、Banner 显示"登录已过期" | `login_screen.tsx` |
+
+#### 工作流程
+
+```
+用户操作 → API 请求
+           ↓
+      access_token 过期 (401)
+           ↓
+      自动用 refresh_token 刷新
+           ↓
+    ┌──────┴──────┐
+    ↓             ↓
+ 刷新成功      刷新失败
+    ↓             ↓
+ 重试请求    清除所有 token
+ 继续操作    设置 sessionExpired
+              ↓
+           跳转登录页
+              ↓
+         显示 Banner 提示
+        "登录已过期，请重新登录"
+```
 
 ---
 
