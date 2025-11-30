@@ -23,8 +23,8 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/v1/auth/login',    // POST
     REGISTER: '/api/v1/auth/register',  // POST
     ME: '/api/v1/auth/me',  // GET
-    LOGOUT: '/api/v1/auth/logout',  //POST
-    // REFRESH: '/api/v1/auth/refresh', // POST (Not in openapi.json)
+    LOGOUT: '/api/v1/auth/logout',  // POST
+    REFRESH: '/api/v1/auth/refresh', // POST 
   },
   USERS: {
     ROOT: '/api/v1/users', // GET /:userId, PUT /:userId

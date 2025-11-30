@@ -48,9 +48,8 @@ export class ApiAuthRepository implements AuthRepository {
     }
   }
   async refresh(refreshToken: string): Promise<RefreshPayload> {
-    throw new Error('Refresh API not implemented');
-    // const res = await httpAuth.post<ApiResponse<RefreshPayload>>(API_ENDPOINTS.AUTH.REFRESH, { refresh_token: refreshToken });
-    // return unwrapApiResponse<RefreshPayload>(res);
+    const res = await http.post<ApiResponse<RefreshPayload>>(API_ENDPOINTS.AUTH.REFRESH, { refresh_token: refreshToken });
+    return unwrapApiResponse<RefreshPayload>(res);
   }
 }
 
