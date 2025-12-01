@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Appbar, Card, Text, useTheme as usePaperTheme, IconButton } from 'react-native-paper';
 import { router } from 'expo-router';
@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { useAuth } from '@/src/context/auth_context';
-import { isAdmin } from '@/src/lib/auth/roles';
+import { isAdmin, isSuperAdmin } from '@/src/lib/auth/roles';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 type AdminCard = {
@@ -15,6 +15,7 @@ type AdminCard = {
   icon: keyof typeof Ionicons.glyphMap;
   route: string;
   color: string;
+  requireSuperAdmin?: boolean; // 是否需要超级管理员权限
 };
 
 export default function AdminScreen() {
@@ -34,29 +35,38 @@ export default function AdminScreen() {
     );
   }
 
-  const adminCards: AdminCard[] = [
+  const userIsSuperAdmin = isSuperAdmin(user.role);
+
+  const allAdminCards: AdminCard[] = [
     {
       title: '帖子管理',
       description: '审核、查看、删除帖子',
       icon: 'document-text',
       route: '/myself/admin/posts',
-      color: pTheme.colors.primary,
+      color: '#2563eb', // 蓝色
+    },
+    {
+      title: '评论管理',
+      description: '查看、删除评论',
+      icon: 'chatbox',
+      route: '/myself/admin/comments',
+      color: '#0891b2', // 青色
     },
     {
       title: '用户管理',
-      description: '查看用户、管理角色',
+      description: '修改用户身份',
       icon: 'people',
       route: '/myself/admin/users',
-      color: pTheme.colors.secondary,
+      color: '#9333ea', // 紫色 - 暗示更高阶操作
+      requireSuperAdmin: true,
     },
-    // {
-    //   title: '评论管理',
-    //   description: '查看、删除评论',
-    //   icon: 'chatbox',
-    //   route: '/myself/admin/comments',
-    //   color: pTheme.colors.tertiary,
-    // },
   ];
+
+  // 根据权限过滤卡片
+  const adminCards = useMemo(() => 
+    allAdminCards.filter(card => !card.requireSuperAdmin || userIsSuperAdmin),
+    [userIsSuperAdmin]
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>

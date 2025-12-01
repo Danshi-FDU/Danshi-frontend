@@ -20,13 +20,14 @@ import { usersService } from '@/src/services/users_service';
 import type { UserAggregateStats } from '@/src/models/Stats';
 import type { UserProfile } from '@/src/repositories/users_repository';
 import type { Post } from '@/src/models/Post';
-import { isAdmin } from '@/src/lib/auth/roles';
+import { ROLES } from '@/src/constants/app';
 import { Masonry } from '@/src/components/md3/masonry';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import { useBreakpoint } from '@/src/hooks/use_media_query';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { mapUserPostListItemToPost } from '@/src/utils/post_converters';
+import { LinearGradient } from 'expo-linear-gradient';
 
 
 
@@ -38,6 +39,100 @@ const formatCount = (value?: number | null) => {
 };
 
 type TabType = 'posts' | 'favorites';
+
+// ==================== 管理员徽章组件 ====================
+type RoleBadgeProps = {
+  role: string;
+};
+
+const RoleBadge: React.FC<RoleBadgeProps> = ({ role }) => {
+  const theme = usePaperTheme();
+  const normalized = String(role).toLowerCase();
+  if (normalized === 'super_admin') {
+    return (
+      <LinearGradient
+        colors={['#9333ea', '#4f46e5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.superAdminBadge}
+      >
+        <Ionicons name="shield-checkmark" size={12} color="#fff" />
+        <Text style={styles.superAdminBadgeText}>超级管理员</Text>
+      </LinearGradient>
+    );
+  }
+  if (normalized === 'admin') {
+    return (
+      <View style={[styles.adminBadge, { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' }]}>
+        <Ionicons name="shield" size={12} color="#2563eb" />
+        <Text style={[styles.adminBadgeText, { color: '#2563eb' }]}>管理员</Text>
+      </View>
+    );
+  }
+  return null;
+};
+
+// ==================== 管理控制台卡片组件 ====================
+type AdminConsoleCardProps = {
+  role: string;
+};
+
+const AdminConsoleCard: React.FC<AdminConsoleCardProps> = ({ role }) => {
+  const theme = usePaperTheme();
+  const normalized = String(role).toLowerCase();
+  const userIsAdmin = normalized === 'admin' || normalized === 'super_admin';
+  const userIsSuperAdmin = normalized === 'super_admin';
+  if (!userIsAdmin) return null;
+  
+  return (
+    <View style={[styles.adminConsoleCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+      {/* 标题 */}
+      <View style={styles.adminConsoleHeader}>
+        <Ionicons name="settings" size={20} color={theme.colors.primary} />
+        <Text style={[styles.adminConsoleTitle, { color: theme.colors.onSurface }]}>
+          管理控制台
+        </Text>
+      </View>
+      
+      {/* 操作按钮 */}
+      <View style={styles.adminConsoleActions}>
+        {/* 内容审核 - Admin & Super Admin 可见 */}
+        <Pressable
+          style={[styles.adminActionBtn, { backgroundColor: theme.colors.surface }]}
+          onPress={() => router.push('/myself/admin' as any)}
+        >
+          <View style={[styles.adminActionIcon, { backgroundColor: '#dbeafe' }]}>
+            <Ionicons name="document-text" size={24} color="#2563eb" />
+          </View>
+          <Text style={[styles.adminActionLabel, { color: theme.colors.onSurface }]}>
+            内容审核
+          </Text>
+          <Text style={[styles.adminActionDesc, { color: theme.colors.onSurfaceVariant }]}>
+            审核帖子与评论
+          </Text>
+        </Pressable>
+        
+        {/* 用户管理 - 仅 Super Admin 可见 */}
+        {userIsSuperAdmin && (
+          <Pressable
+            style={[styles.adminActionBtn, { backgroundColor: theme.colors.surface }]}
+            onPress={() => router.push('/myself/admin/users' as any)}
+          >
+            <View style={[styles.adminActionIcon, { backgroundColor: '#f3e8ff' }]}>
+              <Ionicons name="people" size={24} color="#9333ea" />
+            </View>
+            <Text style={[styles.adminActionLabel, { color: theme.colors.onSurface }]}>
+              用户管理
+            </Text>
+            <Text style={[styles.adminActionDesc, { color: theme.colors.onSurfaceVariant }]}>
+              修改用户身份
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+};
 
 export default function MyselfScreen() {
   const { user, signOut } = useAuth();
@@ -242,12 +337,15 @@ export default function MyselfScreen() {
                   style={styles.userNameSection}
                   onPress={() => setIsProfileExpanded(!isProfileExpanded)}
                 >
-                  <Text 
-                    style={[styles.userName, { color: theme.colors.onSurface }]}
-                    numberOfLines={isProfileExpanded ? undefined : 1}
-                  >
-                    {displayName}
-                  </Text>
+                  <View style={styles.userNameRow}>
+                    <Text 
+                      style={[styles.userName, { color: theme.colors.onSurface }]}
+                      numberOfLines={isProfileExpanded ? undefined : 1}
+                    >
+                      {displayName}
+                    </Text>
+                    {user?.role && user.role !== ROLES.USER && <RoleBadge role={user.role} />}
+                  </View>
                   {profile?.bio ? (
                     <Text 
                       style={[styles.userBio, { color: theme.colors.onSurfaceVariant }]} 
@@ -287,6 +385,9 @@ export default function MyselfScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* ==================== 管理控制台（仅管理员可见）==================== */}
+        {user?.role && user.role !== ROLES.USER && <AdminConsoleCard role={user.role} />}
 
         {/* ==================== Tab 切换栏 ==================== */}
         <View style={[styles.tabSection, { backgroundColor: theme.colors.surface }]}>
@@ -545,5 +646,94 @@ const styles = StyleSheet.create({
   },
   postsGrid: {
     paddingBottom: 8,
+  },
+
+  // ==================== User Name Row (with Badge) ====================
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  // ==================== Role Badges ====================
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    // 仅 ViewStyle 属性，无 web-only 属性
+  },
+  adminBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    // 仅 TextStyle 属性，无 web-only 属性
+  },
+  superAdminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    shadowColor: '#9333ea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+    // 移除 web-only 属性，确保只用 ViewStyle
+  },
+  superAdminBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+    // 仅 TextStyle 属性，无 web-only 属性
+  },
+
+  // ==================== Admin Console Card ====================
+  adminConsoleCard: {
+    marginTop: 12,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    padding: 16,
+  },
+  adminConsoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  adminConsoleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adminConsoleActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  adminActionBtn: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  adminActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminActionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminActionDesc: {
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

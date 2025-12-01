@@ -39,12 +39,8 @@ export default function EditPostPage() {
   }, [loadPost]);
 
   const handleUpdateSuccess = useCallback(() => {
-    Alert.alert('更新成功', '帖子已更新，等待审核', [
-      {
-        text: '确定',
-        onPress: () => router.back(),
-      },
-    ]);
+    // 编辑保存成功后自动返回上一页
+    router.back();
   }, [router]);
 
   if (!postId) {

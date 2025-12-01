@@ -15,7 +15,7 @@ import type {
   AdminPostsResponse,
 } from '@/src/repositories/admin_repository';
 import { AppError } from '@/src/lib/errors/app_error';
-import { ROLES } from '@/src/constants/app';
+import { ROLES, type Role } from '@/src/constants/app';
 
 const sanitizePaginationParams = <T extends { page?: number; limit?: number }>(params: T): T => {
   const result: T = { ...params };
@@ -101,5 +101,36 @@ export const adminService = {
   async deleteComment(commentId: string): Promise<{ comment_id: string }> {
     if (!commentId?.trim()) throw new AppError('缺少评论ID');
     return adminRepository.deleteComment(commentId.trim());
+  },
+
+  /**
+   * 检测当前用户的角色
+   * 通过尝试调用不同权限级别的 admin 接口来判断
+   * @returns 'super_admin' | 'admin' | 'user'
+   */
+  async detectCurrentUserRole(): Promise<Role> {
+    // 1. 先尝试调用超级管理员专属接口
+    try {
+      await adminRepository.listAdmins({ limit: 1 });
+      // 成功 → 是超级管理员
+      return ROLES.SUPER_ADMIN;
+    } catch (e: any) {
+      // 403 说明没有超级管理员权限，继续检测
+      if (e?.status !== 403 && e?.code !== 403 && !e?.message?.includes('403')) {
+        // 其他错误（如网络错误）可能需要重试或忽略
+      }
+    }
+
+    // 2. 再尝试调用普通管理员接口
+    try {
+      await adminRepository.listPendingPosts({ limit: 1 });
+      // 成功 → 是普通管理员
+      return ROLES.ADMIN;
+    } catch (e: any) {
+      // 403 说明没有管理员权限
+    }
+
+    // 3. 都失败 → 普通用户
+    return ROLES.USER;
   },
 };

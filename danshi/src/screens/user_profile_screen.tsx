@@ -81,9 +81,10 @@ export default function UserProfileScreen() {
     setPostsLoading(true);
     try {
       const res = await usersService.getUserPosts(userId, { limit: 20 });
-      // 过滤掉不支持的帖子类型（如 companion）
+      // 过滤掉不支持的帖子类型（如 companion）和未审核通过的帖子
       const supportedPosts = res.posts.filter((item: any) => 
-        !item.post_type || item.post_type === 'share' || item.post_type === 'seeking'
+        (!item.post_type || item.post_type === 'share' || item.post_type === 'seeking') &&
+        (!item.status || item.status === 'approved')
       );
       const converted: Post[] = supportedPosts.map((item) => {
         const images = item.images?.length

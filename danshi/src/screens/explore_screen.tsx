@@ -130,7 +130,11 @@ export default function ExploreScreen() {
         const params = { ...requestFilters, ...(overrides ?? {}) };
         const listFilters = { ...(params as Record<string, unknown>) } as PostListFilters;
         const { posts: result } = await postsService.list(listFilters);
-        setPosts(result);
+        // 前端过滤：只显示已审核通过的帖子（后端应该已经过滤，这里是额外保护）
+        const approvedPosts = result.filter((post: any) => 
+          !post.status || post.status === 'approved'
+        );
+        setPosts(approvedPosts);
       } catch (e) {
         const message = (e as Error)?.message ?? '加载帖子失败';
         setError(message);

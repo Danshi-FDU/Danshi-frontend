@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useContext } from 'react';
 import {
 	KeyboardAvoidingView,
 	Platform,
@@ -28,7 +28,7 @@ import { CANTEEN_OPTIONS } from '@/src/constants/selects';
 import CenterPicker from '@/src/components/overlays/center_picker';
 import ImageUploadGrid from '@/src/components/image_upload_grid';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/src/context/auth_context';
 import type {
 	Category,
@@ -62,7 +62,9 @@ export default function PostScreen({
 	const horizontalPadding = pickByBreakpoint(bp, { base: 24, sm: 28, md: 32, lg: 36, xl: 40 });
 	const insets = useSafeAreaInsets();
 	const theme = usePaperTheme();
-	const tabBarHeight = useBottomTabBarHeight();
+	// 安全获取 tab bar 高度，当不在 Bottom Tab Navigator 内时使用 0
+	const tabBarHeightContext = useContext(BottomTabBarHeightContext);
+	const tabBarHeight = tabBarHeightContext ?? 0;
 	const bottomContentPadding = useMemo(() => tabBarHeight + 32, [tabBarHeight]);
 	const { user: currentUser } = useAuth();
 
@@ -91,6 +93,7 @@ export default function PostScreen({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+	const [isPendingReview, setIsPendingReview] = useState(false); // 是否处于待审核状态
 	const [canteenPickerOpen, setCanteenPickerOpen] = useState(false);
 	const [showTagInput, setShowTagInput] = useState(false);
 
@@ -259,13 +262,21 @@ export default function PostScreen({
 
 			if (editMode && editPostId) {
 				await postsService.update(editPostId, payload);
-				setSuccess('更新成功，等待审核');
+				setIsPendingReview(true);
+				setSuccess('✅ 更新成功！帖子已提交管理员审核，审核通过后将公开显示。');
 				onUpdateSuccess?.();
 			} else {
 				const result = await postsService.create(payload);
-				setSuccess(
-					`发布成功，当前状态：${result.status === 'pending' ? '待审核' : result.status}`
-				);
+				if (result.status === 'pending') {
+					setIsPendingReview(true);
+					setSuccess('✅ 发布成功！帖子已提交管理员审核，审核通过后将公开显示。');
+				} else if (result.status === 'approved') {
+					setIsPendingReview(false);
+					setSuccess('✅ 发布成功！帖子已通过审核并公开显示。');
+				} else {
+					setIsPendingReview(false);
+					setSuccess(`发布完成，当前状态：${result.status}`);
+				}
 				resetForm();
 			}
 		} catch (err) {
@@ -437,18 +448,52 @@ export default function PostScreen({
 					<View
 						style={[
 							styles.messageCard,
-							{ backgroundColor: theme.colors.tertiaryContainer },
+							{
+								backgroundColor: isPendingReview
+									? theme.colors.secondaryContainer
+									: theme.colors.tertiaryContainer,
+								borderWidth: isPendingReview ? 1 : 0,
+								borderColor: isPendingReview ? theme.colors.secondary : undefined,
+							},
 						]}
 					>
-						<Ionicons name="checkmark-circle" size={18} color={theme.colors.tertiary} />
-						<Text style={{ color: theme.colors.tertiary, flex: 1, fontSize: 14 }}>
-							{success}
-						</Text>
+						<Ionicons
+							name={isPendingReview ? 'time-outline' : 'checkmark-circle'}
+							size={isPendingReview ? 22 : 18}
+							color={isPendingReview ? theme.colors.secondary : theme.colors.tertiary}
+						/>
+						<View style={{ flex: 1 }}>
+							<Text
+								style={{
+									color: isPendingReview ? theme.colors.secondary : theme.colors.tertiary,
+									flex: 1,
+									fontSize: isPendingReview ? 15 : 14,
+									fontWeight: isPendingReview ? '600' : 'normal',
+								}}
+							>
+								{success}
+							</Text>
+							{isPendingReview && (
+								<Text
+									style={{
+										color: theme.colors.onSecondaryContainer,
+										fontSize: 12,
+										marginTop: 4,
+										opacity: 0.8,
+									}}
+								>
+									您可以在「我的 - 我的帖子」中查看审核状态
+								</Text>
+							)}
+						</View>
 						<IconButton
 							icon="close"
 							size={16}
-							iconColor={theme.colors.tertiary}
-							onPress={() => setSuccess('')}
+							iconColor={isPendingReview ? theme.colors.secondary : theme.colors.tertiary}
+							onPress={() => {
+								setSuccess('');
+								setIsPendingReview(false);
+							}}
 							style={styles.messageDismiss}
 						/>
 					</View>

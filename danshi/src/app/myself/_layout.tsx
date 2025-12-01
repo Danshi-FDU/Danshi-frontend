@@ -46,6 +46,12 @@ export default function MyselfStackLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="admin"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </View>
   );
