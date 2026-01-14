@@ -27,6 +27,7 @@ import { postsService } from '@/src/services/posts_service';
 import { CANTEEN_OPTIONS } from '@/src/constants/selects';
 import CenterPicker from '@/src/components/overlays/center_picker';
 import ImageUploadGrid from '@/src/components/image_upload_grid';
+import ImageViewer from '@/src/components/image_viewer';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/src/context/auth_context';
@@ -96,6 +97,7 @@ export default function PostScreen({
 	const [isPendingReview, setIsPendingReview] = useState(false); // 是否处于待审核状态
 	const [canteenPickerOpen, setCanteenPickerOpen] = useState(false);
 	const [showTagInput, setShowTagInput] = useState(false);
+	const [imageViewer, setImageViewer] = useState<{ visible: boolean; index: number }>({ visible: false, index: 0 });
 
 	// 输入框聚焦状态
 	const [titleFocused, setTitleFocused] = useState(false);
@@ -160,6 +162,14 @@ export default function PostScreen({
 		setIsPreviewMode((prev) => !prev);
 	}, []);
 
+	const handleOpenImageViewer = useCallback((index: number) => {
+		setImageViewer({ visible: true, index });
+	}, []);
+
+	const handleCloseImageViewer = useCallback(() => {
+		setImageViewer((prev) => ({ ...prev, visible: false }));
+	}, []);
+
 	const resetForm = () => {
 		setTitle('');
 		setContent('');
@@ -185,7 +195,7 @@ export default function PostScreen({
 		if (content.trim().length < 5) return '正文至少 5 个字';
 		if (post_type === 'share') {
 			if (!filtered_images.length) return '请至少上传 1 张图片';
-			if (price && Number(price) < 0) return '价格需大于等于 0';
+			if (price && Number(price) < 0) return '价格需是正数';
 		}
 		if (post_type === 'seeking') {
 			if ((budgetMin && Number(budgetMin) < 0) || (budgetMax && Number(budgetMax) < 0)) {
@@ -317,13 +327,13 @@ export default function PostScreen({
 				{filtered_images.length > 0 && (
 					<View style={styles.narrowPreviewImageGrid}>
 						{filtered_images.slice(0, 9).map((url, idx) => (
-							<View key={idx} style={styles.narrowPreviewImageItem}>
+							<Pressable key={idx} style={styles.narrowPreviewImageItem} onPress={() => handleOpenImageViewer(idx)}>
 								<Image
 									source={{ uri: url }}
 									style={styles.narrowPreviewImage}
 									resizeMode="cover"
 								/>
-							</View>
+							</Pressable>
 						))}
 					</View>
 				)}
@@ -694,6 +704,7 @@ export default function PostScreen({
 					images={images}
 					onImagesChange={setImages}
 					maxImages={9}
+					onImagePress={handleOpenImageViewer}
 				/>
 
 				{/* ==================== 分享类型扩展信息 ==================== */}
@@ -972,7 +983,7 @@ export default function PostScreen({
 				>
 					{/* 图片区域 / Fallback Cover */}
 					{hasImages ? (
-						<View style={styles.previewImageSection}>
+						<Pressable style={styles.previewImageSection} onPress={() => handleOpenImageViewer(0)}>
 							<Image
 								source={{ uri: filtered_images[0] }}
 								style={styles.previewHeroImage}
@@ -985,7 +996,7 @@ export default function PostScreen({
 									</Text>
 								</View>
 							)}
-						</View>
+						</Pressable>
 					) : (
 						<View style={[styles.previewFallbackCover, { backgroundColor: gradientColors.primary }]}>
 							<View style={[styles.previewFallbackMesh1, { backgroundColor: gradientColors.secondary }]} />
@@ -1165,12 +1176,13 @@ export default function PostScreen({
 							</Text>
 							<View style={styles.previewImagesGrid}>
 								{filtered_images.map((url, idx) => (
-									<Image
-										key={idx}
-										source={{ uri: url }}
-										style={styles.previewGridImageItem}
-										resizeMode="cover"
-									/>
+									<Pressable key={idx} onPress={() => handleOpenImageViewer(idx)}>
+										<Image
+											source={{ uri: url }}
+											style={styles.previewGridImageItem}
+											resizeMode="cover"
+										/>
+									</Pressable>
 								))}
 							</View>
 						</View>
@@ -1395,6 +1407,14 @@ export default function PostScreen({
 				options={CANTEEN_OPTIONS}
 				selectedValue={canteen}
 				onSelect={(value) => setCanteen(value)}
+			/>
+
+			{/* 图片查看器 */}
+			<ImageViewer
+				visible={imageViewer.visible}
+				images={filtered_images}
+				initialIndex={imageViewer.index}
+				onClose={handleCloseImageViewer}
 			/>
 		</KeyboardAvoidingView>
 	);

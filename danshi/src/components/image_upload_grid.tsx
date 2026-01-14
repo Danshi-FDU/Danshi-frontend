@@ -16,6 +16,7 @@ interface ImageUploadGridProps {
   images: string[];
   onImagesChange: (images: string[]) => void;
   maxImages?: number;
+  onImagePress?: (index: number) => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export default function ImageUploadGrid({
   images,
   onImagesChange,
   maxImages = 9,
+  onImagePress,
 }: ImageUploadGridProps) {
   const theme = usePaperTheme();
   const { width: screenWidth } = useWindowDimensions();
@@ -222,7 +224,7 @@ export default function ImageUploadGrid({
       <View style={styles.grid}>
         {/* 已上传的图片 */}
         {validImages.map((url, idx) => (
-          <View
+          <Pressable
             key={`img-${idx}-${url.slice(-10)}`}
             style={[
               styles.gridItem,
@@ -231,6 +233,7 @@ export default function ImageUploadGrid({
                 height: itemSize,
               },
             ]}
+            onPress={() => onImagePress?.(idx)}
           >
             <Image
               source={{ uri: url }}
@@ -240,11 +243,14 @@ export default function ImageUploadGrid({
             {/* 删除按钮 */}
             <Pressable
               style={[styles.removeBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-              onPress={() => handleRemoveImage(idx)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleRemoveImage(idx);
+              }}
             >
               <Ionicons name="close" size={14} color="#fff" />
             </Pressable>
-          </View>
+          </Pressable>
         ))}
 
         {/* 上传中指示器 */}
