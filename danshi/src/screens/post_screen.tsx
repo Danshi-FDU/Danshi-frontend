@@ -95,6 +95,7 @@ export default function PostScreen({
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
 	const [isPendingReview, setIsPendingReview] = useState(false); // 是否处于待审核状态
+	const [publishedPostId, setPublishedPostId] = useState<string | null>(null); // 发布成功后的帖子 ID（仅 approved 状态）
 	const [canteenPickerOpen, setCanteenPickerOpen] = useState(false);
 	const [showTagInput, setShowTagInput] = useState(false);
 	const [imageViewer, setImageViewer] = useState<{ visible: boolean; index: number }>({ visible: false, index: 0 });
@@ -103,6 +104,13 @@ export default function PostScreen({
 	const [titleFocused, setTitleFocused] = useState(false);
 	const [contentFocused, setContentFocused] = useState(false);
 	const [focusedField, setFocusedField] = useState<string | null>(null);
+
+	// 进入页面时清除上一次的成功提示
+	React.useEffect(() => {
+		setSuccess('');
+		setIsPendingReview(false);
+		setPublishedPostId(null);
+	}, []);
 
 	// 编辑模式：从 initialData 初始化表单
 	React.useEffect(() => {
@@ -273,18 +281,21 @@ export default function PostScreen({
 			if (editMode && editPostId) {
 				await postsService.update(editPostId, payload);
 				setIsPendingReview(true);
-				setSuccess('✅ 更新成功！帖子已提交管理员审核，审核通过后将公开显示。');
+				setSuccess('更新成功！帖子已提交管理员审核，审核通过后将公开显示。');
 				onUpdateSuccess?.();
 			} else {
 				const result = await postsService.create(payload);
 				if (result.status === 'pending') {
 					setIsPendingReview(true);
-					setSuccess('✅ 发布成功！帖子已提交管理员审核，审核通过后将公开显示。');
+					setPublishedPostId(null);
+					setSuccess('发布成功！帖子已提交管理员审核，审核通过后将公开显示。');
 				} else if (result.status === 'approved') {
 					setIsPendingReview(false);
-					setSuccess('✅ 发布成功！帖子已通过审核并公开显示。');
+					setPublishedPostId(result.id);
+					setSuccess('发布成功！帖子已通过审核并公开显示。');
 				} else {
 					setIsPendingReview(false);
+					setPublishedPostId(null);
 					setSuccess(`发布完成，当前状态：${result.status}`);
 				}
 				resetForm();
@@ -495,6 +506,25 @@ export default function PostScreen({
 									您可以在「我的 - 我的帖子」中查看审核状态
 								</Text>
 							)}
+							{/* 已审核通过：显示查看帖子按钮 */}
+							{publishedPostId && !isPendingReview && (
+								<Pressable
+									style={[
+										styles.viewPostBtn,
+										{ backgroundColor: theme.colors.tertiary },
+									]}
+									onPress={() => {
+										setSuccess('');
+										setPublishedPostId(null);
+										router.push(`/post/${publishedPostId}`);
+									}}
+								>
+									<Ionicons name="eye-outline" size={16} color={theme.colors.onTertiary} />
+									<Text style={{ color: theme.colors.onTertiary, fontSize: 13, fontWeight: '600' }}>
+										查看帖子
+									</Text>
+								</Pressable>
+							)}
 						</View>
 						<IconButton
 							icon="close"
@@ -503,6 +533,7 @@ export default function PostScreen({
 							onPress={() => {
 								setSuccess('');
 								setIsPendingReview(false);
+								setPublishedPostId(null);
 							}}
 							style={styles.messageDismiss}
 						/>
@@ -1516,6 +1547,16 @@ const styles = StyleSheet.create({
 	},
 	messageDismiss: {
 		margin: 0,
+	},
+	viewPostBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		alignSelf: 'flex-start',
+		marginTop: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 8,
+		borderRadius: 16,
 	},
 
 	// ==================== 沉浸式输入区 ====================
