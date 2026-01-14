@@ -80,15 +80,18 @@ export default function PostScreen({
 	const [category, setCategory] = useState<Category>('food');
 	const [canteen, setCanteen] = useState('');
 	const [cuisine, setCuisine] = useState('');
-	const [flavorsInput, setFlavorsInput] = useState('');
+	const [flavors, setFlavors] = useState<string[]>([]); // 口味标签数组
+	const [currentFlavorInput, setCurrentFlavorInput] = useState(''); // 当前正在输入的口味
 	const [tags, setTags] = useState<string[]>([]); // 直接存储标签数组
 	const [currentTagInput, setCurrentTagInput] = useState(''); // 当前正在输入的话题
 	const [price, setPrice] = useState('');
 	const [images, setImages] = useState<string[]>([]);
 	const [budgetMin, setBudgetMin] = useState('');
 	const [budgetMax, setBudgetMax] = useState('');
-	const [preferFlavors, setPreferFlavors] = useState('');
-	const [avoid_flavors, setAvoidFlavors] = useState('');
+	const [preferFlavors, setPreferFlavors] = useState<string[]>([]); // 喜欢的口味数组
+	const [currentPreferFlavorInput, setCurrentPreferFlavorInput] = useState('');
+	const [avoidFlavors, setAvoidFlavors] = useState<string[]>([]); // 不喜欢的口味数组
+	const [currentAvoidFlavorInput, setCurrentAvoidFlavorInput] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
@@ -119,7 +122,7 @@ export default function PostScreen({
 			if (initialData.post_type === 'share') {
 				setShareType(initialData.share_type || 'recommend');
 				setCuisine(initialData.cuisine || '');
-				setFlavorsInput(initialData.flavors?.join(', ') || '');
+				setFlavors(initialData.flavors || []);
 				setPrice(initialData.price?.toString() || '');
 			}
 			setCategory(initialData.category || 'food');
@@ -132,8 +135,8 @@ export default function PostScreen({
 					setBudgetMax(initialData.budget_range.max?.toString() || '');
 				}
 				if (initialData.preferences) {
-					setPreferFlavors(initialData.preferences.prefer_flavors?.join(', ') || '');
-					setAvoidFlavors(initialData.preferences.avoid_flavors?.join(', ') || '');
+					setPreferFlavors(initialData.preferences.prefer_flavors || []);
+					setAvoidFlavors(initialData.preferences.avoid_flavors || []);
 				}
 			}
 		}
@@ -185,9 +188,103 @@ export default function PostScreen({
 	const handleRemoveTag = useCallback((index: number) => {
 		setTags((prev) => prev.filter((_, i) => i !== index));
 	}, []);
-	const parsedFlavors = useMemo(() => parseList(flavorsInput), [flavorsInput]);
-	const parsed_prefer_flavors = useMemo(() => parseList(preferFlavors), [preferFlavors]);
-	const parsed_avoid_flavors = useMemo(() => parseList(avoid_flavors), [avoid_flavors]);
+
+	// ==================== 口味标签处理函数 ====================
+	// 添加口味标签
+	const handleAddFlavor = useCallback((text: string) => {
+		const trimmed = text.trim();
+		if (!trimmed) return;
+		if (flavors.length >= 10) return;
+		if (flavors.includes(trimmed)) return;
+		setFlavors((prev) => [...prev, trimmed]);
+		setCurrentFlavorInput('');
+	}, [flavors]);
+
+	// 处理口味输入变化（检测空格/回车）
+	const handleFlavorInputChange = useCallback((text: string) => {
+		if (text.endsWith(' ') || text.endsWith('\n') || text.endsWith(',') || text.endsWith('，')) {
+			const flavorText = text.slice(0, -1);
+			if (flavorText.trim()) {
+				handleAddFlavor(flavorText);
+			}
+		} else {
+			setCurrentFlavorInput(text);
+		}
+	}, [handleAddFlavor]);
+
+	// 处理口味输入提交（回车键）
+	const handleFlavorInputSubmit = useCallback(() => {
+		if (currentFlavorInput.trim()) {
+			handleAddFlavor(currentFlavorInput);
+		}
+	}, [currentFlavorInput, handleAddFlavor]);
+
+	// 删除口味标签
+	const handleRemoveFlavor = useCallback((index: number) => {
+		setFlavors((prev) => prev.filter((_, i) => i !== index));
+	}, []);
+
+	// ==================== 喜欢口味处理函数 ====================
+	const handleAddPreferFlavor = useCallback((text: string) => {
+		const trimmed = text.trim();
+		if (!trimmed) return;
+		if (preferFlavors.length >= 10) return;
+		if (preferFlavors.includes(trimmed)) return;
+		setPreferFlavors((prev) => [...prev, trimmed]);
+		setCurrentPreferFlavorInput('');
+	}, [preferFlavors]);
+
+	const handlePreferFlavorInputChange = useCallback((text: string) => {
+		if (text.endsWith(' ') || text.endsWith('\n') || text.endsWith(',') || text.endsWith('，')) {
+			const flavorText = text.slice(0, -1);
+			if (flavorText.trim()) {
+				handleAddPreferFlavor(flavorText);
+			}
+		} else {
+			setCurrentPreferFlavorInput(text);
+		}
+	}, [handleAddPreferFlavor]);
+
+	const handlePreferFlavorInputSubmit = useCallback(() => {
+		if (currentPreferFlavorInput.trim()) {
+			handleAddPreferFlavor(currentPreferFlavorInput);
+		}
+	}, [currentPreferFlavorInput, handleAddPreferFlavor]);
+
+	const handleRemovePreferFlavor = useCallback((index: number) => {
+		setPreferFlavors((prev) => prev.filter((_, i) => i !== index));
+	}, []);
+
+	// ==================== 不喜欢口味处理函数 ====================
+	const handleAddAvoidFlavor = useCallback((text: string) => {
+		const trimmed = text.trim();
+		if (!trimmed) return;
+		if (avoidFlavors.length >= 10) return;
+		if (avoidFlavors.includes(trimmed)) return;
+		setAvoidFlavors((prev) => [...prev, trimmed]);
+		setCurrentAvoidFlavorInput('');
+	}, [avoidFlavors]);
+
+	const handleAvoidFlavorInputChange = useCallback((text: string) => {
+		if (text.endsWith(' ') || text.endsWith('\n') || text.endsWith(',') || text.endsWith('，')) {
+			const flavorText = text.slice(0, -1);
+			if (flavorText.trim()) {
+				handleAddAvoidFlavor(flavorText);
+			}
+		} else {
+			setCurrentAvoidFlavorInput(text);
+		}
+	}, [handleAddAvoidFlavor]);
+
+	const handleAvoidFlavorInputSubmit = useCallback(() => {
+		if (currentAvoidFlavorInput.trim()) {
+			handleAddAvoidFlavor(currentAvoidFlavorInput);
+		}
+	}, [currentAvoidFlavorInput, handleAddAvoidFlavor]);
+
+	const handleRemoveAvoidFlavor = useCallback((index: number) => {
+		setAvoidFlavors((prev) => prev.filter((_, i) => i !== index));
+	}, []);
 	const filtered_images = useMemo(
 		() => images.filter((url) => url && /^https?:\/\//i.test(url.trim())),
 		[images]
@@ -221,15 +318,18 @@ export default function PostScreen({
 		setCategory('food');
 		setCanteen('');
 		setCuisine('');
-		setFlavorsInput('');
+		setFlavors([]);
+		setCurrentFlavorInput('');
 		setTags([]);
 		setCurrentTagInput('');
 		setPrice('');
 		setImages([]);
 		setBudgetMin('');
 		setBudgetMax('');
-		setPreferFlavors('');
-		setAvoidFlavors('');
+		setPreferFlavors([]);
+		setCurrentPreferFlavorInput('');
+		setAvoidFlavors([]);
+		setCurrentAvoidFlavorInput('');
 	};
 
 	const validate = (): string => {
@@ -277,7 +377,7 @@ export default function PostScreen({
 					...common_fields,
 					share_type: share_type,
 					cuisine: cuisine.trim() || undefined,
-					flavors: parsedFlavors.length ? parsedFlavors : undefined,
+					flavors: flavors.length ? flavors : undefined,
 					price: price ? Number(price) : undefined,
 					images: filtered_images.slice(0, 9),
 				};
@@ -305,10 +405,10 @@ export default function PostScreen({
 								}
 							: undefined,
 					preferences:
-						parsed_prefer_flavors.length || parsed_avoid_flavors.length
+						preferFlavors.length || avoidFlavors.length
 							? {
-									prefer_flavors: parsed_prefer_flavors,
-									avoid_flavors: parsed_avoid_flavors,
+									prefer_flavors: preferFlavors,
+									avoid_flavors: avoidFlavors,
 								}
 							: undefined,
 				};
@@ -873,11 +973,37 @@ export default function PostScreen({
 							<Text style={[styles.extraLabel, { color: theme.colors.outline }]}>
 								口味标签
 							</Text>
+							{flavors.length > 0 && (
+								<View style={styles.flavorsDisplay}>
+									{flavors.map((flavor, idx) => (
+										<View
+											key={idx}
+											style={[
+												styles.tagInputChip,
+												{ backgroundColor: `${theme.colors.primary}15` },
+											]}
+										>
+											<Text style={{ color: theme.colors.primary, fontSize: 13 }}>{flavor}</Text>
+											<Pressable
+												onPress={() => handleRemoveFlavor(idx)}
+												hitSlop={4}
+												style={styles.tagInputChipClose}
+											>
+												<Ionicons name="close" size={14} color={theme.colors.primary} />
+											</Pressable>
+										</View>
+									))}
+								</View>
+							)}
 							<RNTextInput
-								value={flavorsInput}
-								onChangeText={setFlavorsInput}
-								placeholder="如：麻辣、酸甜、清淡（逗号分隔）"
+								value={currentFlavorInput}
+								onChangeText={handleFlavorInputChange}
+								onSubmitEditing={handleFlavorInputSubmit}
+								placeholder={flavors.length >= 10 ? '已达上限' : '输入口味，按空格添加'}
 								placeholderTextColor={theme.colors.outline}
+								editable={flavors.length < 10}
+								returnKeyType="done"
+								blurOnSubmit={false}
 								onFocus={() => setFocusedField('flavors')}
 								onBlur={() => setFocusedField(null)}
 								style={[
@@ -891,23 +1017,6 @@ export default function PostScreen({
 								]}
 							/>
 						</View>
-						{parsedFlavors.length > 0 && (
-							<View style={styles.flavorsDisplay}>
-								{parsedFlavors.map((flavor, idx) => (
-									<View
-										key={idx}
-										style={[
-											styles.flavorBadge,
-											{ backgroundColor: theme.colors.primaryContainer },
-										]}
-									>
-										<Text style={{ color: theme.colors.primary, fontSize: 12 }}>
-											{flavor}
-										</Text>
-									</View>
-								))}
-							</View>
-						)}
 					</View>
 				)}
 
@@ -978,11 +1087,37 @@ export default function PostScreen({
 							<Text style={[styles.extraLabel, { color: theme.colors.tertiary }]}>
 								喜欢的口味
 							</Text>
+							{preferFlavors.length > 0 && (
+								<View style={styles.flavorsDisplay}>
+									{preferFlavors.map((flavor, idx) => (
+										<View
+											key={idx}
+											style={[
+												styles.tagInputChip,
+												{ backgroundColor: `${theme.colors.tertiary}15` },
+											]}
+										>
+											<Text style={{ color: theme.colors.tertiary, fontSize: 13 }}>{flavor}</Text>
+											<Pressable
+												onPress={() => handleRemovePreferFlavor(idx)}
+												hitSlop={4}
+												style={styles.tagInputChipClose}
+											>
+												<Ionicons name="close" size={14} color={theme.colors.tertiary} />
+											</Pressable>
+										</View>
+									))}
+								</View>
+							)}
 							<RNTextInput
-								value={preferFlavors}
-								onChangeText={setPreferFlavors}
-								placeholder="如：麻辣、酸甜（逗号分隔）"
+								value={currentPreferFlavorInput}
+								onChangeText={handlePreferFlavorInputChange}
+								onSubmitEditing={handlePreferFlavorInputSubmit}
+								placeholder={preferFlavors.length >= 10 ? '已达上限' : '输入口味，按空格添加'}
 								placeholderTextColor={theme.colors.outline}
+								editable={preferFlavors.length < 10}
+								returnKeyType="done"
+								blurOnSubmit={false}
 								onFocus={() => setFocusedField('preferFlavors')}
 								onBlur={() => setFocusedField(null)}
 								style={[
@@ -996,33 +1131,42 @@ export default function PostScreen({
 								]}
 							/>
 						</View>
-						{parsed_prefer_flavors.length > 0 && (
-							<View style={styles.flavorsDisplay}>
-								{parsed_prefer_flavors.map((flavor, idx) => (
-									<View
-										key={idx}
-										style={[
-											styles.flavorBadge,
-											{ backgroundColor: theme.colors.tertiaryContainer },
-										]}
-									>
-										<Text style={{ color: theme.colors.tertiary, fontSize: 12 }}>
-											{flavor}
-										</Text>
-									</View>
-								))}
-							</View>
-						)}
 
 						<View style={[styles.flavorSection, { marginTop: 16 }]}>
 							<Text style={[styles.extraLabel, { color: theme.colors.error }]}>
 								不喜欢的口味
 							</Text>
+							{avoidFlavors.length > 0 && (
+								<View style={styles.flavorsDisplay}>
+									{avoidFlavors.map((flavor, idx) => (
+										<View
+											key={idx}
+											style={[
+												styles.tagInputChip,
+												{ backgroundColor: `${theme.colors.error}15` },
+											]}
+										>
+											<Text style={{ color: theme.colors.error, fontSize: 13 }}>{flavor}</Text>
+											<Pressable
+												onPress={() => handleRemoveAvoidFlavor(idx)}
+												hitSlop={4}
+												style={styles.tagInputChipClose}
+											>
+												<Ionicons name="close" size={14} color={theme.colors.error} />
+											</Pressable>
+										</View>
+									))}
+								</View>
+							)}
 							<RNTextInput
-								value={avoid_flavors}
-								onChangeText={setAvoidFlavors}
-								placeholder="如：油炸、过甜（逗号分隔）"
+								value={currentAvoidFlavorInput}
+								onChangeText={handleAvoidFlavorInputChange}
+								onSubmitEditing={handleAvoidFlavorInputSubmit}
+								placeholder={avoidFlavors.length >= 10 ? '已达上限' : '输入口味，按空格添加'}
 								placeholderTextColor={theme.colors.outline}
+								editable={avoidFlavors.length < 10}
+								returnKeyType="done"
+								blurOnSubmit={false}
 								onFocus={() => setFocusedField('avoidFlavors')}
 								onBlur={() => setFocusedField(null)}
 								style={[
@@ -1036,23 +1180,6 @@ export default function PostScreen({
 								]}
 							/>
 						</View>
-						{parsed_avoid_flavors.length > 0 && (
-							<View style={styles.flavorsDisplay}>
-								{parsed_avoid_flavors.map((flavor, idx) => (
-									<View
-										key={idx}
-										style={[
-											styles.flavorBadge,
-											{ backgroundColor: theme.colors.errorContainer },
-										]}
-									>
-										<Text style={{ color: theme.colors.error, fontSize: 12 }}>
-											{flavor}
-										</Text>
-									</View>
-								))}
-							</View>
-						)}
 					</View>
 				)}
 
@@ -1164,7 +1291,7 @@ export default function PostScreen({
 						</Text>
 
 						{/* 结构化信息卡片 - 分享类型 */}
-						{post_type === 'share' && (cuisine || price || parsedFlavors.length > 0) && (
+						{post_type === 'share' && (cuisine || price || flavors.length > 0) && (
 							<View style={[styles.previewInfoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
 								<View style={styles.previewInfoCardRow}>
 									{cuisine && (
@@ -1182,9 +1309,9 @@ export default function PostScreen({
 										</View>
 									)}
 								</View>
-								{parsedFlavors.length > 0 && (
+								{flavors.length > 0 && (
 									<View style={styles.previewInfoCardFlavors}>
-										{parsedFlavors.map((flavor, idx) => (
+										{flavors.map((flavor, idx) => (
 											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
 												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onSecondaryContainer }]}>{flavor}</Text>
 											</View>
@@ -1195,7 +1322,7 @@ export default function PostScreen({
 						)}
 
 						{/* 结构化信息卡片 - 求助类型 */}
-						{post_type === 'seeking' && (budgetMin || budgetMax || parsed_prefer_flavors.length > 0 || parsed_avoid_flavors.length > 0) && (
+						{post_type === 'seeking' && (budgetMin || budgetMax || preferFlavors.length > 0 || avoidFlavors.length > 0) && (
 							<View style={[styles.previewInfoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
 								{(budgetMin || budgetMax) && (
 									<View style={styles.previewInfoCardRow}>
@@ -1208,20 +1335,20 @@ export default function PostScreen({
 										</View>
 									</View>
 								)}
-								{parsed_prefer_flavors.length > 0 && (
+								{preferFlavors.length > 0 && (
 									<View style={styles.previewInfoCardFlavors}>
 										<Text style={[styles.previewPreferenceLabel, { color: theme.colors.tertiary }]}>喜欢：</Text>
-										{parsed_prefer_flavors.map((f, idx) => (
+										{preferFlavors.map((f, idx) => (
 											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
 												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onTertiaryContainer }]}>{f}</Text>
 											</View>
 										))}
 									</View>
 								)}
-								{parsed_avoid_flavors.length > 0 && (
+								{avoidFlavors.length > 0 && (
 									<View style={styles.previewInfoCardFlavors}>
 										<Text style={[styles.previewPreferenceLabel, { color: theme.colors.error }]}>忌口：</Text>
-										{parsed_avoid_flavors.map((f, idx) => (
+										{avoidFlavors.map((f, idx) => (
 											<View key={idx} style={[styles.previewFlavorBadge, { backgroundColor: theme.colors.errorContainer }]}>
 												<Text style={[styles.previewFlavorBadgeText, { color: theme.colors.onErrorContainer }]}>{f}</Text>
 											</View>
@@ -1827,6 +1954,8 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 	},
 	flavorBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
 		paddingHorizontal: 10,
 		paddingVertical: 4,
 		borderRadius: 12,
