@@ -210,7 +210,7 @@ export default function TabsLayout() {
     );
   }
 
-  // 窄屏布局：底部 Tab Bar
+  // 窄屏布局：底部 Tab Bar（半透明磨砂背景）
   return (
     <Tabs initialRouteName="explore" screenOptions={screenOptions}>
       <Tabs.Screen
@@ -225,13 +225,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="post"
         options={{
-          title: '',
-          tabBarIcon: () => (
-            <View style={[styles.fabContainer, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}>
-              <Ionicons name="add" size={28} color={theme.colors.onPrimary} />
+          title: '发布',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.addIconContainer, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="add" size={22} color={theme.colors.onPrimary} />
             </View>
           ),
-          tabBarLabelStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+          sceneContainerStyle: { paddingBottom: 0 },
         }}
       />
       <Tabs.Screen
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // FAB 按钮（窄屏）
+  // FAB 按钮（宽屏侧边栏）
   fabContainer: {
     width: 54,
     height: 54,
@@ -307,5 +308,14 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
+  },
+
+  // 发布按钮（窄屏底部导航栏 - 圆角矩形加号）
+  addIconContainer: {
+    width: 28,
+    height: 24,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

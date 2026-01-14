@@ -274,7 +274,7 @@ export default function ImageUploadGrid({
           </View>
         )}
 
-        {/* 添加按钮 */}
+        {/* 添加按钮 - 灰色虚线边框，简洁透气 */}
         {canAddMore && (
           <Pressable
             style={[
@@ -283,7 +283,7 @@ export default function ImageUploadGrid({
               {
                 width: itemSize,
                 height: itemSize,
-                borderColor: isDragging ? theme.colors.primary : theme.colors.primary,
+                borderColor: isDragging ? theme.colors.primary : theme.colors.outlineVariant,
                 backgroundColor: isDragging ? theme.colors.primaryContainer : 'transparent',
               },
             ]}
@@ -294,10 +294,12 @@ export default function ImageUploadGrid({
               onDrop: handleDrop,
             } : {})}
           >
-            <View style={[styles.addIconCircle, { backgroundColor: theme.colors.primaryContainer }]}>
-              <Ionicons name="add" size={24} color={theme.colors.primary} />
-            </View>
-            <Text style={[styles.addText, { color: theme.colors.primary }]}>
+            <Ionicons 
+              name="add" 
+              size={36} 
+              color={isDragging ? theme.colors.primary : theme.colors.outline} 
+            />
+            <Text style={[styles.addText, { color: isDragging ? theme.colors.primary : theme.colors.outline }]}>
               {isWeb ? (isDragging ? '松开上传' : '点击或拖拽') : '添加图片'}
             </Text>
           </Pressable>
@@ -365,14 +367,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-  },
-  addIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
   },
   addText: {
     fontSize: 12,

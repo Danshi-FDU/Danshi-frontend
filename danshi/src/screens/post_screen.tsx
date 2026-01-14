@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useContext } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
 	KeyboardAvoidingView,
 	Platform,
@@ -29,7 +29,6 @@ import CenterPicker from '@/src/components/overlays/center_picker';
 import ImageUploadGrid from '@/src/components/image_upload_grid';
 import ImageViewer from '@/src/components/image_viewer';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/src/context/auth_context';
 import type {
 	Category,
@@ -63,10 +62,8 @@ export default function PostScreen({
 	const horizontalPadding = pickByBreakpoint(bp, { base: 24, sm: 28, md: 32, lg: 36, xl: 40 });
 	const insets = useSafeAreaInsets();
 	const theme = usePaperTheme();
-	// 安全获取 tab bar 高度，当不在 Bottom Tab Navigator 内时使用 0
-	const tabBarHeightContext = useContext(BottomTabBarHeightContext);
-	const tabBarHeight = tabBarHeightContext ?? 0;
-	const bottomContentPadding = useMemo(() => tabBarHeight + 32, [tabBarHeight]);
+	// 发帖页面隐藏了 Tab Bar，底部只需安全区域间距
+	const bottomContentPadding = useMemo(() => Math.max(insets.bottom, 16) + 16, [insets.bottom]);
 	const { user: currentUser } = useAuth();
 
 	// 宽屏模式判断（宽度 >= 900px 时显示左右分栏）
@@ -84,7 +81,8 @@ export default function PostScreen({
 	const [canteen, setCanteen] = useState('');
 	const [cuisine, setCuisine] = useState('');
 	const [flavorsInput, setFlavorsInput] = useState('');
-	const [tagsInput, setTagsInput] = useState('');
+	const [tags, setTags] = useState<string[]>([]); // 直接存储标签数组
+	const [currentTagInput, setCurrentTagInput] = useState(''); // 当前正在输入的话题
 	const [price, setPrice] = useState('');
 	const [images, setImages] = useState<string[]>([]);
 	const [budgetMin, setBudgetMin] = useState('');
@@ -126,7 +124,7 @@ export default function PostScreen({
 			}
 			setCategory(initialData.category || 'food');
 			setCanteen(initialData.canteen || '');
-			setTagsInput(initialData.tags?.join(', ') || '');
+			setTags(initialData.tags || []);
 			setImages(initialData.images?.length ? initialData.images : []);
 			if (initialData.post_type === 'seeking') {
 				if (initialData.budget_range) {
@@ -148,10 +146,45 @@ export default function PostScreen({
 			.map((item) => item.trim())
 			.filter(Boolean);
 
+	// 话题数组（去重，最多10个）
 	const parsedTags = useMemo(() => {
-		const list = parseList(tagsInput);
-		return Array.from(new Set(list)).slice(0, 10);
-	}, [tagsInput]);
+		return Array.from(new Set(tags)).slice(0, 10);
+	}, [tags]);
+
+	// 添加话题的处理函数
+	const handleAddTag = useCallback((text: string) => {
+		const trimmed = text.trim().replace(/^#/, ''); // 去除开头的 # 符号
+		if (!trimmed) return;
+		if (tags.length >= 10) return; // 最多10个
+		if (tags.includes(trimmed)) return; // 去重
+		setTags((prev) => [...prev, trimmed]);
+		setCurrentTagInput('');
+	}, [tags]);
+
+	// 处理话题输入变化（检测空格/回车）
+	const handleTagInputChange = useCallback((text: string) => {
+		// 检测空格或换行符，触发添加标签
+		if (text.endsWith(' ') || text.endsWith('\n')) {
+			const tagText = text.slice(0, -1);
+			if (tagText.trim()) {
+				handleAddTag(tagText);
+			}
+		} else {
+			setCurrentTagInput(text);
+		}
+	}, [handleAddTag]);
+
+	// 处理话题输入提交（回车键）
+	const handleTagInputSubmit = useCallback(() => {
+		if (currentTagInput.trim()) {
+			handleAddTag(currentTagInput);
+		}
+	}, [currentTagInput, handleAddTag]);
+
+	// 删除话题
+	const handleRemoveTag = useCallback((index: number) => {
+		setTags((prev) => prev.filter((_, i) => i !== index));
+	}, []);
 	const parsedFlavors = useMemo(() => parseList(flavorsInput), [flavorsInput]);
 	const parsed_prefer_flavors = useMemo(() => parseList(preferFlavors), [preferFlavors]);
 	const parsed_avoid_flavors = useMemo(() => parseList(avoid_flavors), [avoid_flavors]);
@@ -163,6 +196,8 @@ export default function PostScreen({
 	const handleBack = useCallback(() => {
 		if (router.canGoBack()) {
 			router.back();
+		} else {
+			router.replace('/');
 		}
 	}, [router]);
 
@@ -187,7 +222,8 @@ export default function PostScreen({
 		setCanteen('');
 		setCuisine('');
 		setFlavorsInput('');
-		setTagsInput('');
+		setTags([]);
+		setCurrentTagInput('');
 		setPrice('');
 		setImages([]);
 		setBudgetMin('');
@@ -542,7 +578,7 @@ export default function PostScreen({
 
 				{/* ==================== 沉浸式输入区 ==================== */}
 
-				{/* 标题输入 - 聚焦时显示边框 */}
+				{/* 标题输入 - 聚焦时显示淡色背景 */}
 				<RNTextInput
 					value={title}
 					onChangeText={setTitle}
@@ -555,8 +591,7 @@ export default function PostScreen({
 						styles.titleInput,
 						{
 							color: theme.colors.onSurface,
-							borderColor: titleFocused ? theme.colors.primary : 'transparent',
-							borderWidth: titleFocused ? 2 : 0,
+							backgroundColor: titleFocused ? theme.colors.surfaceVariant : 'transparent',
 							borderRadius: 8,
 							padding: titleFocused ? 12 : 0,
 						},
@@ -564,7 +599,7 @@ export default function PostScreen({
 					]}
 				/>
 
-				{/* 正文输入 - 聚焦时显示边框 */}
+				{/* 正文输入 - 聚焦时显示淡色背景 */}
 				<RNTextInput
 					value={content}
 					onChangeText={setContent}
@@ -578,8 +613,7 @@ export default function PostScreen({
 						styles.contentInput, 
 						{ 
 							color: theme.colors.onSurface,
-							borderColor: contentFocused ? theme.colors.primary : 'transparent',
-							borderWidth: contentFocused ? 2 : 0,
+							backgroundColor: contentFocused ? theme.colors.surfaceVariant : 'transparent',
 							borderRadius: 8,
 							padding: contentFocused ? 12 : 0,
 						},
@@ -592,17 +626,19 @@ export default function PostScreen({
 
 				{/* ==================== 工具栏 (地点 + 话题) ==================== */}
 				<View style={styles.toolbarRow}>
-					{/* 地点按钮 */}
+					{/* 地点按钮 - 选中态使用15%透明度主题色 */}
 					<Pressable
 						style={[
 							styles.toolbarBtn,
-							{ borderColor: canteen ? theme.colors.primary : theme.colors.outlineVariant },
-							canteen && { backgroundColor: theme.colors.primaryContainer },
+							{ 
+								borderColor: canteen ? 'transparent' : theme.colors.outlineVariant,
+								backgroundColor: canteen ? `${theme.colors.primary}15` : 'transparent',
+							},
 						]}
 						onPress={() => setCanteenPickerOpen(true)}
 					>
 						<Ionicons
-							name="location-outline"
+							name={canteen ? 'location' : 'location-outline'}
 							size={16}
 							color={canteen ? theme.colors.primary : theme.colors.onSurfaceVariant}
 						/>
@@ -636,17 +672,19 @@ export default function PostScreen({
 						)}
 					</Pressable>
 
-					{/* 话题按钮 */}
+					{/* 话题按钮 - 选中态使用15%透明度主题色 */}
 					<Pressable
 						style={[
 							styles.toolbarBtn,
-							{ borderColor: parsedTags.length > 0 ? theme.colors.primary : theme.colors.outlineVariant },
-							parsedTags.length > 0 && { backgroundColor: theme.colors.primaryContainer },
+							{ 
+								borderColor: parsedTags.length > 0 ? 'transparent' : theme.colors.outlineVariant,
+								backgroundColor: parsedTags.length > 0 ? `${theme.colors.primary}15` : 'transparent',
+							},
 						]}
 						onPress={() => setShowTagInput(true)}
 					>
 						<Ionicons
-							name="pricetag-outline"
+							name={parsedTags.length > 0 ? 'pricetag' : 'pricetag-outline'}
 							size={16}
 							color={
 								parsedTags.length > 0
@@ -670,43 +708,80 @@ export default function PostScreen({
 					</Pressable>
 				</View>
 
-				{/* 话题输入区 */}
+				{/* 话题输入区 - 现代标签输入交互 */}
 				{showTagInput && (
 					<View
 						style={[
 							styles.tagInputSection,
 							{ 
 								backgroundColor: theme.colors.surfaceVariant,
-								borderColor: theme.colors.primary,
 							},
 						]}
 					>
-						<RNTextInput
-							value={tagsInput}
-							onChangeText={setTagsInput}
-							placeholder="输入话题，用逗号分隔"
-							placeholderTextColor={theme.colors.outline}
-							style={[
-								styles.tagTextInput, 
-								{ color: theme.colors.onSurface },
-								Platform.OS === 'web' && { outlineStyle: 'none' } as any,
-							]}
-							autoFocus
-						/>
-						<Pressable
-							style={[
-								styles.tagInputDone,
-								{ backgroundColor: theme.colors.primary },
-							]}
-							onPress={() => setShowTagInput(false)}
-						>
-							<Text style={{ color: theme.colors.onPrimary, fontSize: 13 }}>完成</Text>
-						</Pressable>
+						{/* 已添加的话题标签（显示在输入框内）- 15%透明度主题色 */}
+						{parsedTags.length > 0 && (
+							<View style={styles.tagInputTags}>
+								{parsedTags.map((tag, idx) => (
+									<View
+										key={idx}
+										style={[
+											styles.tagInputChip,
+											{ backgroundColor: `${theme.colors.primary}15` },
+										]}
+									>
+										<Text style={{ color: theme.colors.primary, fontSize: 13 }}>#{tag}</Text>
+										<Pressable
+											onPress={() => handleRemoveTag(idx)}
+											hitSlop={4}
+											style={styles.tagInputChipClose}
+										>
+											<Ionicons name="close" size={14} color={theme.colors.primary} />
+										</Pressable>
+									</View>
+								))}
+							</View>
+						)}
+						<View style={styles.tagInputRow}>
+							<RNTextInput
+								value={currentTagInput}
+								onChangeText={handleTagInputChange}
+								onSubmitEditing={handleTagInputSubmit}
+								placeholder={parsedTags.length >= 10 ? '已达上限' : '输入话题，按空格添加'}
+								placeholderTextColor={theme.colors.outline}
+								editable={parsedTags.length < 10}
+								returnKeyType="done"
+								blurOnSubmit={false}
+								style={[
+									styles.tagTextInput, 
+									{ color: theme.colors.onSurface },
+									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+								]}
+								autoFocus
+							/>
+							{/* 完成按钮 - 纯文字样式，不抢戏 */}
+							<Pressable
+								style={styles.tagInputDone}
+								onPress={() => {
+									// 先添加当前输入的话题（如果有）
+									if (currentTagInput.trim()) {
+										handleAddTag(currentTagInput);
+									}
+									setShowTagInput(false);
+								}}
+							>
+								<Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: '600' }}>完成</Text>
+							</Pressable>
+						</View>
+						{parsedTags.length > 0 && (
+							<Text style={[styles.tagCountHint, { color: theme.colors.outline }]}>
+								{parsedTags.length}/10 个话题
+							</Text>
+						)}
 					</View>
 				)}
 
-				{/* 已添加的话题展示 */}
-				{parsedTags.length > 0 && (
+				{/* 已添加的话题展示（输入框关闭时显示）- 15%透明度主题色 */}
+				{!showTagInput && parsedTags.length > 0 && (
 					<View style={styles.tagsDisplay}>
 						{parsedTags.map((tag, idx) => (
 							<Chip
@@ -714,13 +789,10 @@ export default function PostScreen({
 								compact
 								mode="flat"
 								closeIcon="close"
-								onClose={() => {
-									const newTags = parsedTags.filter((_, i) => i !== idx);
-									setTagsInput(newTags.join(', '));
-								}}
+								onClose={() => handleRemoveTag(idx)}
 								style={[
 									styles.tagChip,
-									{ backgroundColor: theme.colors.surfaceVariant },
+									{ backgroundColor: `${theme.colors.primary}15` },
 								]}
 								textStyle={{ color: theme.colors.primary, fontSize: 13 }}
 							>
@@ -1261,103 +1333,135 @@ export default function PostScreen({
 						},
 					]}
 				>
-					{/* 第一行：预览/编辑 + 分段控制器 + 发布 */}
+					{/* 第一行：返回/编辑 + 分段控制器 + 预览/发布 */}
 					<View style={styles.topBarContent}>
-						{/* 左侧：预览/编辑（仅窄屏显示）*/}
+						{/* 左侧：返回（编辑模式）/ 编辑（预览模式）*/}
 						{!isWideScreen ? (
-							<Pressable style={styles.topBarLeft} onPress={togglePreviewMode}>
+							<Pressable 
+								style={styles.topBarLeft} 
+								onPress={isPreviewMode ? togglePreviewMode : handleBack}
+							>
+								<Ionicons
+									name="chevron-back"
+									size={20}
+									color={theme.colors.onSurfaceVariant}
+								/>
 								<Text
 									style={[
-										styles.previewBtnText,
-										{
-											color: isPreviewMode
-												? theme.colors.primary
-												: theme.colors.onSurfaceVariant,
-										},
+										styles.topBarLeftText,
+										{ color: theme.colors.onSurfaceVariant },
 									]}
 								>
-									{isPreviewMode ? '编辑' : '预览'}
+									{isPreviewMode ? '编辑' : '返回'}
 								</Text>
 							</Pressable>
 						) : (
-							<View style={styles.topBarLeft} />
+							<Pressable 
+								style={styles.topBarLeft} 
+								onPress={handleBack}
+							>
+								<Ionicons name="chevron-back" size={20} color={theme.colors.onSurfaceVariant} />
+								<Text style={[styles.topBarLeftText, { color: theme.colors.onSurfaceVariant }]}>
+									返回
+								</Text>
+							</Pressable>
 						)}
 
-						{/* 中间：分段控制器 */}
-						<View
-							style={[
-								styles.segmentedControl,
-								{ backgroundColor: theme.colors.surfaceVariant },
-							]}
-						>
-							<Pressable
+						{/* 中间：分段控制器（仅编辑模式显示）*/}
+						{(isWideScreen || !isPreviewMode) && (
+							<View
 								style={[
-									styles.segmentBtn,
-									post_type === 'share' && {
-										backgroundColor: theme.colors.surface,
-									},
+									styles.segmentedControl,
+									{ backgroundColor: theme.colors.surfaceVariant },
 								]}
-								onPress={() => setPostType('share')}
 							>
-								<Text
+								<Pressable
 									style={[
-										styles.segmentText,
-										{
-											color:
-												post_type === 'share'
-													? theme.colors.primary
-													: theme.colors.onSurfaceVariant,
-											fontWeight: post_type === 'share' ? '600' : '400',
+										styles.segmentBtn,
+										post_type === 'share' && {
+											backgroundColor: theme.colors.surface,
 										},
 									]}
+									onPress={() => setPostType('share')}
 								>
-									分享美食
-								</Text>
-							</Pressable>
-							<Pressable
-								style={[
-									styles.segmentBtn,
-									post_type === 'seeking' && {
-										backgroundColor: theme.colors.surface,
-									},
-								]}
-								onPress={() => setPostType('seeking')}
-							>
-								<Text
+									<Text
+										style={[
+											styles.segmentText,
+											{
+												color:
+													post_type === 'share'
+														? theme.colors.primary
+														: theme.colors.onSurfaceVariant,
+												fontWeight: post_type === 'share' ? '600' : '400',
+											},
+										]}
+									>
+										分享美食
+									</Text>
+								</Pressable>
+								<Pressable
 									style={[
-										styles.segmentText,
-										{
-											color:
-												post_type === 'seeking'
-													? theme.colors.primary
-													: theme.colors.onSurfaceVariant,
-											fontWeight: post_type === 'seeking' ? '600' : '400',
+										styles.segmentBtn,
+										post_type === 'seeking' && {
+											backgroundColor: theme.colors.surface,
 										},
 									]}
+									onPress={() => setPostType('seeking')}
 								>
-									求推荐
-								</Text>
-							</Pressable>
-						</View>
+									<Text
+										style={[
+											styles.segmentText,
+											{
+												color:
+													post_type === 'seeking'
+														? theme.colors.primary
+														: theme.colors.onSurfaceVariant,
+												fontWeight: post_type === 'seeking' ? '600' : '400',
+											},
+										]}
+									>
+										求推荐
+									</Text>
+								</Pressable>
+							</View>
+						)}
 
-						{/* 右侧：发布 */}
-						<Pressable
-							style={[
-								styles.publishBtn,
-								{ backgroundColor: theme.colors.primary },
-								loading && styles.publishBtnDisabled,
-							]}
-							onPress={onSubmit}
-							disabled={loading}
-						>
-							{loading ? (
-								<ActivityIndicator size={14} color={theme.colors.onPrimary} />
-							) : (
+						{/* 预览模式中间：标题 */}
+						{!isWideScreen && isPreviewMode && (
+							<Text style={[styles.topBarTitle, { color: theme.colors.onSurface }]}>
+								预览
+							</Text>
+						)}
+
+						{/* 右侧：预览（编辑模式）/ 发布（预览模式）*/}
+						{!isWideScreen && !isPreviewMode ? (
+							<Pressable
+								style={[styles.previewBtn, { backgroundColor: theme.colors.primary }]}
+								onPress={togglePreviewMode}
+							>
 								<Text style={[styles.publishBtnText, { color: theme.colors.onPrimary }]}>
-									{editMode ? '保存' : '发布'}
+									预览
 								</Text>
-							)}
-						</Pressable>
+							</Pressable>
+						) : (
+							<Pressable
+								style={[
+									styles.publishBtn,
+									{ backgroundColor: theme.colors.primary },
+									loading && styles.publishBtnDisabled,
+								]}
+								onPress={onSubmit}
+								disabled={loading}
+							>
+								{loading ? (
+									<ActivityIndicator size={14} color={theme.colors.onPrimary} />
+								) : (
+									<Text style={[styles.publishBtnText, { color: theme.colors.onPrimary }]}>
+										{editMode ? '保存' : '发布'}
+									</Text>
+								)}
+							</Pressable>
+						)}
 					</View>
 
 					{/* 第二行：推荐/避雷子选项 */}
@@ -1473,9 +1577,15 @@ const styles = StyleSheet.create({
 		minHeight: 48,
 	},
 	topBarLeft: {
-		minWidth: 52,
-		paddingHorizontal: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
 		paddingVertical: 8,
+		paddingRight: 8,
+		gap: 2,
+	},
+	topBarLeftText: {
+		fontSize: 15,
+		fontWeight: '500',
 	},
 	segmentedControl: {
 		flexDirection: 'row',
@@ -1506,6 +1616,20 @@ const styles = StyleSheet.create({
 	previewBtnText: {
 		fontSize: 14,
 		fontWeight: '500',
+	},
+	previewBtn: {
+		paddingHorizontal: 14,
+		paddingVertical: 7,
+		borderRadius: 16,
+		minWidth: 52,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 4,
+	},
+	topBarTitle: {
+		fontSize: 16,
+		fontWeight: '600',
 	},
 	publishBtn: {
 		paddingHorizontal: 14,
@@ -1606,24 +1730,46 @@ const styles = StyleSheet.create({
 
 	// ==================== Tag Input ====================
 	tagInputSection: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 10,
 		padding: 12,
 		borderRadius: 12,
 		marginBottom: 12,
-		borderWidth: 2,
-	},	
+		gap: 10,
+	},
+	tagInputTags: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 8,
+	},
+	tagInputChip: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingLeft: 10,
+		paddingRight: 6,
+		paddingVertical: 6,
+		borderRadius: 14,
+	},
+	tagInputChipClose: {
+		padding: 2,
+	},
+	tagInputRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+	},
 	tagTextInput: {
 		flex: 1,
 		fontSize: 14,
-		paddingVertical: 0,
+		paddingVertical: 8,
 		backgroundColor: 'transparent',
 	},
 	tagInputDone: {
 		paddingHorizontal: 12,
-		paddingVertical: 6,
-		borderRadius: 14,
+		paddingVertical: 8,
+	},
+	tagCountHint: {
+		fontSize: 11,
+		textAlign: 'right',
 	},
 	tagsDisplay: {
 		flexDirection: 'row',
