@@ -197,7 +197,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
         {/* 话题标签 + 价格 */}
         <View style={styles.tagsRow}>
-          <View style={styles.topicTags}>
+          <View style={[styles.topicTags, priceLabel ? { maxWidth: '70%' } : null]}>
             {post.tags && post.tags.length > 0 && post.tags.slice(0, 2).map((tag, idx) => (
               <Text key={idx} style={[styles.topicTag, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
                 #{tag}
@@ -410,14 +410,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     flex: 1,
+    flexShrink: 1,
+    overflow: 'hidden',
   },
   topicTag: {
     fontSize: 11,
     fontWeight: '500',
+    flexShrink: 1,
   },
   priceTag: {
     fontSize: 13,
     fontWeight: '700',
+    flexShrink: 0,
+    marginLeft: 8,
   },
 
   // ==================== 底部栏 ====================

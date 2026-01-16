@@ -422,23 +422,17 @@ export default function PostScreen({
 				onUpdateSuccess?.();
 			} else {
 				const result = await postsService.create(payload);
-				if (result.status === 'pending') {
-					setIsPendingReview(true);
-					setPublishedPostId(null);
-					setSuccess('发布成功！帖子已提交管理员审核，审核通过后将公开显示。');
-				} else if (result.status === 'approved') {
-					setIsPendingReview(false);
-					setPublishedPostId(result.id);
-					setSuccess('发布成功！帖子已通过审核并公开显示。');
-				} else {
-					setIsPendingReview(false);
-					setPublishedPostId(null);
-					setSuccess(`发布完成，当前状态：${result.status}`);
-				}
+				// 发布成功后跳转到探索界面
 				resetForm();
+				// 使用 replace 替换当前页面，避免用户返回到发布页面
+				router.replace('/(tabs)/explore');
 			}
 		} catch (err) {
 			setError((err as Error)?.message ?? '发布失败，请稍后重试');
+			// 切换到预览模式显示错误（仅窄屏时）
+			if (!isWideScreen) {
+				setIsPreviewMode(true);
+			}
 		} finally {
 			setLoading(false);
 		}
@@ -471,6 +465,41 @@ export default function PostScreen({
 			showsVerticalScrollIndicator={false}
 		>
 			<View style={[styles.contentWrapper, { maxWidth }]}>
+				{/* 错误/成功提示 - 在预览模式显示 */}
+				{!!error && (
+					<View
+						style={[styles.messageCard, { backgroundColor: theme.colors.errorContainer }]}
+					>
+						<Ionicons name="alert-circle" size={18} color={theme.colors.error} />
+						<Text style={{ color: theme.colors.error, flex: 1, fontSize: 14 }}>
+							{error}
+						</Text>
+						<IconButton
+							icon="close"
+							size={16}
+							iconColor={theme.colors.error}
+							onPress={() => setError('')}
+							style={styles.messageDismiss}
+						/>
+					</View>
+				)}
+				{!!success && (
+					<View
+						style={[styles.messageCard, { backgroundColor: theme.colors.primaryContainer }]}
+					>
+						<Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />
+						<Text style={{ color: theme.colors.primary, flex: 1, fontSize: 14 }}>
+							{success}
+						</Text>
+						<IconButton
+							icon="close"
+							size={16}
+							iconColor={theme.colors.primary}
+							onPress={() => setSuccess('')}
+							style={styles.messageDismiss}
+						/>
+					</View>
+				)}
 				{/* 预览：图片画廊 */}
 				{filtered_images.length > 0 && (
 					<View style={styles.narrowPreviewImageGrid}>

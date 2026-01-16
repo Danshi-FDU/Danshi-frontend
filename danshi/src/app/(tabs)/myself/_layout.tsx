@@ -3,21 +3,15 @@ import { Platform, View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/src/context/theme_context';
 
-export default function MyselfStackLayout() {
+export default function MyselfTabStackLayout() {
   const theme = useTheme();
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background as string }]}>
       <Stack
         screenOptions={{
-          headerShown: true,
-          headerTitleAlign: 'center',
+          headerShown: false, // 统一关闭原生 Header，由各页面组件自带 Appbar 处理
           contentStyle: { backgroundColor: theme.background as string },
-          headerStyle: { backgroundColor: theme.background as string },
-          headerShadowVisible: false,
-          headerTintColor: theme.text as string,
-          headerBackVisible: true,
-          headerBackTitleVisible: false,
-          // 流畅的过渡动画
           animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
           animationDuration: 200,
           gestureEnabled: true,
@@ -25,14 +19,12 @@ export default function MyselfStackLayout() {
           presentation: 'card',
         }}
       >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="admin"
-        options={{
-          headerShown: false,
-        }}
-      />
-    </Stack>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="posts" />
+        <Stack.Screen name="followers" />
+        <Stack.Screen name="following" />
+        <Stack.Screen name="admin" />
+      </Stack>
     </View>
   );
 }

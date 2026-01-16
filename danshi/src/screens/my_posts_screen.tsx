@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, RefreshControl, ScrollView, Alert } from 'react-native';
-import { ActivityIndicator, Text, useTheme as usePaperTheme, Chip, FAB, Dialog, Portal, Button } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Text, useTheme as usePaperTheme, Chip, FAB, Dialog, Portal, Button } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -194,18 +194,34 @@ export const MyPostsScreen: React.FC = () => {
     [handlePostPress, handleEditPost, handleDeletePost, theme]
   );
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/myself');
+  }, [router]);
+
   if (!user?.id) {
     return (
-      <View style={[styles.centered, { paddingTop: insets.top + 48, backgroundColor: theme.colors.background }]}>
-        <Text variant="bodyMedium">请先登录后再查看我的帖子</Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
+          <Appbar.BackAction onPress={handleBack} />
+          <Appbar.Content title="我的帖子" />
+        </Appbar.Header>
+        <View style={styles.centered}>
+          <Text variant="bodyMedium">请先登录后再查看我的帖子</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View
-      style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
+        <Appbar.BackAction onPress={handleBack} />
+        <Appbar.Content title="我的帖子" />
+      </Appbar.Header>
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator animating size="large" />
@@ -219,6 +235,7 @@ export const MyPostsScreen: React.FC = () => {
               onRefresh={() => loadPosts(true)}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressBackgroundColor={theme.colors.surface}
               progressViewOffset={0}
             />
           }
@@ -236,6 +253,7 @@ export const MyPostsScreen: React.FC = () => {
               onRefresh={() => loadPosts(true)}
               colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
+              progressBackgroundColor={theme.colors.surface}
               progressViewOffset={0}
             />
           }

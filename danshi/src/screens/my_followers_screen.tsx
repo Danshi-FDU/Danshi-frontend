@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -159,6 +159,16 @@ const createFollowListScreen = (type: ListType) => {
     const router = useRouter();
     const bottomPadding = insets.bottom + 24;
 
+    const title = type === 'followers' ? '粉丝' : '关注';
+
+    const handleBack = useCallback(() => {
+      if (router.canGoBack()) {
+        router.back();
+        return;
+      }
+      router.replace('/myself');
+    }, [router]);
+
     const load = useCallback(
       async (isRefresh = false) => {
         if (!user?.id) return;
@@ -254,70 +264,75 @@ const createFollowListScreen = (type: ListType) => {
       );
     };
 
-    if (!user?.id) {
-      return (
-        <View style={[styles.centered, { paddingTop: insets.top + 48, backgroundColor: theme.colors.background }]}>
-          <Ionicons name="lock-closed-outline" size={48} color={theme.colors.outlineVariant} />
-          <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>请先登录</Text>
-          <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-            登录后即可查看列表
-          </Text>
-        </View>
-      );
-    }
+    const body = !user?.id ? (
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Ionicons name="lock-closed-outline" size={48} color={theme.colors.outlineVariant} />
+        <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>请先登录</Text>
+        <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+          登录后即可查看列表
+        </Text>
+      </View>
+    ) : loading ? (
+      <View style={styles.centered}>
+        <ActivityIndicator animating size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
+      </View>
+    ) : (
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => load(true)}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+                progressBackgroundColor={theme.colors.surface}
+            progressViewOffset={0}
+          />
+        }
+        contentContainerStyle={[
+          styles.listContent,
+          items.length === 0 && styles.emptyListContent,
+          { paddingBottom: bottomPadding },
+        ]}
+        ItemSeparatorComponent={() => (
+          <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name={type === 'followers' ? 'people-outline' : 'heart-outline'}
+              size={56}
+              color={theme.colors.outlineVariant}
+            />
+            <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+              {type === 'followers' ? '还没有粉丝' : '还没有关注任何人'}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+              {type === 'followers' ? '发布更多精彩内容来吸引粉丝吧' : '去发现页面找找感兴趣的用户吧'}
+            </Text>
+          </View>
+        }
+      />
+    );
 
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator animating size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>加载中...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={items}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => load(true)}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-                progressViewOffset={0}
-              />
-            }
-            contentContainerStyle={[
-              styles.listContent,
-              items.length === 0 && styles.emptyListContent,
-              { paddingBottom: bottomPadding },
-            ]}
-            ItemSeparatorComponent={() => (
-              <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name={type === 'followers' ? 'people-outline' : 'heart-outline'}
-                  size={56}
-                  color={theme.colors.outlineVariant}
-                />
-                <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
-                  {type === 'followers' ? '还没有粉丝' : '还没有关注任何人'}
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                  {type === 'followers' ? '发布更多精彩内容来吸引粉丝吧' : '去发现页面找找感兴趣的用户吧'}
-                </Text>
-              </View>
-            }
-          />
-        )}
-        {error ? (
-          <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
-            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
-            <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-          </View>
-        ) : null}
+        <Appbar.Header mode="center-aligned" statusBarHeight={insets.top}>
+          <Appbar.BackAction onPress={handleBack} />
+          <Appbar.Content title={title} />
+        </Appbar.Header>
+        <View style={{ flex: 1 }}>
+          {body}
+          {error ? (
+            <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
+              <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     );
   };

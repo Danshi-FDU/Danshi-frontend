@@ -271,13 +271,6 @@ export default function MyselfScreen() {
     setRefreshing(false);
   }, [loadProfile, loadPosts, loadFavorites, activeTab]);
 
-  const handleNavigateTo = (
-    path: '/myself/posts' | '/myself/followers' | '/myself/following'
-  ) => {
-    if (!user?.id) return;
-    router.push(path);
-  };
-
   const handlePostPress = useCallback((postId: string) => {
     router.push({ pathname: '/post/[postId]', params: { postId } });
   }, []);
@@ -362,17 +355,17 @@ export default function MyselfScreen() {
 
           {/* 数据栏 */}
           <View style={styles.statsRow}>
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/posts')}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/posts' as any)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.post_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/followers')}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/followers' as any)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.follower_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>粉丝</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => handleNavigateTo('/myself/following')}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/following' as any)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.following_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>关注</Text>
             </Pressable>
