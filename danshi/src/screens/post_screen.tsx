@@ -66,8 +66,9 @@ export default function PostScreen({
 	const bottomContentPadding = useMemo(() => Math.max(insets.bottom, 16) + 16, [insets.bottom]);
 	const { user: currentUser } = useAuth();
 
-	// 宽屏模式判断（宽度 >= 900px 时显示左右分栏）
-	const isWideScreen = windowWidth >= 1200;
+	// 宽屏模式判断（宽度 >= xl 断点时显示左右分栏，隐藏返回按钮）
+	// iPad 等中等宽度设备使用窄屏模式，通过预览按钮切换
+	const isWideScreen = windowWidth >= 1280;
 
 	// 预览模式状态（仅在窄屏时使用）
 	const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -1462,7 +1463,7 @@ export default function PostScreen({
 				>
 					{/* 第一行：返回/编辑 + 分段控制器 + 预览/发布 */}
 					<View style={styles.topBarContent}>
-						{/* 左侧：返回（编辑模式）/ 编辑（预览模式）*/}
+						{/* 左侧：返回（编辑模式）/ 编辑（预览模式）- 宽屏不显示返回 */}
 						{!isWideScreen ? (
 							<Pressable 
 								style={styles.topBarLeft} 
@@ -1483,15 +1484,8 @@ export default function PostScreen({
 								</Text>
 							</Pressable>
 						) : (
-							<Pressable 
-								style={styles.topBarLeft} 
-								onPress={handleBack}
-							>
-								<Ionicons name="chevron-back" size={20} color={theme.colors.onSurfaceVariant} />
-								<Text style={[styles.topBarLeftText, { color: theme.colors.onSurfaceVariant }]}>
-									返回
-								</Text>
-							</Pressable>
+							// 宽屏模式下不显示返回按钮，用占位元素保持布局平衡
+							<View style={styles.topBarLeft} />
 						)}
 
 						{/* 中间：分段控制器（仅编辑模式显示）*/}

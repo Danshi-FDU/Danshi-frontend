@@ -197,15 +197,13 @@ export const PostCard: React.FC<PostCardProps> = ({
 
         {/* 话题标签 + 价格 */}
         <View style={styles.tagsRow}>
-          {post.tags && post.tags.length > 0 && (
-            <View style={styles.topicTags}>
-              {post.tags.slice(0, 2).map((tag, idx) => (
-                <Text key={idx} style={[styles.topicTag, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-                  #{tag}
-                </Text>
-              ))}
-            </View>
-          )}
+          <View style={styles.topicTags}>
+            {post.tags && post.tags.length > 0 && post.tags.slice(0, 2).map((tag, idx) => (
+              <Text key={idx} style={[styles.topicTag, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                #{tag}
+              </Text>
+            ))}
+          </View>
           {priceLabel && <Text style={[styles.priceTag, { color: theme.colors.error }]}>{priceLabel}</Text>}
         </View>
 

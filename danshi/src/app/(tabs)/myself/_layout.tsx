@@ -15,6 +15,8 @@ export default function MyselfStackLayout() {
           headerStyle: { backgroundColor: theme.background as string },
           headerShadowVisible: false,
           headerTintColor: theme.text as string,
+          headerBackVisible: true,
+          headerBackTitleVisible: false,
           // 流畅的过渡动画
           animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
           animationDuration: 200,

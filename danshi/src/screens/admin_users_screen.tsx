@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { Appbar, Card, Text, useTheme as usePaperTheme, Chip, Button, Menu, IconButton, Divider } from 'react-native-paper';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { Appbar, Card, Text, useTheme as usePaperTheme, Button, Menu, IconButton, Divider } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/src/hooks/use_responsive';
@@ -13,6 +13,42 @@ import type { Role } from '@/src/constants/app';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ROLES } from '@/src/constants/app';
 import { UserAvatar } from '@/src/components/user_avatar';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// 身份标签组件
+type RoleBadgeProps = {
+  role: Role;
+};
+
+const RoleBadge: React.FC<RoleBadgeProps> = ({ role }) => {
+  const pTheme = usePaperTheme();
+  
+  if (role === ROLES.SUPER_ADMIN) {
+    return (
+      <LinearGradient
+        colors={[pTheme.colors.error, pTheme.colors.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.roleBadge}
+      >
+        <Ionicons name="shield-checkmark" size={10} color={pTheme.colors.onError} />
+        <Text style={[styles.roleBadgeText, { color: pTheme.colors.onError }]}>超管</Text>
+      </LinearGradient>
+    );
+  }
+  
+  if (role === ROLES.ADMIN) {
+    return (
+      <View style={[styles.roleBadge, { backgroundColor: pTheme.colors.primaryContainer }]}>
+        <Ionicons name="shield" size={10} color={pTheme.colors.primary} />
+        <Text style={[styles.roleBadgeText, { color: pTheme.colors.primary }]}>管理</Text>
+      </View>
+    );
+  }
+  
+  // 普通用户不显示标签
+  return null;
+};
 
 export default function AdminUsersScreen() {
   const pTheme = usePaperTheme();
@@ -24,13 +60,15 @@ export default function AdminUsersScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  
-  // 过滤器状态
-  const [filterRole, setFilterRole] = useState<Role | 'all'>('all');
-  const [filterActive, setFilterActive] = useState<boolean | 'all'>('all');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
 
-  const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+  const contentHorizontalPadding = pickByBreakpoint(current, { base: 12, sm: 16, md: 20, lg: 24, xl: 24 });
+
+  // 获取扩展的主题色
+  const colors = pTheme.colors as typeof pTheme.colors & {
+    surfaceContainer: string;
+    surfaceContainerHigh: string;
+  };
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -49,11 +87,7 @@ export default function AdminUsersScreen() {
     setError('');
     
     try {
-      const params: any = {};
-      if (filterRole !== 'all') params.role = filterRole;
-      if (filterActive !== 'all') params.is_active = filterActive;
-      
-      const result = await adminService.getUsers(params);
+      const result = await adminService.getUsers({});
       setUsers(result.users);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -65,7 +99,7 @@ export default function AdminUsersScreen() {
 
   useEffect(() => {
     loadUsers();
-  }, [filterRole, filterActive]);
+  }, []);
 
   const handleUpdateRole = async (userId: string, role: Role) => {
     try {
@@ -85,22 +119,9 @@ export default function AdminUsersScreen() {
     }
   };
 
-  const getRoleText = (role: Role) => {
-    switch (role) {
-      case ROLES.SUPER_ADMIN: return '超级管理员';
-      case ROLES.ADMIN: return '管理员';
-      case ROLES.USER: return '普通用户';
-      default: return role;
-    }
-  };
-
-  const getRoleColor = (role: Role) => {
-    switch (role) {
-      case ROLES.SUPER_ADMIN: return pTheme.colors.error;
-      case ROLES.ADMIN: return pTheme.colors.primary;
-      case ROLES.USER: return pTheme.colors.secondary;
-      default: return pTheme.colors.outline;
-    }
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
   };
 
   return (
@@ -110,74 +131,22 @@ export default function AdminUsersScreen() {
         <Appbar.Content title="用户管理" />
       </Appbar.Header>
 
-      {/* 过滤器 */}
-      <View style={[styles.filterBar, { backgroundColor: pTheme.colors.surface, paddingHorizontal: contentHorizontalPadding }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-          <Chip
-            selected={filterRole === 'all'}
-            onPress={() => setFilterRole('all')}
-            style={styles.filterChip}
-          >
-            全部角色
-          </Chip>
-          <Chip
-            selected={filterRole === ROLES.USER}
-            onPress={() => setFilterRole(ROLES.USER)}
-            style={styles.filterChip}
-          >
-            普通用户
-          </Chip>
-          <Chip
-            selected={filterRole === ROLES.ADMIN}
-            onPress={() => setFilterRole(ROLES.ADMIN)}
-            style={styles.filterChip}
-          >
-            管理员
-          </Chip>
-          <Chip
-            selected={filterRole === ROLES.SUPER_ADMIN}
-            onPress={() => setFilterRole(ROLES.SUPER_ADMIN)}
-            style={styles.filterChip}
-          >
-            超级管理员
-          </Chip>
-          
-          <View style={styles.filterDivider} />
-          
-          <Chip
-            selected={filterActive === 'all'}
-            onPress={() => setFilterActive('all')}
-            style={styles.filterChip}
-          >
-            全部状态
-          </Chip>
-          <Chip
-            selected={filterActive === true}
-            onPress={() => setFilterActive(true)}
-            style={styles.filterChip}
-          >
-            活跃
-          </Chip>
-          <Chip
-            selected={filterActive === false}
-            onPress={() => setFilterActive(false)}
-            style={styles.filterChip}
-          >
-            禁用
-          </Chip>
-        </ScrollView>
-      </View>
-
       <ScrollView
         style={{ backgroundColor: pTheme.colors.background }}
         contentContainerStyle={{ 
           paddingTop: 12, 
           paddingBottom: 24, 
           paddingHorizontal: contentHorizontalPadding,
-          gap: 12 
+          gap: 8 
         }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadUsers(true)} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => loadUsers(true)}
+            colors={[pTheme.colors.primary]}
+            tintColor={pTheme.colors.primary}
+            progressBackgroundColor={pTheme.colors.surface}
+          />
         }
       >
         {loading && users.length === 0 ? (
@@ -204,123 +173,113 @@ export default function AdminUsersScreen() {
           </Card>
         ) : (
           users.map((u) => (
-            <Card key={u.id} mode="contained" style={styles.userCard}>
-              <Card.Content>
-                <View style={styles.userHeader}>
-                  <UserAvatar
-                    userId={u.id}
-                    name={u.name}
-                    avatar_url={u.avatar_url}
-                    size={48}
-                  />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={styles.userMeta}>
-                      <Text variant="titleMedium" style={styles.userName}>
-                        {u.name}
-                      </Text>
-                      {!u.is_active && (
-                        <Chip 
-                          compact 
-                          style={{ marginLeft: 8, backgroundColor: pTheme.colors.errorContainer }}
-                          textStyle={{ color: pTheme.colors.error, fontSize: 11 }}
-                        >
-                          已禁用
-                        </Chip>
-                      )}
+            <Pressable
+              key={u.id}
+              style={[styles.userTile, { backgroundColor: colors.surfaceContainer }]}
+            >
+              {/* 左侧头像 */}
+              <UserAvatar
+                userId={u.id}
+                name={u.name}
+                avatar_url={u.avatar_url}
+                size={44}
+              />
+              
+              {/* 中间用户信息 */}
+              <View style={styles.userInfo}>
+                {/* 第一行：用户名 + 身份标签 + 状态标签 */}
+                <View style={styles.userNameRow}>
+                  <Text style={[styles.userName, { color: pTheme.colors.onSurface }]} numberOfLines={1}>
+                    {u.name}
+                  </Text>
+                  <RoleBadge role={u.role} />
+                  {!u.is_active && (
+                    <View style={[styles.statusBadge, { backgroundColor: pTheme.colors.errorContainer }]}>
+                      <Text style={[styles.statusBadgeText, { color: pTheme.colors.error }]}>已禁用</Text>
                     </View>
-                    <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant, marginTop: 4 }}>
-                      {u.email}
-                    </Text>
-                  </View>
-                  
-                  <Menu
-                    visible={menuVisible === u.id}
-                    onDismiss={() => setMenuVisible(null)}
-                    anchor={
-                      <IconButton
-                        icon="dots-vertical"
-                        size={20}
-                        onPress={() => setMenuVisible(u.id)}
-                      />
-                    }
-                  >
-                    {canManageRole && (
-                      <>
-                        <Menu.Item 
-                          onPress={() => {
-                            setMenuVisible(null);
-                            handleUpdateRole(u.id, ROLES.USER);
-                          }} 
-                          title="设为普通用户" 
-                          leadingIcon="account"
-                          disabled={u.role === ROLES.USER}
-                        />
-                        <Menu.Item 
-                          onPress={() => {
-                            setMenuVisible(null);
-                            handleUpdateRole(u.id, ROLES.ADMIN);
-                          }} 
-                          title="设为管理员" 
-                          leadingIcon="shield-account"
-                          disabled={u.role === ROLES.ADMIN}
-                        />
-                        <Menu.Item 
-                          onPress={() => {
-                            setMenuVisible(null);
-                            handleUpdateRole(u.id, ROLES.SUPER_ADMIN);
-                          }} 
-                          title="设为超级管理员" 
-                          leadingIcon="shield-crown"
-                          disabled={u.role === ROLES.SUPER_ADMIN}
-                        />
-                        <Divider />
-                      </>
-                    )}
+                  )}
+                </View>
+                
+                {/* 第二行：邮箱 */}
+                <Text style={[styles.userEmail, { color: pTheme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                  {u.email}
+                </Text>
+                
+                {/* 第三行：数据 + 时间 */}
+                <View style={styles.userMeta}>
+                  <Ionicons name="document-text-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
+                  <Text style={[styles.metaText, { color: pTheme.colors.onSurfaceVariant }]}>
+                    {u.stats?.post_count || 0}
+                  </Text>
+                  <Text style={[styles.metaSeparator, { color: pTheme.colors.outline }]}>·</Text>
+                  <Ionicons name="people-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
+                  <Text style={[styles.metaText, { color: pTheme.colors.onSurfaceVariant }]}>
+                    {u.stats?.follower_count || 0}
+                  </Text>
+                  <Text style={[styles.metaSeparator, { color: pTheme.colors.outline }]}>·</Text>
+                  <Ionicons name="time-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
+                  <Text style={[styles.metaText, { color: pTheme.colors.onSurfaceVariant }]}>
+                    {formatDate(u.created_at)}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* 右侧更多菜单 */}
+              <Menu
+                visible={menuVisible === u.id}
+                onDismiss={() => setMenuVisible(null)}
+                anchor={
+                  <IconButton
+                    icon="dots-vertical"
+                    size={18}
+                    onPress={() => setMenuVisible(u.id)}
+                    style={styles.moreBtn}
+                  />
+                }
+              >
+                {canManageRole && (
+                  <>
                     <Menu.Item 
                       onPress={() => {
                         setMenuVisible(null);
-                        handleUpdateStatus(u.id, !u.is_active);
+                        handleUpdateRole(u.id, ROLES.USER);
                       }} 
-                      title={u.is_active ? '禁用用户' : '启用用户'} 
-                      leadingIcon={u.is_active ? 'account-cancel' : 'account-check'}
-                      titleStyle={u.is_active ? { color: pTheme.colors.error } : undefined}
+                      title="设为普通用户" 
+                      leadingIcon="account"
+                      disabled={u.role === ROLES.USER}
                     />
-                  </Menu>
-                </View>
-
-                <View style={styles.roleRow}>
-                  <Chip 
-                    compact 
-                    style={{ backgroundColor: getRoleColor(u.role) + '20' }}
-                    textStyle={{ color: getRoleColor(u.role), fontSize: 11 }}
-                    icon="shield-account"
-                  >
-                    {getRoleText(u.role)}
-                  </Chip>
-                </View>
-
-                {u.stats && (
-                  <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Ionicons name="document-text-outline" size={16} color={pTheme.colors.onSurfaceVariant} />
-                      <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                        {u.stats?.post_count || 0} 帖子
-                      </Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Ionicons name="people-outline" size={16} color={pTheme.colors.onSurfaceVariant} />
-                      <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                        {u.stats?.follower_count || 0} 粉丝
-                      </Text>
-                    </View>
-                  </View>
+                    <Menu.Item 
+                      onPress={() => {
+                        setMenuVisible(null);
+                        handleUpdateRole(u.id, ROLES.ADMIN);
+                      }} 
+                      title="设为管理员" 
+                      leadingIcon="shield-account"
+                      disabled={u.role === ROLES.ADMIN}
+                    />
+                    <Menu.Item 
+                      onPress={() => {
+                        setMenuVisible(null);
+                        handleUpdateRole(u.id, ROLES.SUPER_ADMIN);
+                      }} 
+                      title="设为超级管理员" 
+                      leadingIcon="shield-crown"
+                      disabled={u.role === ROLES.SUPER_ADMIN}
+                    />
+                    <Divider />
+                  </>
                 )}
-
-                <Text variant="bodySmall" style={{ marginTop: 8, color: pTheme.colors.onSurfaceVariant }}>
-                  注册于 {new Date(u.created_at).toLocaleDateString('zh-CN')}
-                </Text>
-              </Card.Content>
-            </Card>
+                <Menu.Item 
+                  onPress={() => {
+                    setMenuVisible(null);
+                    handleUpdateStatus(u.id, !u.is_active);
+                  }} 
+                  title={u.is_active ? '禁用用户' : '启用用户'} 
+                  leadingIcon={u.is_active ? 'account-cancel' : 'account-check'}
+                  titleStyle={u.is_active ? { color: pTheme.colors.error } : undefined}
+                />
+              </Menu>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -329,50 +288,71 @@ export default function AdminUsersScreen() {
 }
 
 const styles = StyleSheet.create({
-  filterBar: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  filterContent: {
-    gap: 8,
-    alignItems: 'center',
-  },
-  filterChip: {
-    height: 32,
-  },
-  filterDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginHorizontal: 4,
-  },
-  userCard: {
-    elevation: 0,
-    borderWidth: 0,
-  },
-  userHeader: {
+  // 用户列表项
+  userTile: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  userInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  userEmail: {
+    fontSize: 12,
   },
   userMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
-  userName: {
-    fontWeight: '600',
+  metaText: {
+    fontSize: 11,
   },
-  roleRow: {
-    marginTop: 12,
+  metaSeparator: {
+    fontSize: 11,
   },
-  statsRow: {
-    flexDirection: 'row',
-    marginTop: 12,
-    gap: 16,
-  },
-  statItem: {
+
+  // 身份标签
+  roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  // 状态标签
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  // 更多按钮
+  moreBtn: {
+    margin: 0,
   },
 });

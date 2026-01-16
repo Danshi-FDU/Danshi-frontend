@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Image, RefreshControl } from 'react-native';
-import { Appbar, Card, Text, useTheme as usePaperTheme, Chip, Button, Menu, IconButton } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Image, RefreshControl, Pressable, Alert } from 'react-native';
+import { Appbar, Card, Text, useTheme as usePaperTheme, Button, Menu } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/src/hooks/use_responsive';
@@ -8,12 +8,8 @@ import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { useAuth } from '@/src/context/auth_context';
 import { isAdmin } from '@/src/lib/auth/roles';
 import { adminService } from '@/src/services/admin_service';
-import type { Post } from '@/src/models/Post';
 import type { AdminPendingPostSummary } from '@/src/repositories/admin_repository';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
-type PostStatus = 'pending' | 'approved' | 'rejected';
-type PostType = 'share' | 'seeking';
 
 export default function AdminPostsScreen() {
   const pTheme = usePaperTheme();
@@ -25,13 +21,63 @@ export default function AdminPostsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  
-  // 过滤器状态
-  const [filter_status, setFilterStatus] = useState<PostStatus | 'all'>('all');
-  const [filter_type, setFilterType] = useState<PostType | 'all'>('all');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
 
-  const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+  const contentHorizontalPadding = pickByBreakpoint(current, { base: 12, sm: 16, md: 20, lg: 24, xl: 24 });
+
+  // 动态样式 - 基于主题
+  // 获取扩展的主题色（在 md3_theme.ts 中定义）
+  const colors = pTheme.colors as typeof pTheme.colors & {
+    surfaceContainer: string;
+    surfaceContainerHigh: string;
+  };
+  
+  const dynamicStyles = useMemo(() => ({
+    listTile: {
+      backgroundColor: colors.surfaceContainer,
+      borderRadius: 12,
+      padding: 12,
+      minHeight: 80,
+      marginBottom: 8,
+    },
+    titleText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: pTheme.colors.onSurface,
+    },
+    summaryText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 18,
+      color: pTheme.colors.onSurfaceVariant,
+    },
+    metaText: {
+      fontSize: 11,
+      color: pTheme.colors.onSurfaceVariant,
+    },
+    metaSeparator: {
+      fontSize: 11,
+      color: pTheme.colors.outline,
+      marginHorizontal: 2,
+    },
+    imageCountText: {
+      color: pTheme.colors.onSurface,
+      fontSize: 9,
+      fontWeight: '600' as const,
+    },
+    typeTagSeeking: {
+      backgroundColor: pTheme.colors.primaryContainer,
+    },
+    typeTagShare: {
+      backgroundColor: pTheme.colors.secondaryContainer,
+    },
+    typeTagText: {
+      fontSize: 10,
+      color: pTheme.colors.onSurfaceVariant,
+      fontWeight: '500' as const,
+    },
+  }), [pTheme.colors]);
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -48,11 +94,7 @@ export default function AdminPostsScreen() {
     setError('');
     
     try {
-      const params: any = {};
-      if (filter_status !== 'all') params.status = filter_status;
-      if (filter_type !== 'all') params.post_type = filter_type;
-      
-      const result = await adminService.getPosts(params);
+      const result = await adminService.getPosts({});
       setPosts(result.posts);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -64,7 +106,7 @@ export default function AdminPostsScreen() {
 
   useEffect(() => {
     loadPosts();
-  }, [filter_status, filter_type]);
+  }, []);
 
   const handleReview = async (post_id: string, action: 'approve' | 'reject') => {
     try {
@@ -84,35 +126,54 @@ export default function AdminPostsScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // 确认删除
+  const confirmDelete = (post_id: string, title: string) => {
+    Alert.alert(
+      '删除帖子',
+      `确定要删除「${title}」吗？此操作不可撤销。`,
+      [
+        { text: '取消', style: 'cancel' },
+        { 
+          text: '删除', 
+          style: 'destructive',
+          onPress: () => handleDelete(post_id)
+        },
+      ]
+    );
+  };
+
+  // 确认审核
+  const confirmReview = (post_id: string, action: 'approve' | 'reject', title: string) => {
+    const actionText = action === 'approve' ? '通过' : '拒绝';
+    Alert.alert(
+      `${actionText}帖子`,
+      `确定要${actionText}「${title}」吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        { 
+          text: actionText, 
+          style: action === 'reject' ? 'destructive' : 'default',
+          onPress: () => handleReview(post_id, action)
+        },
+      ]
+    );
+  };
+
+  // 状态颜色：绿色=已通过，橙色=待审核，红色=已拒绝
+  const getStatusDotColor = (status: string) => {
     switch (status) {
-      case 'approved': return pTheme.colors.primary;
+      case 'approved': return pTheme.colors.tertiary;
+      case 'pending': return pTheme.colors.primary;
       case 'rejected': return pTheme.colors.error;
-      case 'pending': return pTheme.colors.tertiary;
       default: return pTheme.colors.outline;
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'approved': return '已通过';
-      case 'rejected': return '已拒绝';
-      case 'pending': return '待审核';
-      default: return status;
-    }
+  // 格式化时间
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
   };
-
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'share': return '分享';
-      case 'seeking': return '求推荐';
-      default: return type;
-    }
-  };
-
-  const filteredPosts = useMemo(() => {
-    return posts;
-  }, [posts]);
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
@@ -121,74 +182,22 @@ export default function AdminPostsScreen() {
         <Appbar.Content title="帖子管理" />
       </Appbar.Header>
 
-      {/* 过滤器 */}
-      <View style={[styles.filterBar, { backgroundColor: pTheme.colors.surface, paddingHorizontal: contentHorizontalPadding }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-          <Chip
-            selected={filter_status === 'all'}
-            onPress={() => setFilterStatus('all')}
-            style={styles.filterChip}
-          >
-            全部状态
-          </Chip>
-          <Chip
-            selected={filter_status === 'pending'}
-            onPress={() => setFilterStatus('pending')}
-            style={styles.filterChip}
-          >
-            待审核
-          </Chip>
-          <Chip
-            selected={filter_status === 'approved'}
-            onPress={() => setFilterStatus('approved')}
-            style={styles.filterChip}
-          >
-            已通过
-          </Chip>
-          <Chip
-            selected={filter_status === 'rejected'}
-            onPress={() => setFilterStatus('rejected')}
-            style={styles.filterChip}
-          >
-            已拒绝
-          </Chip>
-          
-          <View style={styles.filterDivider} />
-          
-          <Chip
-            selected={filter_type === 'all'}
-            onPress={() => setFilterType('all')}
-            style={styles.filterChip}
-          >
-            全部类型
-          </Chip>
-          <Chip
-            selected={filter_type === 'share'}
-            onPress={() => setFilterType('share')}
-            style={styles.filterChip}
-          >
-            分享
-          </Chip>
-          <Chip
-            selected={filter_type === 'seeking'}
-            onPress={() => setFilterType('seeking')}
-            style={styles.filterChip}
-          >
-            求推荐
-          </Chip>
-        </ScrollView>
-      </View>
-
       <ScrollView
         style={{ backgroundColor: pTheme.colors.background }}
         contentContainerStyle={{ 
-          paddingTop: 12, 
+          paddingTop: 8, 
           paddingBottom: 24, 
           paddingHorizontal: contentHorizontalPadding,
-          gap: 12 
+          gap: 8 
         }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadPosts(true)} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => loadPosts(true)}
+            colors={[pTheme.colors.primary]}
+            tintColor={pTheme.colors.primary}
+            progressBackgroundColor={pTheme.colors.surface}
+          />
         }
       >
         {loading && posts.length === 0 ? (
@@ -206,7 +215,7 @@ export default function AdminPostsScreen() {
               </Button>
             </Card.Content>
           </Card>
-        ) : filteredPosts.length === 0 ? (
+        ) : posts.length === 0 ? (
           <Card mode="contained">
             <Card.Content style={{ alignItems: 'center', paddingVertical: 40 }}>
               <Ionicons name="document-text-outline" size={48} color={pTheme.colors.onSurfaceDisabled} />
@@ -214,49 +223,47 @@ export default function AdminPostsScreen() {
             </Card.Content>
           </Card>
         ) : (
-          filteredPosts.map((post) => (
-            <Card key={post.id} mode="contained" style={styles.postCard}>
-              <Card.Content>
-                <View style={styles.postHeader}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.postMeta}>
-                      <Chip 
-                        compact 
-                        style={{ backgroundColor: getStatusColor((post as any).status) + '20' }}
-                        textStyle={{ color: getStatusColor((post as any).status), fontSize: 11 }}
-                      >
-                        {getStatusText((post as any).status || 'approved')}
-                      </Chip>
-                      <Chip 
-                        compact 
-                        style={{ marginLeft: 6, backgroundColor: pTheme.colors.secondaryContainer }}
-                        textStyle={{ fontSize: 11 }}
-                      >
-                        {getTypeText(post.post_type || 'share')}
-                      </Chip>
-                    </View>
-                    <Text variant="titleMedium" style={styles.postTitle}>
-                      {post.title}
-                    </Text>
-                  </View>
-                  
+          posts.map((post) => {
+            const postStatus = (post as any).status || 'approved';
+            const hasImage = post.images && post.images.length > 0;
+            const statusDotColor = getStatusDotColor(postStatus);
+            const isPending = postStatus === 'pending';
+
+            return (
+              <Pressable
+                key={post.id}
+                onPress={() => router.push(`/post/${post.id}`)}
+                style={dynamicStyles.listTile}
+              >
+                {/* 顶部行：状态点 + 标题 + 菜单按钮 */}
+                <View style={styles.topRow}>
+                  <View style={[styles.statusDot, { backgroundColor: statusDotColor }]} />
+                  <Text style={dynamicStyles.titleText} numberOfLines={1}>
+                    {post.title}
+                  </Text>
+                  {/* 更多菜单 */}
                   <Menu
                     visible={menuVisible === post.id}
                     onDismiss={() => setMenuVisible(null)}
                     anchor={
-                      <IconButton
-                        icon="dots-vertical"
-                        size={20}
-                        onPress={() => setMenuVisible(post.id)}
-                      />
+                      <Pressable
+                        style={styles.moreBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setMenuVisible(post.id);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={18} color={pTheme.colors.onSurfaceVariant} />
+                      </Pressable>
                     }
                   >
-                    {((post as any).status === 'pending' || !(post as any).status) && (
+                    {isPending && (
                       <>
                         <Menu.Item 
                           onPress={() => {
                             setMenuVisible(null);
-                            handleReview(post.id, 'approve');
+                            confirmReview(post.id, 'approve', post.title);
                           }} 
                           title="通过" 
                           leadingIcon="check-circle"
@@ -264,7 +271,7 @@ export default function AdminPostsScreen() {
                         <Menu.Item 
                           onPress={() => {
                             setMenuVisible(null);
-                            handleReview(post.id, 'reject');
+                            confirmReview(post.id, 'reject', post.title);
                           }} 
                           title="拒绝" 
                           leadingIcon="close-circle"
@@ -282,7 +289,7 @@ export default function AdminPostsScreen() {
                     <Menu.Item 
                       onPress={() => {
                         setMenuVisible(null);
-                        handleDelete(post.id);
+                        confirmDelete(post.id, post.title);
                       }} 
                       title="删除" 
                       leadingIcon="delete"
@@ -291,46 +298,52 @@ export default function AdminPostsScreen() {
                   </Menu>
                 </View>
 
-                <Text variant="bodyMedium" numberOfLines={2} style={{ marginTop: 8, color: pTheme.colors.onSurfaceVariant }}>
-                  {post.content}
-                </Text>
-
-                {post.images && post.images.length > 0 && (
-                  <View style={styles.imageRow}>
-                    {post.images.slice(0, 3).map((img, idx) => (
+                {/* 中间行：摘要 + 图片 */}
+                <View style={styles.contentRow}>
+                  <Text 
+                    style={[dynamicStyles.summaryText, hasImage && styles.summaryTextWithImage]} 
+                    numberOfLines={2}
+                  >
+                    {post.content}
+                  </Text>
+                  {hasImage && (
+                    <View style={styles.thumbnailWrap}>
                       <Image
-                        key={idx}
-                        source={{ uri: img }}
-                        style={styles.postImage}
+                        source={{ uri: post.images![0] }}
+                        style={styles.thumbnail}
                         resizeMode="cover"
                       />
-                    ))}
-                    {post.images.length > 3 && (
-                      <View style={[styles.postImage, styles.moreImages, { backgroundColor: pTheme.colors.surfaceVariant }]}>
-                        <Text style={{ color: pTheme.colors.onSurfaceVariant }}>+{post.images.length - 3}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                <View style={styles.postFooter}>
-                  {post.author && (
-                    <View style={styles.authorInfo}>
-                      <View style={[styles.authorAvatar, { backgroundColor: pTheme.colors.surfaceVariant }]}>
-                        <Ionicons name="person" size={12} color={pTheme.colors.onSurfaceVariant} />
-                      </View>
-                      <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-                        {post.author.name}
-                      </Text>
+                      {post.images!.length > 1 && (
+                        <View style={styles.imageCount}>
+                          <Text style={dynamicStyles.imageCountText}>{post.images!.length}</Text>
+                        </View>
+                      )}
                     </View>
                   )}
-                  <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-                    {new Date(post.created_at).toLocaleDateString('zh-CN')}
-                  </Text>
                 </View>
-              </Card.Content>
-            </Card>
-          ))
+
+                {/* 底部行：元数据 */}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaLeft}>
+                    <Ionicons name="person-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
+                    <Text style={dynamicStyles.metaText}>{post.author?.name || '未知'}</Text>
+                    <Text style={dynamicStyles.metaSeparator}>·</Text>
+                    <Ionicons name="time-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
+                    <Text style={dynamicStyles.metaText}>{formatDate(post.created_at)}</Text>
+                  </View>
+                  {/* 类型标签 */}
+                  <View style={[
+                    styles.typeTag,
+                    post.post_type === 'seeking' ? dynamicStyles.typeTagSeeking : dynamicStyles.typeTagShare
+                  ]}>
+                    <Text style={dynamicStyles.typeTagText}>
+                      {post.post_type === 'seeking' ? '求推荐' : '分享'}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -338,78 +351,75 @@ export default function AdminPostsScreen() {
 }
 
 const styles = StyleSheet.create({
-  filterBar: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  filterContent: {
-    gap: 8,
+  // 顶部行：状态点 + 标题 + 菜单
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  filterChip: {
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
+  // 中间行
+  contentRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 10,
+  },
+  summaryTextWithImage: {
+    flex: 1,
+  },
+
+  // 缩略图
+  thumbnailWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  imageCount: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+
+  // 底部行
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  metaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  typeTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+
+  // 更多按钮（在顶部行最右侧）
+  moreBtn: {
+    width: 32,
     height: 32,
-  },
-  filterDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginHorizontal: 4,
-  },
-  postCard: {
-    elevation: 0,
-    borderWidth: 0,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  postMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  postTitle: {
-    fontWeight: '600',
-  },
-  imageRow: {
-    flexDirection: 'row',
-    marginTop: 12,
-    gap: 8,
-  },
-  postImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-  },
-  moreImages: {
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  postFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  authorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  authorAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginLeft: 'auto',
   },
 });

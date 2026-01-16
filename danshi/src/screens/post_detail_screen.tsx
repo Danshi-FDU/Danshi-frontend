@@ -1146,6 +1146,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           <Ionicons name="arrow-back" size={22} color={theme.colors.onPrimary} />
         </Pressable>
 
+        {/* 分享按钮 */}
+        <Pressable
+          style={[styles.desktopShareBtn, { top: insets.top + 12 }]}
+          onPress={() => setShareSheetVisible(true)}
+        >
+          <Ionicons name="share-outline" size={22} color={theme.colors.onPrimary} />
+        </Pressable>
+
         <View style={[styles.desktopContainer, { paddingTop: insets.top }]}>
           {/* 左侧图片区 */}
           <View style={[styles.desktopLeft, { width: leftPanelWidth, height: windowHeight - insets.top }]}>
@@ -1849,6 +1857,17 @@ const styles = StyleSheet.create({
   desktopBackBtn: {
     position: 'absolute',
     left: 16,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  desktopShareBtn: {
+    position: 'absolute',
+    right: 16,
     zIndex: 10,
     width: 40,
     height: 40,

@@ -114,6 +114,8 @@ export default function TabsLayout() {
   const { userToken, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
+  const pathname = usePathname();
+  
   // 与评论界面底部栏保持一致: minHeight 56 + paddingBottom (Math.max(insets.bottom, 12))
   const tabBarBaseHeight = 56;
   const tabBarPadding = Math.max(insets.bottom, 12);
@@ -121,11 +123,14 @@ export default function TabsLayout() {
 
   // 是否显示侧边栏
   const showSidebar = windowWidth >= SIDEBAR_BREAKPOINT;
+  
+  // 是否在管理界面（隐藏底部栏）
+  const isInAdminRoute = pathname.includes('/myself/admin');
 
   const screenOptions = React.useMemo(
     () => ({
       headerShown: false,
-      tabBarStyle: showSidebar
+      tabBarStyle: (showSidebar || isInAdminRoute)
         ? { display: 'none' as const }
         : {
             position: 'absolute' as const,
@@ -140,7 +145,7 @@ export default function TabsLayout() {
             overflow: 'visible' as const,
           },
       tabBarBackground: () =>
-        Platform.OS === 'ios' && !showSidebar ? (
+        Platform.OS === 'ios' && !showSidebar && !isInAdminRoute ? (
           <BlurView
             intensity={80}
             tint={theme.effective === 'dark' ? 'dark' : 'light'}
@@ -149,7 +154,7 @@ export default function TabsLayout() {
         ) : null,
       sceneContainerStyle: {
         backgroundColor: theme.background,
-        paddingBottom: showSidebar ? 0 : tabBarTotalHeight,
+        paddingBottom: (showSidebar || isInAdminRoute) ? 0 : tabBarTotalHeight,
       },
       tabBarActiveTintColor: theme.colors.primary,
       tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
@@ -159,7 +164,7 @@ export default function TabsLayout() {
       lazy: true,
       freezeOnBlur: true,
     }),
-    [theme, tabBarPadding, tabBarTotalHeight, showSidebar]
+    [theme, tabBarPadding, tabBarTotalHeight, showSidebar, isInAdminRoute]
   );
 
   if (isLoading) return null;

@@ -276,7 +276,7 @@ export default function ExploreScreen() {
               >
                 <Ionicons name="search-outline" size={20} color={pTheme.colors.onSurfaceVariant} />
                 <Text style={[styles.searchPlaceholder, { color: pTheme.colors.onSurfaceVariant }]}>
-                  搜索美食、食谱…
+                  搜索美食…
                 </Text>
               </Pressable>
             </View>

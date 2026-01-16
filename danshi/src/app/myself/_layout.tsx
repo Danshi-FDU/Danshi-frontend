@@ -9,12 +9,8 @@ export default function MyselfStackLayout() {
     <View style={[styles.container, { backgroundColor: theme.background as string }]}>
       <Stack
         screenOptions={{
-          headerShown: true,
-          headerTitleAlign: 'center',
+          headerShown: false,
           contentStyle: { backgroundColor: theme.background as string },
-          headerStyle: { backgroundColor: theme.background as string },
-          headerShadowVisible: false,
-          headerTintColor: theme.text as string,
           animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
           animationDuration: 200,
           gestureEnabled: true,
@@ -22,36 +18,11 @@ export default function MyselfStackLayout() {
           presentation: 'card',
         }}
       >
-        <Stack.Screen
-          name="posts"
-          options={{
-            title: '我的帖子',
-          }}
-        />
-        <Stack.Screen
-          name="followers"
-          options={{
-            title: '我的粉丝',
-          }}
-        />
-        <Stack.Screen
-          name="following"
-          options={{
-            title: '我的关注',
-          }}
-        />
-        <Stack.Screen
-          name="settings"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="admin"
-          options={{
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen name="posts" />
+        <Stack.Screen name="followers" />
+        <Stack.Screen name="following" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="admin" />
       </Stack>
     </View>
   );

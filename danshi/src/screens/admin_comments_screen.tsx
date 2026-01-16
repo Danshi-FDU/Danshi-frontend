@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
-import { Appbar, Card, Text, useTheme as usePaperTheme, Button, IconButton } from 'react-native-paper';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, Alert, Pressable, Image } from 'react-native';
+import { Appbar, Text, useTheme as usePaperTheme, Button, Card, Menu } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/src/hooks/use_responsive';
@@ -10,6 +10,16 @@ import { isAdmin } from '@/src/lib/auth/roles';
 import { adminService } from '@/src/services/admin_service';
 import type { AdminCommentSummary } from '@/src/repositories/admin_repository';
 import Ionicons from '@expo/vector-icons/Ionicons';
+
+// 格式化时间：显示为 MM-DD HH:mm
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${month}-${day} ${hour}:${minute}`;
+};
 
 export default function AdminCommentsScreen() {
   const pTheme = usePaperTheme();
@@ -21,8 +31,63 @@ export default function AdminCommentsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [menuVisible, setMenuVisible] = useState<string | null>(null);
 
-  const contentHorizontalPadding = pickByBreakpoint(current, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
+  const contentHorizontalPadding = pickByBreakpoint(current, { base: 12, sm: 16, md: 20, lg: 24, xl: 24 });
+
+  // 获取扩展的主题色
+  const colors = pTheme.colors as typeof pTheme.colors & {
+    surfaceContainer: string;
+    surfaceContainerHigh: string;
+  };
+
+  // 动态样式
+  const dynamicStyles = useMemo(() => ({
+    commentCard: {
+      backgroundColor: colors.surfaceContainer,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+    },
+    userName: {
+      fontSize: 15,
+      fontWeight: '600' as const,
+      color: pTheme.colors.onSurface,
+    },
+    userEmail: {
+      fontSize: 11,
+      color: pTheme.colors.onSurfaceVariant,
+      marginTop: 2,
+    },
+    timeText: {
+      fontSize: 12,
+      color: pTheme.colors.onSurfaceVariant,
+    },
+    contentText: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: pTheme.colors.onSurface,
+    },
+    replyName: {
+      fontSize: 15,
+      fontWeight: '500' as const,
+      color: pTheme.colors.primary, // 品牌色
+    },
+    sourceCard: {
+      backgroundColor: colors.surfaceContainerHigh,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 12,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+    },
+    sourceText: {
+      flex: 1,
+      fontSize: 12,
+      color: pTheme.colors.onSurfaceVariant,
+      marginLeft: 8,
+    },
+  }), [pTheme.colors, colors]);
 
   // 权限检查
   if (!user || !isAdmin(user.role)) {
@@ -90,10 +155,15 @@ export default function AdminCommentsScreen() {
           paddingTop: 12, 
           paddingBottom: 24, 
           paddingHorizontal: contentHorizontalPadding,
-          gap: 12 
         }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadComments(true)} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => loadComments(true)}
+            colors={[pTheme.colors.primary]}
+            tintColor={pTheme.colors.primary}
+            progressBackgroundColor={pTheme.colors.surface}
+          />
         }
       >
         {loading && comments.length === 0 ? (
@@ -120,70 +190,95 @@ export default function AdminCommentsScreen() {
           </Card>
         ) : (
           comments.map((comment) => (
-            <Card key={comment.id} mode="contained" style={styles.commentCard}>
-              <Card.Content>
-                <View style={styles.commentHeader}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.authorRow}>
-                      <View style={[styles.authorAvatar, { backgroundColor: pTheme.colors.surfaceVariant }]}>
-                        <Ionicons name="person" size={14} color={pTheme.colors.onSurfaceVariant} />
-                      </View>
-                      <Text variant="titleSmall" style={styles.authorName}>
-                        {comment.author.name}
-                      </Text>
-                        {comment.parent_id && (
-                        <View style={[styles.replyBadge, { backgroundColor: pTheme.colors.tertiaryContainer }]}>
-                          <Ionicons name="return-down-forward" size={10} color={pTheme.colors.onTertiaryContainer} />
-                          <Text style={{ fontSize: 10, color: pTheme.colors.onTertiaryContainer, marginLeft: 2 }}>
-                            回复
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant, marginTop: 2 }}>
-                      {comment.author.email || 'ID: ' + comment.author.id}
+            <View key={comment.id} style={dynamicStyles.commentCard}>
+              {/* 区域 A：头部 - 用户信息 */}
+              <View style={styles.headerRow}>
+                {/* 左侧：头像 + 用户信息 */}
+                <View style={styles.userInfo}>
+                  {/* 头像 32dp */}
+                  <View style={[styles.avatar, { backgroundColor: pTheme.colors.surfaceVariant }]}>
+                    {(comment.author as any).avatar_url ? (
+                      <Image 
+                        source={{ uri: (comment.author as any).avatar_url }} 
+                        style={styles.avatarImage} 
+                      />
+                    ) : (
+                      <Ionicons name="person" size={16} color={pTheme.colors.onSurfaceVariant} />
+                    )}
+                  </View>
+                  {/* 用户名和邮箱 */}
+                  <View style={styles.userTextContainer}>
+                    <Text style={dynamicStyles.userName}>{comment.author.name}</Text>
+                    <Text style={dynamicStyles.userEmail} numberOfLines={1}>
+                      {comment.author.email || `ID: ${comment.author.id.slice(0, 8)}...`}
                     </Text>
                   </View>
-                  
-                  <IconButton
-                    icon="delete"
-                    size={20}
-                    iconColor={pTheme.colors.error}
-                    onPress={() => confirmDelete(comment.id)}
-                  />
                 </View>
+                
+                {/* 右侧：时间 + 菜单 */}
+                <View style={styles.headerRight}>
+                  <Text style={dynamicStyles.timeText}>{formatTime(comment.created_at)}</Text>
+                  <Menu
+                    visible={menuVisible === comment.id}
+                    onDismiss={() => setMenuVisible(null)}
+                    anchor={
+                      <Pressable
+                        style={styles.menuBtn}
+                        onPress={() => setMenuVisible(comment.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={16} color={pTheme.colors.onSurfaceVariant} />
+                      </Pressable>
+                    }
+                  >
+                    <Menu.Item 
+                      onPress={() => {
+                        setMenuVisible(null);
+                        router.push(`/post/${comment.post_id}`);
+                      }} 
+                      title="查看帖子" 
+                      leadingIcon="eye"
+                    />
+                    <Menu.Item 
+                      onPress={() => {
+                        setMenuVisible(null);
+                        confirmDelete(comment.id);
+                      }} 
+                      title="删除" 
+                      leadingIcon="delete"
+                      titleStyle={{ color: pTheme.colors.error }}
+                    />
+                  </Menu>
+                </View>
+              </View>
 
-                <Text variant="bodyMedium" style={{ marginTop: 12, marginBottom: 8 }}>
-                  {comment.content}
+              {/* 区域 B：评论主体 */}
+              <View style={styles.contentSection}>
+                {comment.parent_id ? (
+                  // 回复某人的评论
+                  <Text style={dynamicStyles.contentText}>
+                    <Text style={{ color: pTheme.colors.onSurfaceVariant }}>回复 </Text>
+                    <Text style={dynamicStyles.replyName}>@{(comment as any).parent_author_name || '用户'}</Text>
+                    <Text style={{ color: pTheme.colors.onSurfaceVariant }}> : </Text>
+                    {comment.content}
+                  </Text>
+                ) : (
+                  <Text style={dynamicStyles.contentText}>{comment.content}</Text>
+                )}
+              </View>
+
+              {/* 区域 C：来源上下文 - 引用卡片 */}
+              <Pressable 
+                style={dynamicStyles.sourceCard}
+                onPress={() => router.push(`/post/${comment.post_id}`)}
+              >
+                <Ionicons name="document-text-outline" size={16} color={pTheme.colors.onSurfaceVariant} />
+                <Text style={dynamicStyles.sourceText} numberOfLines={1}>
+                  来自帖子: {(comment as any).post_title || '查看原帖...'}
                 </Text>
-
-                <View style={styles.commentFooter}>
-                  <View style={styles.statsRow}>
-                    <Ionicons name="heart-outline" size={14} color={pTheme.colors.onSurfaceVariant} />
-                    <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                      {comment.like_count || 0}
-                    </Text>
-                    <Ionicons name="chatbox-outline" size={14} color={pTheme.colors.onSurfaceVariant} style={{ marginLeft: 12 }} />
-                    <Text variant="bodySmall" style={{ marginLeft: 4, color: pTheme.colors.onSurfaceVariant }}>
-                      {comment.reply_count || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <Button 
-                      mode="text" 
-                      compact 
-                      onPress={() => router.push(`/post/${comment.post_id}`)}
-                      style={{ marginRight: 8 }}
-                    >
-                      查看帖子
-                    </Button>
-                    <Text variant="bodySmall" style={{ color: pTheme.colors.onSurfaceVariant }}>
-                      {new Date(comment.created_at).toLocaleString('zh-CN')}
-                    </Text>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
+                <Ionicons name="chevron-forward" size={14} color={pTheme.colors.outline} />
+              </Pressable>
+            </View>
           ))
         )}
       </ScrollView>
@@ -192,53 +287,50 @@ export default function AdminCommentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  commentCard: {
-    elevation: 0,
-    borderWidth: 0,
-  },
-  commentHeader: {
+  // 区域 A：头部
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  authorRow: {
+  userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  authorAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    overflow: 'hidden',
   },
-  authorName: {
-    fontWeight: '600',
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
-  replyBadge: {
+  userTextContainer: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
+    gap: 4,
   },
-  commentFooter: {
-    flexDirection: 'row',
+  menuBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'center',
   },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  
+  // 区域 B：评论主体
+  contentSection: {
+    marginTop: 12,
+    paddingLeft: 42, // 与用户名对齐（头像32 + marginLeft 10）
   },
 });

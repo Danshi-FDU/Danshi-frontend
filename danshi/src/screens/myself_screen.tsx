@@ -51,28 +51,28 @@ const RoleBadge: React.FC<RoleBadgeProps> = ({ role }) => {
   if (normalized === 'super_admin') {
     return (
       <LinearGradient
-        colors={['#9333ea', '#4f46e5']}
+        colors={[theme.colors.error, theme.colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.superAdminBadge}
       >
-        <Ionicons name="shield-checkmark" size={12} color="#fff" />
-        <Text style={styles.superAdminBadgeText}>超级管理员</Text>
+        <Ionicons name="shield-checkmark" size={12} color={theme.colors.onError} />
+        <Text style={[styles.superAdminBadgeText, { color: theme.colors.onError }]}>超级管理员</Text>
       </LinearGradient>
     );
   }
   if (normalized === 'admin') {
     return (
-      <View style={[styles.adminBadge, { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' }]}>
-        <Ionicons name="shield" size={12} color="#2563eb" />
-        <Text style={[styles.adminBadgeText, { color: '#2563eb' }]}>管理员</Text>
+      <View style={[styles.adminBadge, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
+        <Ionicons name="shield" size={12} color={theme.colors.primary} />
+        <Text style={[styles.adminBadgeText, { color: theme.colors.primary }]}>管理员</Text>
       </View>
     );
   }
   return null;
 };
 
-// ==================== 管理控制台卡片组件 ====================
+// ==================== 管理控制台入口卡片组件 ====================
 type AdminConsoleCardProps = {
   role: string;
 };
@@ -81,56 +81,49 @@ const AdminConsoleCard: React.FC<AdminConsoleCardProps> = ({ role }) => {
   const theme = usePaperTheme();
   const normalized = String(role).toLowerCase();
   const userIsAdmin = normalized === 'admin' || normalized === 'super_admin';
-  const userIsSuperAdmin = normalized === 'super_admin';
+  
   if (!userIsAdmin) return null;
   
+  // 获取扩展的主题色
+  const colors = theme.colors as typeof theme.colors & {
+    surfaceContainer: string;
+    surfaceContainerHigh: string;
+  };
+  
   return (
-    <View style={[styles.adminConsoleCard, { backgroundColor: theme.colors.surfaceVariant }]}>
-      {/* 标题 */}
-      <View style={styles.adminConsoleHeader}>
-        <Ionicons name="settings" size={20} color={theme.colors.primary} />
-        <Text style={[styles.adminConsoleTitle, { color: theme.colors.onSurface }]}>
-          管理控制台
-        </Text>
-      </View>
-      
-      {/* 操作按钮 */}
-      <View style={styles.adminConsoleActions}>
-        {/* 内容审核 - Admin & Super Admin 可见 */}
-        <Pressable
-          style={[styles.adminActionBtn, { backgroundColor: theme.colors.surface }]}
-          onPress={() => router.push('/myself/admin' as any)}
+    <Pressable
+      style={styles.adminConsoleWrapper}
+      onPress={() => router.push('/myself/admin' as any)}
+    >
+      <View
+        style={[
+          styles.adminConsoleCard, 
+          { 
+            backgroundColor: colors.surfaceContainer,
+            borderColor: `${theme.colors.primary}4D`, // 30% opacity
+          }
+        ]}
+      >
+        {/* 左侧：盾牌图标 */}
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.tertiary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.adminConsoleIconBg}
         >
-          <View style={[styles.adminActionIcon, { backgroundColor: '#dbeafe' }]}>
-            <Ionicons name="document-text" size={24} color="#2563eb" />
-          </View>
-          <Text style={[styles.adminActionLabel, { color: theme.colors.onSurface }]}>
-            内容审核
-          </Text>
-          <Text style={[styles.adminActionDesc, { color: theme.colors.onSurfaceVariant }]}>
-            审核帖子与评论
-          </Text>
-        </Pressable>
+          <Ionicons name="shield-checkmark" size={20} color={theme.colors.onPrimary} />
+        </LinearGradient>
         
-        {/* 用户管理 - 仅 Super Admin 可见 */}
-        {userIsSuperAdmin && (
-          <Pressable
-            style={[styles.adminActionBtn, { backgroundColor: theme.colors.surface }]}
-            onPress={() => router.push('/myself/admin/users' as any)}
-          >
-            <View style={[styles.adminActionIcon, { backgroundColor: '#f3e8ff' }]}>
-              <Ionicons name="people" size={24} color="#9333ea" />
-            </View>
-            <Text style={[styles.adminActionLabel, { color: theme.colors.onSurface }]}>
-              用户管理
-            </Text>
-            <Text style={[styles.adminActionDesc, { color: theme.colors.onSurfaceVariant }]}>
-              修改用户身份
-            </Text>
-          </Pressable>
-        )}
+        {/* 中间：文字 */}
+        <View style={styles.adminConsoleTextWrap}>
+          <Text style={[styles.adminConsoleTitle, { color: theme.colors.onSurface }]}>管理中心</Text>
+          <Text style={[styles.adminConsoleSubtitle, { color: theme.colors.onSurfaceVariant }]}>处理审核、用户与系统消息</Text>
+        </View>
+        
+        {/* 右侧：箭头 */}
+        <Ionicons name="chevron-forward" size={22} color={theme.colors.primary} />
       </View>
-    </View>
+    </Pressable>
   );
 };
 
@@ -689,51 +682,47 @@ const styles = StyleSheet.create({
   superAdminBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
-    // 仅 TextStyle 属性，无 web-only 属性
+    // color is set dynamically
   },
 
   // ==================== Admin Console Card ====================
-  adminConsoleCard: {
+  adminConsoleWrapper: {
     marginTop: 12,
     marginHorizontal: 16,
+  },
+  adminConsoleCard: {
+    height: 72,
     borderRadius: 16,
-    padding: 16,
-  },
-  adminConsoleHeader: {
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 127, 39, 0.3)', // #FF7F27 at 30% opacity
   },
-  adminConsoleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  adminConsoleActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  adminActionBtn: {
-    flex: 1,
+  adminConsoleIconBg: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    gap: 8,
-  },
-  adminActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  adminActionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  adminConsoleTextWrap: {
+    flex: 1,
+    gap: 2,
   },
-  adminActionDesc: {
-    fontSize: 11,
-    textAlign: 'center',
+  adminConsoleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    // color is set dynamically
+  },
+  adminConsoleSubtitle: {
+    fontSize: 12,
+    // color is set dynamically
   },
 });
+
+
+
+
+
