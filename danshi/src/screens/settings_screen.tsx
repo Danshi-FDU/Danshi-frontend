@@ -508,8 +508,8 @@ export default function SettingsScreen() {
             }}
             style={({ pressed }) => [
               styles.option,
-              { backgroundColor: pTheme.colors.surfaceVariant },
-              pressed && { opacity: 0.85 },
+              { backgroundColor: 'transparent' },
+              pressed && { opacity: 0.6 },
             ]}
           >
             <Text style={{ color: pTheme.colors.onSurface }}>
