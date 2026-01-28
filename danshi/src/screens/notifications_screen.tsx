@@ -101,7 +101,7 @@ function EmptyState({ theme }: { theme: ReturnType<typeof useTheme> }) {
       </Text>
       <Pressable
         style={[styles.emptyButton, { borderColor: theme.colors.primary }]}
-        onPress={() => router.push('/post/create')}
+        onPress={() => router.push('/post')}
       >
         <Text style={[styles.emptyButtonText, { color: theme.colors.primary }]}>
           发布帖子
@@ -123,6 +123,7 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshSeq, setRefreshSeq] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
@@ -158,6 +159,9 @@ export default function NotificationsScreen() {
           const interactionTypes: NotificationType[] = ['like_post', 'like_comment', 'comment', 'reply', 'mention'];
           filteredData = data.filter((n) => interactionTypes.includes(n.type));
         }
+        if (activeTab === 'follow') {
+          filteredData = data.filter((n) => n.type === 'follow');
+        }
 
         if (isRefresh || pageNum === 1) {
           setNotifications(filteredData);
@@ -184,6 +188,7 @@ export default function NotificationsScreen() {
   // 下拉刷新
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    setRefreshSeq((prev) => prev + 1);
     await loadNotifications(1, true);
     await refreshUnreadCount();
     setRefreshing(false);
@@ -246,9 +251,9 @@ export default function NotificationsScreen() {
   // 渲染列表项
   const renderItem = useCallback(
     ({ item }: { item: Notification }) => (
-      <NotificationItem notification={item} onMarkAsRead={handleMarkAsRead} />
+      <NotificationItem notification={item} onMarkAsRead={handleMarkAsRead} refreshKey={refreshSeq} />
     ),
-    [handleMarkAsRead]
+    [handleMarkAsRead, refreshSeq]
   );
 
   // 列表底部
@@ -283,10 +288,9 @@ export default function NotificationsScreen() {
         
         {/* 全部已读按钮 - 始终存在以保持布局稳定 */}
         <Pressable
-          style={[styles.markAllBtn, { opacity: hasUnread ? 1 : 0 }]}
+          style={[styles.markAllBtn, { opacity: hasUnread ? 1 : 0.5 }]}
           onPress={handleMarkAllRead}
           disabled={markAllLoading || !hasUnread}
-          pointerEvents={hasUnread ? 'auto' : 'none'}
         >
           {markAllLoading ? (
             <ActivityIndicator size={16} color={theme.colors.primary} />

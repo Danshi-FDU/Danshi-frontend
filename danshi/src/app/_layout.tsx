@@ -46,7 +46,6 @@ function RootStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="myself" />
         <Stack.Screen name="post" />
         <Stack.Screen name="user" />
         <Stack.Screen name="search" />
@@ -57,8 +56,8 @@ function RootStack() {
 }
 
 function ThemedPaperRoot({ children }: { children: React.ReactNode }) {
-  const { effective } = useTheme();
-  const theme = getMD3Theme(effective);
+  const { effective, accentColor } = useTheme();
+  const theme = getMD3Theme(effective, accentColor);
   return <PaperProvider theme={theme}>{children}</PaperProvider>;
 }
 

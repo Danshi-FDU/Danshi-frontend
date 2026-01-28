@@ -1092,7 +1092,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         </View>
       ) : comments.length ? (
         <View style={[styles.commentsList, { paddingBottom: commentsBottomPadding }]}>
-          {comments.map((item) => {
+          {comments.map((item, index) => {
             const cachedReplies = commentReplies[item.id];
             const previewReplies = flattenReplies(item.replies ?? []);
             const availableReplies = cachedReplies?.length ? cachedReplies : previewReplies;
@@ -1104,8 +1104,9 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             const showReplySummary = !isDesktop && totalReplyCount > REPLY_PREVIEW_COUNT;
             const shouldInlineReplies = totalReplyCount > 0 && totalReplyCount <= REPLY_PREVIEW_COUNT;
             const remainingReplies = Math.max(totalReplyCount - repliesPreview.length, 0);
+            const commentKey = item.id ?? `comment-${index}`;
             return (
-              <View key={item.id} style={styles.commentItem}>
+              <View key={commentKey} style={styles.commentItem}>
                 <CommentItem
                   comment={item}
                   depth={0}

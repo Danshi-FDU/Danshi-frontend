@@ -18,14 +18,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, chil
   useEffect(() => {
     Animated.timing(translateY, {
       toValue: visible ? 0 : 1,
-      duration: 220,
+      duration: visible ? 140 : 110,
       easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [visible]);
 
-  const backdropOpacity = translateY.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
+  const backdropOpacity = translateY.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0] });
   const sheetTranslate = translateY.interpolate({ inputRange: [0, 1], outputRange: [0, 40] });
+  const sheetOpacity = translateY.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -40,8 +41,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, chil
           style={[
             styles.sheet,
             {
-              backgroundColor: card,
+              backgroundColor: paperTheme.colors.surface,
+              shadowColor: paperTheme.colors.shadow,
               transform: [{ translateY: sheetTranslate }],
+              opacity: sheetOpacity,
             },
             height ? { height } : undefined,
           ]}
@@ -68,13 +71,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 12,
     paddingTop: 8,
+    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -2 },
   },
   handle: {
     alignSelf: 'center',
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'card',
+    backgroundColor: '#0000001A',
     marginBottom: 8,
   },
 });

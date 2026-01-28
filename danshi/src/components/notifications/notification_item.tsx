@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Pressable, StyleSheet, Image } from 'react-native';
+import { View, Pressable, StyleSheet, Image, Alert } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import type { Notification } from '@/src/repositories/notifications_repository';
 import { notificationsService } from '@/src/services/notifications_service';
@@ -16,11 +17,13 @@ interface NotificationItemProps {
   notification: Notification;
   /** 乐观更新回调：将该通知标记为已读 */
   onMarkAsRead?: (notificationId: string) => void;
+  /** 刷新标记：父组件下拉刷新时递增 */
+  refreshKey?: number;
 }
 
 // ==================== Component ====================
 
-export function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
+export function NotificationItem({ notification, onMarkAsRead, refreshKey }: NotificationItemProps) {
   const theme = useTheme();
   const { decrementUnreadCount } = useNotifications();
   const [isFollowing, setIsFollowing] = useState(false);
@@ -29,7 +32,7 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
   const { id, type, sender, content, is_read, created_at, related_id, related_type } = notification;
 
   // 对 follow 类型通知，检查是否已关注该用户
-  useEffect(() => {
+  const refreshFollowStatus = useCallback(() => {
     if (type !== 'follow') return;
     let cancelled = false;
     usersService.getUser(sender.id)
@@ -43,6 +46,14 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
       });
     return () => { cancelled = true; };
   }, [type, sender.id]);
+
+  useEffect(() => refreshFollowStatus(), [refreshFollowStatus, refreshKey]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return refreshFollowStatus();
+    }, [refreshFollowStatus])
+  );
 
   // 获取动作文案
   const actionText = notificationsService.getNotificationTypeLabel(type);
@@ -60,12 +71,13 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
     }
 
     // 跳转逻辑
-    if (type === 'follow') {
-      // 关注类型跳转到对方主页
-      router.push(`/user/${sender.id}`);
-    } else if (related_id) {
-      // 其他类型跳转到帖子详情
-      router.push(`/post/${related_id}`);
+    const route = notificationsService.getNotificationRoute(notification);
+    if (route) {
+      router.push(route as any);
+      return;
+    }
+    if (notification.related_type === 'comment') {
+      Alert.alert('无法跳转', '该通知未包含帖子信息');
     }
   }, [id, type, is_read, sender.id, related_id, onMarkAsRead, decrementUnreadCount]);
 
@@ -80,10 +92,10 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
     setFollowLoading(true);
     try {
       if (isFollowing) {
-        await usersService.unfollow(sender.id);
+        await usersService.unfollowUser(sender.id);
         setIsFollowing(false);
       } else {
-        await usersService.follow(sender.id);
+        await usersService.followUser(sender.id);
         setIsFollowing(true);
       }
     } catch (e) {
@@ -153,11 +165,11 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
             style={[
               styles.followBtn,
               isFollowing
-                ? { backgroundColor: theme.colors.surfaceVariant }
+                ? { backgroundColor: theme.colors.surfaceVariant, borderWidth: 1, borderColor: theme.colors.outline }
                 : { borderWidth: 1, borderColor: theme.colors.primary },
             ]}
-            onPress={isFollowing ? undefined : handleFollowPress}
-            disabled={followLoading || isFollowing}
+            onPress={handleFollowPress}
+            disabled={followLoading}
           >
             <Text
               style={[
@@ -165,7 +177,7 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
                 { color: isFollowing ? theme.colors.onSurfaceVariant : theme.colors.primary },
               ]}
             >
-              {isFollowing ? '互相关注' : '回关'}
+              {isFollowing ? '取消关注' : '回关'}
             </Text>
           </Pressable>
         ) : (related_type === 'post' || type === 'like_post' || type === 'comment' || type === 'mention') ? (

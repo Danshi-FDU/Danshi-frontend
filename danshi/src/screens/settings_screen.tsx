@@ -14,6 +14,7 @@ import { useTheme } from '@/src/context/theme_context';
 import { Text, List, useTheme as usePaperTheme, ActivityIndicator, Button, Snackbar } from 'react-native-paper';
 import BottomSheet from '@/src/components/overlays/bottom_sheet';
 import { CenterPicker } from '@/src/components/overlays/center_picker';
+import { ThemeColorPicker } from '@/src/components/theme_color_picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +27,7 @@ import type { UserProfile } from '@/src/repositories/users_repository';
 
 
 export default function SettingsScreen() {
-  const { mode, setMode } = useTheme();
+  const { mode, setMode, accentColor } = useTheme();
   const { user, signOut, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const pTheme = usePaperTheme();
@@ -47,6 +48,7 @@ export default function SettingsScreen() {
   // Sheet 状态
   const [sheet, setSheet] = useState<null | 'theme' | 'edit-name' | 'edit-bio'>(null);
   const [hometownPickerOpen, setHometownPickerOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [editValue, setEditValue] = useState('');
 
   // Snackbar 状态
@@ -465,6 +467,18 @@ export default function SettingsScreen() {
                   right={(props) => <List.Icon {...props} icon="chevron-right" />}
                   onPress={() => setSheet('theme')}
                 />
+                <List.Item
+                  title="主题色"
+                  description={accentColor ? accentColor.toUpperCase() : '默认'}
+                  left={(props) => <List.Icon {...props} icon="palette" />}
+                  right={(props) => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: accentColor || pTheme.colors.primary, marginRight: 8 }} />
+                      <List.Icon {...props} icon="chevron-right" />
+                    </View>
+                  )}
+                  onPress={() => setColorPickerOpen(true)}
+                />
               </List.Section>
 
               {/* 账号操作 */}
@@ -554,6 +568,12 @@ export default function SettingsScreen() {
         options={HOMETOWN_OPTIONS}
         selectedValue={hometown}
         onSelect={(value) => setHometown(value)}
+      />
+
+      {/* 主题色选择 */}
+      <ThemeColorPicker
+        visible={colorPickerOpen}
+        onDismiss={() => setColorPickerOpen(false)}
       />
 
       {/* 保存结果提示 */}

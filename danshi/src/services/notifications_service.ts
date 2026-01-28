@@ -67,6 +67,30 @@ export function getNotificationTypeIcon(type: NotificationType): string {
 
 export const notificationsService = {
   /**
+   * 从通知中解析可跳转的帖子ID
+   * - related_type=post: 使用 related_id
+   * - related_type=comment: 尝试从扩展字段获取 post_id
+   */
+  getNotificationPostId(notification: Notification): string | null {
+    const anyNotification = notification as Notification & {
+      post_id?: string | null;
+      related_post_id?: string | null;
+      post?: { id?: string | null } | null;
+    };
+    if (notification.related_type === 'post' && notification.related_id) {
+      return notification.related_id;
+    }
+    if (notification.related_type === 'comment') {
+      return (
+        anyNotification.post_id ||
+        anyNotification.related_post_id ||
+        anyNotification.post?.id ||
+        null
+      );
+    }
+    return null;
+  },
+  /**
    * 获取通知列表
    */
   async list(params: ListNotificationsParams = {}): Promise<ListNotificationsResponse> {
@@ -118,29 +142,19 @@ export const notificationsService = {
    * @returns 返回 { pathname, params } 用于 router.push
    */
   getNotificationRoute(notification: Notification): { pathname: string; params?: Record<string, string> } | null {
-    const { type, related_id, related_type, sender } = notification;
+    const { type, sender } = notification;
+    const postId = this.getNotificationPostId(notification);
 
     switch (type) {
       case 'comment':
       case 'reply':
       case 'like_post':
       case 'mention':
-        // 跳转到帖子详情
-        if (related_type === 'post' && related_id) {
-          return { pathname: '/post/[postId]', params: { postId: related_id } };
-        }
-        // 如果是评论相关，也尝试跳转到帖子
-        if (related_type === 'comment' && related_id) {
-          // 评论详情可能需要单独处理，暂时返回 null
-          return null;
-        }
+        if (postId) return { pathname: '/post/[postId]', params: { postId } };
         return null;
 
       case 'like_comment':
-        // 评论点赞，可能需要跳转到帖子详情
-        if (related_id) {
-          return null; // 需要后端返回 post_id 才能跳转
-        }
+        if (postId) return { pathname: '/post/[postId]', params: { postId } };
         return null;
 
       case 'follow':

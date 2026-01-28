@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, StyleSheet, Pressable, Animated, Easing, ScrollView, Dimensions } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Text, useTheme, IconButton } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export type PickerOption = {
@@ -37,13 +37,13 @@ export const CenterPicker: React.FC<CenterPickerProps> = ({
       Animated.parallel([
         Animated.timing(scale, {
           toValue: 1,
-          duration: 200,
+          duration: 140,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 200,
+          duration: 140,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -52,13 +52,13 @@ export const CenterPicker: React.FC<CenterPickerProps> = ({
       Animated.parallel([
         Animated.timing(scale, {
           toValue: 0.9,
-          duration: 150,
+          duration: 110,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 150,
+          duration: 110,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -75,7 +75,15 @@ export const CenterPicker: React.FC<CenterPickerProps> = ({
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.container}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-          <Animated.View style={[styles.backdrop, { backgroundColor: theme.colors.scrim, opacity: opacity.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] }) }]} />
+          <Animated.View
+            style={[
+              styles.backdrop,
+              {
+                backgroundColor: theme.colors.scrim,
+                opacity: opacity.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] }),
+              },
+            ]}
+          />
         </Pressable>
         <Animated.View
           style={[
@@ -91,9 +99,7 @@ export const CenterPicker: React.FC<CenterPickerProps> = ({
           {title ? (
             <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
               <Text variant="titleMedium" style={{ fontWeight: '600' }}>{title}</Text>
-              <Pressable onPress={onClose} hitSlop={8}>
-                <Ionicons name="close" size={24} color={theme.colors.onSurfaceVariant} />
-              </Pressable>
+              <IconButton icon="close" size={20} onPress={onClose} />
             </View>
           ) : null}
           <ScrollView

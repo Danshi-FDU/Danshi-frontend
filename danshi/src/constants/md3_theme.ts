@@ -1,4 +1,5 @@
 import { MD3DarkTheme, MD3LightTheme, MD3Theme } from 'react-native-paper'
+import { generatePalette } from '@/src/lib/theme/color_generator'
 
 // ==================== 语义颜色扩展 ====================
 // 帖子类型颜色：推荐(green)、避雷(red)、求助(purple)
@@ -172,10 +173,19 @@ export type ExtendedMD3Theme = MD3Theme & {
   colors: MD3Theme['colors'] & SemanticColors;
 };
 
-function buildTheme(mode: 'light' | 'dark'): ExtendedMD3Theme {
+// 默认主题色
+const DEFAULT_ACCENT_COLOR = '#F97316';
+
+function buildTheme(mode: 'light' | 'dark', accentColor?: string): ExtendedMD3Theme {
   const base = mode === 'dark' ? MD3DarkTheme : MD3LightTheme
-  const palette = mode === 'dark' ? brandDark : brandLight
   const semantic = mode === 'dark' ? semanticDark : semanticLight
+
+  // 如果没有自定义主题色（空字符串或未定义），使用预设的颜色
+  // 否则使用动态生成的调色板
+  const useCustomColor = accentColor && accentColor.trim() !== ''
+  const palette = useCustomColor
+    ? generatePalette(accentColor, mode === 'dark')
+    : (mode === 'dark' ? brandDark : brandLight)
 
   return {
     ...base,
@@ -188,6 +198,11 @@ function buildTheme(mode: 'light' | 'dark'): ExtendedMD3Theme {
   }
 }
 
-export function getMD3Theme(mode: 'light' | 'dark'): ExtendedMD3Theme {
-  return buildTheme(mode)
+/**
+ * 获取 MD3 主题
+ * @param mode 亮色/暗色模式
+ * @param accentColor 可选的自定义主题色（HEX 格式），空字符串或不传则使用预设品牌色
+ */
+export function getMD3Theme(mode: 'light' | 'dark', accentColor?: string): ExtendedMD3Theme {
+  return buildTheme(mode, accentColor)
 }
