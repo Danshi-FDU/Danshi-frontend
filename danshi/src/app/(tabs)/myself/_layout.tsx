@@ -12,8 +12,7 @@ export default function MyselfTabStackLayout() {
         screenOptions={{
           headerShown: false, // 统一关闭原生 Header，由各页面组件自带 Appbar 处理
           contentStyle: { backgroundColor: theme.background as string },
-          animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-          animationDuration: 200,
+          animation: 'none',
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           presentation: 'card',

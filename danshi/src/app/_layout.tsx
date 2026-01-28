@@ -34,9 +34,8 @@ function RootStack() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: background as string },
-          // 流畅的过渡动画
-          animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-          animationDuration: 200,
+          // 统一无动画
+          animation: 'none',
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           // 防止闪白

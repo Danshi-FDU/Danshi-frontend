@@ -524,40 +524,56 @@ export default function SettingsScreen() {
       <BottomSheet visible={sheet === 'edit-name'} onClose={() => setSheet(null)} height={200}>
         <Text style={styles.sheetTitle}>编辑昵称</Text>
         <TextInput
-          style={[styles.textInput, { backgroundColor: pTheme.colors.surfaceVariant, color: pTheme.colors.onSurface }]}
+          style={[
+            styles.textInput,
+            styles.inputWhiteboard,
+            { color: pTheme.colors.onSurface },
+          ]}
           value={editValue}
           onChangeText={setEditValue}
           placeholder="请输入昵称"
-          placeholderTextColor={pTheme.colors.onSurfaceVariant}
+          placeholderTextColor={pTheme.colors.outline}
           maxLength={20}
           autoFocus
         />
-        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
-          确认
-        </Button>
+        <View style={[styles.sheetDivider, { backgroundColor: pTheme.colors.outlineVariant }]} />
+        <View style={styles.sheetFooter}>
+          <Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>可用 20 字</Text>
+          <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
+            确认
+          </Button>
+        </View>
       </BottomSheet>
 
       {/* 编辑简介 */}
       <BottomSheet visible={sheet === 'edit-bio'} onClose={() => setSheet(null)} height={280}>
         <Text style={styles.sheetTitle}>编辑简介</Text>
         <TextInput
-          style={[styles.textInput, styles.bioInput, { backgroundColor: pTheme.colors.surfaceVariant, color: pTheme.colors.onSurface }]}
+          style={[
+            styles.textInput,
+            styles.bioInput,
+            styles.inputWhiteboard,
+            { color: pTheme.colors.onSurface },
+          ]}
           value={editValue}
           onChangeText={setEditValue}
           placeholder="介绍一下自己吧..."
-          placeholderTextColor={pTheme.colors.onSurfaceVariant}
+          placeholderTextColor={pTheme.colors.outline}
           maxLength={100}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
           autoFocus
         />
-        <Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>
-          {editValue.length}/100
-        </Text>
-        <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
-          确认
-        </Button>
+        <View style={[styles.sheetDivider, { backgroundColor: pTheme.colors.outlineVariant }]} />
+        <View style={styles.sheetFooter}>
+          <Text style={[styles.charCount, { color: pTheme.colors.onSurfaceVariant }]}>
+            {editValue.length}/100
+          </Text>
+          <Button mode="contained" onPress={handleConfirmEdit} style={styles.confirmBtn} buttonColor={pTheme.colors.primary}>
+            确认
+          </Button>
+        </View>
       </BottomSheet>
 
       {/* 家乡选择 */}
@@ -690,6 +706,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 15,
+    borderWidth: 1,
+  },
+  inputWhiteboard: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    paddingHorizontal: 0,
+  },
+  sheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: 12,
+  },
+  sheetFooter: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   bioInput: {
     height: 100,
@@ -703,6 +735,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   confirmBtn: {
-    marginTop: 16,
+    marginTop: 0,
   },
 });

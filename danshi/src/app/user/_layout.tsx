@@ -11,9 +11,7 @@ export default function UserStackLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: theme.background as string },
-          // 流畅的过渡动画
-          animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-          animationDuration: 200,
+          animation: 'none',
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           presentation: 'card',

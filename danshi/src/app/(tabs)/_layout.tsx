@@ -169,7 +169,7 @@ export default function TabsLayout() {
       tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
       tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
       tabBarButton: (props: any) => <HapticTab {...props} />,
-      animation: 'fade' as const,
+      animation: 'none' as const,
       lazy: true,
       freezeOnBlur: true,
     }),

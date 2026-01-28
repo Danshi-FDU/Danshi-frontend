@@ -11,8 +11,7 @@ export default function UserIdLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: theme.background as string },
-          animation: Platform.OS === 'ios' ? 'default' : 'slide_from_right',
-          animationDuration: 200,
+          animation: 'none',
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           presentation: 'card',
