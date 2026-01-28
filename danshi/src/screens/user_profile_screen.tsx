@@ -324,15 +324,15 @@ export default function UserProfileScreen() {
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-                <View style={styles.statItem}>
+                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/followers` as any)}>
                   <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(profile.stats.follower_count)}</Text>
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>粉丝</Text>
-                </View>
+                </Pressable>
                 <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-                <View style={styles.statItem}>
+                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/following` as any)}>
                   <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(profile.stats.following_count)}</Text>
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>关注</Text>
-                </View>
+                </Pressable>
               </View>
             </View>
 
