@@ -1,6 +1,6 @@
 # 项目架构说明（DanShi）
 
-> 最新修改日期：2025-11-15
+> 最新修改日期：2026-01-28
 >
 
 ---
@@ -37,7 +37,7 @@
     - `USE_MOCK`（切换 Mock/Server）
     - `API_BASE_URL`（服务端 URL）、`REQUEST_TIMEOUT_MS`（请求超时）。
   - `STORAGE_KEYS`（`AUTH_TOKEN`、`REFRESH_TOKEN`、`POSTS` 等）存储键
-    - `API_ENDPOINTS`（`/auth/login`、`/auth/register`、`/auth/me`、`/auth/logout` 等，仅 path，base 由 `API_BASE_URL` 提供）接口路径
+    - `API_ENDPOINTS`（`/auth/login`、`/auth/register`、`/auth/me`、`/auth/logout`、`/notifications/*` 等，仅 path，base 由 `API_BASE_URL` 提供）接口路径
     - `ROLES`、`ROLE_ORDER` 角色常量
     - `REGEX`（如 email 与 username 校验）正则
       - `REGEX.EMAIL`、`REGEX.USERNAME`（支持邮箱或 3-30 位用户名：字母/数字/下划线/点/短横线）
@@ -119,6 +119,18 @@
   - Api 实现：读操作走未鉴权客户端 `http`，写操作走鉴权客户端 `httpAuth`，统一用 `unwrapApiResponse` 解包 `{ code,message,data }`。
   - Mock 实现：内存存储，支持基础分页与统计字段的本地变更，用于联调与离线演示。
 
+- `src/repositories/notifications_repository.ts`
+  - Notifications 通知仓储接口（仅 Api 实现，无 Mock）。
+  - 类型定义：
+    - `NotificationType`：通知类型枚举（comment/reply/like_post/like_comment/follow/mention）
+    - `Notification`：通知实体（id/type/sender/related_id/related_type/content/is_read/created_at）
+    - `NotificationSender`：发送者信息（id/name/avatar_url）
+  - 能力（方法）：
+    - `list(params)`：获取通知列表（支持 page/limit/is_read/type 筛选）
+    - `getUnreadCount()`：获取未读通知数量
+    - `markAsRead(notificationId)`：标记单个通知为已读
+    - `markAllAsRead()`：标记所有通知为已读
+  - Api 实现：所有操作走鉴权客户端 `httpAuth`，统一用 `unwrapApiResponse` 解包。
 
 ### 2.5 services/
 
@@ -142,7 +154,19 @@
     - `like/unlike`、`favorite/unfavorite`：交由仓储；
     - `updateCompanionStatus(postId, { status, currentPeople? })`：状态值与人数校验。
   - 说明：Service 输出与后端契约贴合，但表现层保持独立；后续可在此扩展草稿、上传等流程。
-> 说明：Service 面向“用例”，保证“从输入到输出”的完整闭环，减少表现层的粘合代码与业务入侵。
+
+- `src/services/notifications_service.ts`
+  - Notifications 通知服务：参数校验与工具方法；提供：
+    - `list(params)`：获取通知列表（带分页参数校验）
+    - `getUnreadCount()`：获取未读通知数量
+    - `markAsRead(notificationId)`：标记为已读（带 ID 校验）
+    - `markAllAsRead()`：标记所有为已读
+    - `getNotificationRoute(notification)`：根据通知类型返回跳转路由参数
+  - 工具函数：
+    - `getNotificationTypeLabel(type)`：获取通知类型中文描述
+    - `getNotificationTypeIcon(type)`：获取对应 Ionicons 图标名称
+
+> 说明：Service 面向"用例"，保证"从输入到输出"的完整闭环，减少表现层的粘合代码与业务入侵。
 
 ### 2.6 context/
 - `src/context/auth_context.tsx`
@@ -204,6 +228,35 @@
   - Services：对输入进行严格校验与规范化（详见 posts_service），仅返回与后端契约匹配的结果结构；
   - Mock：内存数据，支持分页、浏览量自增模拟与 like/favorite 状态切换；
   - 表现层：未耦合，可在后续 Screen/组件中逐步接入。
+
+### Notifications（通知）
+
+- API（路径示例）：
+  - 列表：`GET /api/v1/notifications`（query: page/limit/is_read/type）
+  - 未读数量：`GET /api/v1/notifications/unread-count`
+  - 标记单个已读：`PUT /api/v1/notifications/:notificationId/read`
+  - 标记全部已读：`PUT /api/v1/notifications/read-all`
+- 通知类型（`NotificationType`）：
+  - `comment`：评论了你的帖子
+  - `reply`：回复了你的评论
+  - `like_post`：点赞了你的帖子
+  - `like_comment`：点赞了你的评论
+  - `follow`：关注了你
+  - `mention`：@提到了你
+- 前端实现：
+  - Repositories：所有操作使用鉴权客户端 `httpAuth`；统一 `unwrapApiResponse`
+  - Services：参数校验、工具函数（类型标签/图标/路由跳转）
+  - 表现层：待实现
+
+### Search（搜索）
+
+- API（路径示例）：
+  - 搜索帖子：`GET /api/v1/search/posts`（query: q/category/canteen/tags/page/limit）
+  - 搜索用户：`GET /api/v1/search/users`（query: q/page/limit）
+- 前端实现：
+  - Repositories：使用未鉴权客户端 `http`；统一 `unwrapApiResponse`
+  - Services：参数校验与规范化
+  - 表现层：已实现搜索页面（search_screen.tsx）
 - `grid.tsx`：网格容器（结合断点切换列数/间距）
 - `parallax_screen.tsx`：带视差头部的 Screen 变体
 - `responsive_image.tsx`：按父容器/断点自适应的图片组件
@@ -517,11 +570,15 @@
   - `src/repositories/auth_repository.ts`：认证仓储（Mock/Api）。
   - `src/repositories/posts_repository.ts`：Posts 仓储（Mock/Api；列表/详情/创建/更新/删除/点赞/收藏/状态）。
   - `src/repositories/users_repository.ts`：Users 仓储（Mock/Api；支持 GET/PUT）。
+  - `src/repositories/notifications_repository.ts`：Notifications 通知仓储（仅 Api；列表/未读数/标记已读）。
+  - `src/repositories/search_repository.ts`：Search 搜索仓储（仅 Api；帖子搜索/用户搜索）。
 
 - services（领域服务）
   - `src/services/auth_service.ts`：认证服务（登录/注册/刷新/登出）。
   - `src/services/posts_service.ts`：Posts 服务（校验+列表/详情/创建/更新/删除/点赞/收藏/状态）。
   - `src/services/users_service.ts`：Users 服务（校验与编排；avatarUrl 在 Mock/Server 下不同校验）。
+  - `src/services/notifications_service.ts`：Notifications 通知服务（列表/未读数/标记已读/路由跳转）。
+  - `src/services/search_service.ts`：Search 搜索服务（帖子搜索/用户搜索；参数校验）。
 
 - context（上下文）
   - `src/context/auth_context.tsx`：认证上下文与 Hook。
