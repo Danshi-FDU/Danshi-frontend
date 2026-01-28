@@ -141,10 +141,21 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [isFollowed, setIsFollowed] = useState(false);
 
   const commentSortRef = useRef<'latest' | 'hot'>(commentSort);
+  // 使用 ref 同步跟踪正在处理点赞的评论，避免快速点击时的竞态问题
+  const commentLikeLoadingRef = useRef<Set<string>>(new Set());
+  // 使用 ref 存储最新的评论状态，避免闭包中读取旧数据
+  const commentsRef = useRef<Comment[]>(comments);
+  const commentRepliesRef = useRef<Record<string, CommentReply[]>>(commentReplies);
+  const threadRootCommentRef = useRef<Comment | null>(threadRootComment);
   const scrollRef = useRef<ScrollView | null>(null);
   const commentsOffsetRef = useRef(0);
 
   const isDesktop = windowWidth >= BREAKPOINTS.desktop;
+
+  // 同步 ref 与最新的 state，确保 callback 中能读取到最新数据
+  commentsRef.current = comments;
+  commentRepliesRef.current = commentReplies;
+  threadRootCommentRef.current = threadRootComment;
 
   // 图片布局计算
   const imageLayout = useMemo(() => {
@@ -372,26 +383,82 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       }
       return next;
     });
+    // 同步更新回复详情面板中的根评论状态
+    setThreadRootComment((prev) => {
+      if (prev && prev.id === targetId) {
+        return { ...prev, ...patch } as Comment;
+      }
+      return prev;
+    });
   }, []);
 
-  const handleToggleCommentLike = useCallback(async (entity: Comment | CommentReply) => {
-    const currentlyLiked = entity.is_liked;
-    patchCommentEntity(entity.id, {
+  // 从 ref 中获取最新的评论状态
+  const findLatestCommentById = useCallback((commentId: string): { is_liked?: boolean; like_count?: number } | null => {
+    // 检查是否是 threadRootComment
+    if (threadRootCommentRef.current?.id === commentId) {
+      return threadRootCommentRef.current;
+    }
+    // 检查顶级评论
+    const topComment = commentsRef.current.find((c) => c.id === commentId);
+    if (topComment) return topComment;
+    // 检查顶级评论的内嵌回复
+    for (const c of commentsRef.current) {
+      const reply = c.replies?.find((r) => r.id === commentId);
+      if (reply) return reply;
+    }
+    // 检查 commentReplies
+    for (const replies of Object.values(commentRepliesRef.current)) {
+      const reply = replies.find((r) => r.id === commentId);
+      if (reply) return reply;
+    }
+    return null;
+  }, []);
+
+  const handleToggleCommentLikeById = useCallback(async (commentId: string) => {
+    // 使用 ref 同步检查，防止快速点击时的竞态问题
+    if (commentLikeLoadingRef.current.has(commentId)) return;
+    
+    // 立即标记为处理中（同步操作）
+    commentLikeLoadingRef.current.add(commentId);
+    
+    // 从 ref 中获取最新的评论状态
+    const latestEntity = findLatestCommentById(commentId);
+    if (!latestEntity) {
+      commentLikeLoadingRef.current.delete(commentId);
+      return;
+    }
+    
+    const currentlyLiked = latestEntity.is_liked ?? false;
+    const currentLikeCount = latestEntity.like_count ?? 0;
+    
+    // 乐观更新 UI
+    patchCommentEntity(commentId, {
       is_liked: !currentlyLiked,
-      like_count: (entity.like_count ?? 0) + (currentlyLiked ? -1 : 1),
+      like_count: currentLikeCount + (currentlyLiked ? -1 : 1),
     });
+    
     try {
       const result = currentlyLiked
-        ? await commentsService.unlike(entity.id)
-        : await commentsService.like(entity.id);
-      patchCommentEntity(entity.id, {
+        ? await commentsService.unlike(commentId)
+        : await commentsService.like(commentId);
+      // 使用服务器返回的数据更新
+      patchCommentEntity(commentId, {
         is_liked: result?.is_liked ?? !currentlyLiked,
-        like_count: result?.like_count ?? (entity.like_count ?? 0) + (currentlyLiked ? -1 : 1),
+        like_count: result?.like_count ?? currentLikeCount + (currentlyLiked ? -1 : 1),
       });
     } catch (e) {
-      patchCommentEntity(entity.id, { is_liked: currentlyLiked, like_count: entity.like_count });
+      // 出错时回滚到原始状态
+      patchCommentEntity(commentId, { is_liked: currentlyLiked, like_count: currentLikeCount });
+    } finally {
+      // 无论成功失败，都解除加载状态
+      commentLikeLoadingRef.current.delete(commentId);
     }
-  }, [patchCommentEntity]);
+  }, [patchCommentEntity, findLatestCommentById]);
+
+  // 包装函数：从 CommentItem 组件接收 entity，然后提取 id 调用核心函数
+  const handleToggleCommentLike = useCallback((entity: Comment | CommentReply) => {
+    handleToggleCommentLikeById(entity.id);
+  }, [handleToggleCommentLikeById]);
 
   const handleOpenCommentSheet = useCallback(() => setCommentSheetVisible(true), []);
   const handleReplyToComment = useCallback((entity: Comment | CommentReply) => {
