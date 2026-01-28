@@ -5,6 +5,9 @@
   },
   "build": {
     "preview": {
+      "ios": {
+        "distribution": "internal"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -14,6 +17,9 @@
       }
     },
     "production": {
+      "ios": {
+        "distribution": "store"
+      },
       "android": {
         "buildType": "apk"
       },

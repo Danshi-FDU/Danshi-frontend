@@ -14,7 +14,7 @@
     "build:apk": "npx --yes eas-cli build -p android --profile preview",
     "build:aab": "npx --yes eas-cli build -p android --profile production",
     "build:ios:adhoc": "npx --yes eas-cli build -p ios --profile preview",
-    "build:ios:testflight": "npx --yes eas-cli build -p ios --profile production",
+    "build:ios:testflight": "npx --yes eas-cli build -p ios --profile preview",
     "submit:ios:testflight": "npx --yes eas-cli submit -p ios --profile production"
   },
   "dependencies": {

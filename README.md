@@ -169,7 +169,7 @@ eas submit -p ios --profile production
 
 #### iOS TestFlight 发布流程
 
-本项目 iOS 生产构建在 [danshi/eas.json](danshi/eas.json) 中使用 `production` profile（`distribution=store`）。
+本项目 iOS 生产构建在 [danshi/eas.json](danshi/eas.json) 中使用 `preview` profile（`distribution=internel`）。
 
 **前置条件**
 
@@ -179,6 +179,8 @@ eas submit -p ios --profile production
 - App Store Connect 需要有足够权限（例如“App 管理”通常足够进行 TestFlight 配置）。
 
 **步骤 A：构建 ipa（生成可用于 TestFlight 的构建产物）**
+
+首先修改 `Danshi-frontend/danshi` 目录下的 `eas.json` 文件（如果没有参照 `eas.json.example` 创建一个），修改 `preview` 下的后端为真实后端。
 
 在 `Danshi-frontend/danshi` 目录执行：
 
