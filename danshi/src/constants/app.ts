@@ -67,6 +67,10 @@ export const API_ENDPOINTS = {
     UNLIKE: '/api/v1/comments/:commentId/like',
     DELETE: '/api/v1/comments/:commentId',
   },
+  SEARCH: {
+    POSTS: '/api/v1/search/posts',
+    USERS: '/api/v1/search/users',
+  },
   /*
   CONFIG: {
     CANTEENS: '/api/v1/config/canteens',
@@ -77,10 +81,6 @@ export const API_ENDPOINTS = {
   UPLOAD: {
     IMAGE: '/api/v1/upload/image',
     IMAGES: '/api/v1/upload/images',
-  },
-  SEARCH: {
-    POSTS: '/api/v1/search/posts',
-    USERS: '/api/v1/search/users',
   },
   STATS: {
     PLATFORM: '/api/v1/stats/platform',

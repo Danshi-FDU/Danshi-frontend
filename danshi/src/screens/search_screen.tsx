@@ -1,11 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, TextStyle, Pressable, TextInput as RNTextInput, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, TextInput as RNTextInput, Platform, Image, TextStyle } from 'react-native';
 import {
   ActivityIndicator,
-  Card,
   Text,
   useTheme as usePaperTheme,
-  Avatar,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
@@ -17,21 +15,22 @@ import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+type TabValue = 'posts' | 'users';
+
+// ==================== 高亮文本组件（仅加粗，不变色）====================
 const HIGHLIGHT_OPEN = '<em>';
 const HIGHLIGHT_CLOSE = '</em>';
-
-type TabValue = 'posts' | 'users';
 
 type HighlightedTextProps = {
   value: string;
   style?: TextStyle;
-  highlightStyle?: TextStyle;
+  numberOfLines?: number;
 };
 
-const HighlightedText: React.FC<HighlightedTextProps> = ({ value, style, highlightStyle }) => {
+const HighlightedText: React.FC<HighlightedTextProps> = ({ value, style, numberOfLines = 2 }) => {
   const segments = useMemo(() => {
     const rawParts = value.split(/(<em>|<\/em>)/i);
-    const nodes: { text: string; highlighted: boolean }[] = [];
+    const nodes: { text: string; bold: boolean }[] = [];
     let active = false;
     for (const part of rawParts) {
       if (!part) continue;
@@ -43,21 +42,49 @@ const HighlightedText: React.FC<HighlightedTextProps> = ({ value, style, highlig
         active = false;
         continue;
       }
-      nodes.push({ text: part, highlighted: active });
+      nodes.push({ text: part, bold: active });
     }
     return nodes;
   }, [value]);
 
   return (
-    <Text style={style} numberOfLines={3} ellipsizeMode="tail">
+    <Text style={style} numberOfLines={numberOfLines} ellipsizeMode="tail">
       {segments.map((segment, index) => (
-        <Text key={`segment-${index}`} style={segment.highlighted ? highlightStyle : undefined}>
+        <Text key={`seg-${index}`} style={segment.bold ? { fontWeight: '700' } : undefined}>
           {segment.text}
         </Text>
       ))}
     </Text>
   );
 };
+
+// ==================== 智能摘要：截取包含关键词的片段 ====================
+function extractMatchSnippet(highlightedContent: string | undefined, maxLength: number = 80): string | null {
+  if (!highlightedContent) return null;
+  
+  // 查找 <em> 标签的位置
+  const emStart = highlightedContent.toLowerCase().indexOf('<em>');
+  if (emStart === -1) return null;
+  
+  // 计算截取的起始位置（关键词前后各留一些上下文）
+  const contextBefore = 20;
+  const start = Math.max(0, emStart - contextBefore);
+  
+  // 截取片段
+  let snippet = highlightedContent.slice(start, start + maxLength);
+  
+  // 如果不是从开头截取，添加省略号
+  if (start > 0) {
+    snippet = '...' + snippet;
+  }
+  
+  // 如果不是到结尾，添加省略号
+  if (start + maxLength < highlightedContent.length) {
+    snippet = snippet + '...';
+  }
+  
+  return snippet;
+}
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -95,8 +122,7 @@ export default function SearchScreen() {
     [router]
   );
 
-  const handleSearch = useCallback(async () => {
-    const term = keyword.trim();
+  const doSearch = useCallback(async (tab: TabValue, term: string) => {
     if (!term) {
       setError('请输入搜索关键词');
       setHasSearched(false);
@@ -105,16 +131,15 @@ export default function SearchScreen() {
     setLoading(true);
     setError(null);
     try {
-      // if (activeTab === 'posts') {
-      //   const { posts: result } = await searchService.searchPosts({ q: term, limit: 20 });
-      //   setPosts(result);
-      // } else {
-      //   const { users: result } = await searchService.searchUsers({ q: term, limit: 20 });
-      //   setUsers(result);
-      // }
-      setError('搜索功能暂未开放');
-      setPosts([]);
-      setUsers([]);
+      if (tab === 'posts') {
+        const { posts: result } = await searchService.searchPosts({ q: term, limit: 20 });
+        setPosts(result);
+        setUsers([]);
+      } else {
+        const { users: result } = await searchService.searchUsers({ q: term, limit: 20 });
+        setUsers(result);
+        setPosts([]);
+      }
       setHasSearched(true);
     } catch (e) {
       const message = (e as Error)?.message ?? '搜索失败，请稍后重试';
@@ -122,24 +147,22 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, keyword]);
+  }, []);
+
+  const handleSearch = useCallback(() => {
+    doSearch(activeTab, keyword.trim());
+  }, [activeTab, keyword, doSearch]);
 
   const handleTabChange = useCallback(
     (value: TabValue) => {
       setActiveTab(value);
-      if (hasSearched && keyword.trim()) {
-        // 切换标签后自动触发一次新的搜索
-        setTimeout(() => {
-          handleSearch();
-        }, 0);
+      const term = keyword.trim();
+      if (hasSearched && term) {
+        // 切换标签后使用新的 tab 值重新搜索
+        doSearch(value, term);
       }
     },
-    [handleSearch, hasSearched, keyword]
-  );
-
-  const highlightStyle = useMemo(
-    () => ({ color: theme.colors.primary, fontWeight: '600' as const }),
-    [theme.colors.primary]
+    [doSearch, hasSearched, keyword]
   );
 
   return (
@@ -154,24 +177,20 @@ export default function SearchScreen() {
           },
         ]}
       >
-        {/* 第一行：返回 + 搜索框 + 搜索按钮 */}
+        {/* 第一行：返回 + 搜索框 + 搜索/取消按钮 */}
         <View style={styles.topBarContent}>
           {/* 左侧：返回按钮 */}
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.onSurface} />
           </Pressable>
 
-          {/* 中间：搜索框 */}
+          {/* 中间：搜索框 - 使用填充色背景，无边框 */}
           <View
             style={[
               styles.searchInputWrapper,
               {
-                backgroundColor: 'transparent',
-                borderColor: searchFocused ? theme.colors.primary : 'transparent',
-                borderWidth: searchFocused ? 2 : 0,
-                borderRadius: 8,
-                paddingVertical: searchFocused ? 12 : 10,
-                paddingHorizontal: searchFocused ? 14 : 12,
+                backgroundColor: theme.colors.surfaceVariant,
+                borderRadius: 22,
               },
             ]}
           >
@@ -184,16 +203,13 @@ export default function SearchScreen() {
               placeholderTextColor={theme.colors.outline}
               returnKeyType="search"
               autoCapitalize="none"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
+              autoFocus
+              selectionColor={theme.colors.primary}
               style={[
                 styles.searchInput,
                 {
                   color: theme.colors.onSurface,
-                  fontSize: 16,
-                  lineHeight: 26,
-                  paddingVertical: 0,
-                  backgroundColor: 'transparent',
+                  fontSize: 15,
                 },
                 Platform.OS === 'web' && ({ outlineStyle: 'none', borderWidth: 0 } as any),
               ]}
@@ -205,62 +221,62 @@ export default function SearchScreen() {
             ) : null}
           </View>
 
-          {/* 右侧：搜索按钮 */}
+          {/* 右侧：纯文字按钮 */}
           <Pressable
-            style={[styles.searchBtn, { backgroundColor: theme.colors.primary }]}
-            onPress={handleSearch}
+            style={styles.textBtn}
+            onPress={keyword.trim() ? handleSearch : () => router.back()}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size={14} color={theme.colors.onPrimary} />
+              <ActivityIndicator size={16} color={theme.colors.primary} />
             ) : (
-              <Text style={[styles.searchBtnText, { color: theme.colors.onPrimary }]}>搜索</Text>
+              <Text style={[styles.textBtnLabel, { color: keyword.trim() ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
+                {keyword.trim() ? '搜索' : '取消'}
+              </Text>
             )}
           </Pressable>
         </View>
 
-        {/* 第二行：帖子/用户选择器 */}
-        <View style={styles.tabRow}>
-          <View style={[styles.segmentedControl, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <Pressable
+        {/* 第二行：帖子/用户选择器 - 下划线样式 */}
+        <View style={[styles.tabRow, { borderBottomWidth: 1, borderBottomColor: theme.colors.outlineVariant }]}>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => handleTabChange('posts')}
+          >
+            <Text
               style={[
-                styles.segmentBtn,
-                activeTab === 'posts' && { backgroundColor: theme.colors.surface },
+                styles.tabText,
+                {
+                  color: activeTab === 'posts' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                  fontWeight: activeTab === 'posts' ? '600' : '400',
+                },
               ]}
-              onPress={() => handleTabChange('posts')}
             >
-              <Text
-                style={[
-                  styles.segmentText,
-                  {
-                    color: activeTab === 'posts' ? theme.colors.primary : theme.colors.onSurfaceVariant,
-                    fontWeight: activeTab === 'posts' ? '600' : '400',
-                  },
-                ]}
-              >
-                帖子
-              </Text>
-            </Pressable>
-            <Pressable
+              帖子
+            </Text>
+            {activeTab === 'posts' && (
+              <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => handleTabChange('users')}
+          >
+            <Text
               style={[
-                styles.segmentBtn,
-                activeTab === 'users' && { backgroundColor: theme.colors.surface },
+                styles.tabText,
+                {
+                  color: activeTab === 'users' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                  fontWeight: activeTab === 'users' ? '600' : '400',
+                },
               ]}
-              onPress={() => handleTabChange('users')}
             >
-              <Text
-                style={[
-                  styles.segmentText,
-                  {
-                    color: activeTab === 'users' ? theme.colors.primary : theme.colors.onSurfaceVariant,
-                    fontWeight: activeTab === 'users' ? '600' : '400',
-                  },
-                ]}
-              >
-                用户
-              </Text>
-            </Pressable>
-          </View>
+              用户
+            </Text>
+            {activeTab === 'users' && (
+              <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
+            )}
+          </Pressable>
         </View>
       </View>
 
@@ -292,59 +308,85 @@ export default function SearchScreen() {
                 verticalGap={gridVerticalGap}
                 keyExtractor={(item) => item.id}
                 getItemHeight={(item) => estimatePostCardHeight(item, minHeight, maxHeight)}
-                renderItem={(item) => (
-                  <PostCard
-                    post={item}
-                    onPress={handlePostPress}
-                    appearance="flat"
-                    footer={
-                      item.highlight?.title || item.highlight?.content ? (
-                        <View style={styles.highlightFooter}>
-                          {item.highlight?.title ? (
-                            <HighlightedText
-                              value={item.highlight.title}
-                              highlightStyle={highlightStyle}
-                              style={styles.highlightTitle}
-                            />
-                          ) : null}
-                          {item.highlight?.content ? (
-                            <HighlightedText
-                              value={item.highlight.content}
-                              highlightStyle={highlightStyle}
-                              style={styles.highlightBody}
-                            />
-                          ) : null}
+                renderItem={(item) => {
+                  // 智能摘要：如果关键词在正文中匹配，显示摘要
+                  const snippet = extractMatchSnippet(item.highlight?.content);
+                  const showSnippet = snippet && !item.highlight?.title; // 只有标题没匹配时才显示正文摘要
+                  
+                  return (
+                    <View>
+                      <PostCard
+                        post={item}
+                        onPress={handlePostPress}
+                        appearance="flat"
+                      />
+                      {showSnippet && (
+                        <View style={[styles.snippetContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+                          <HighlightedText
+                            value={snippet}
+                            style={[styles.snippetText, { color: theme.colors.onSurfaceVariant }]}
+                            numberOfLines={2}
+                          />
                         </View>
-                      ) : null
-                    }
-                  />
-                )}
+                      )}
+                    </View>
+                  );
+                }}
               />
             ) : (
               <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>未找到相关帖子</Text>
             )
           ) : users.length ? (
-            <View style={{ gap: spacing }}>
+            <View style={styles.userList}>
               {users.map((user) => (
-                <Pressable key={user.id} onPress={() => handleUserPress(user.id)}>
-                  <Card mode="outlined">
-                    <Card.Title
-                      title={user.name}
-                      subtitle={user.bio ?? ''}
-                      left={(props) => (
-                          user.avatar_url ? (
-                            <Avatar.Image {...props} source={{ uri: user.avatar_url }} />
-                          ) : (
-                            <Avatar.Text {...props} label={user.name?.slice(0, 1) || '?'} />
-                          )
-                      )}
-                    />
-                    <Card.Content>
-                      <Text variant="bodySmall" style={[styles.metaText, { color: theme.colors.onSurfaceVariant }]}>
-                        帖子：{user.stats?.post_count ?? 0} · 粉丝：{user.stats?.follower_count ?? 0}
-                      </Text>
-                    </Card.Content>
-                  </Card>
+                <Pressable 
+                  key={user.id} 
+                  style={styles.userItem}
+                  onPress={() => handleUserPress(user.id)}
+                >
+                  {/* 左侧：头像 */}
+                  <View style={styles.userAvatar}>
+                    {user.avatar_url ? (
+                      <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
+                    ) : (
+                      <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
+                        <Ionicons name="person" size={20} color={theme.colors.onSurfaceVariant} />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* 中间：用户信息 */}
+                  <View style={styles.userInfo}>
+                    <Text style={[styles.userName, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                      {user.name}
+                    </Text>
+                    <Text style={[styles.userMeta, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                      帖子 {user.stats?.post_count ?? 0} · 粉丝 {user.stats?.follower_count ?? 0}
+                    </Text>
+                  </View>
+
+                  {/* 右侧：关注按钮 */}
+                  <Pressable 
+                    style={[
+                      styles.followBtn,
+                      user.is_following 
+                        ? { backgroundColor: theme.colors.surfaceVariant }
+                        : { borderWidth: 1, borderColor: theme.colors.primary }
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      // TODO: 实现关注/取关逻辑
+                    }}
+                  >
+                    <Text 
+                      style={[
+                        styles.followBtnText, 
+                        { color: user.is_following ? theme.colors.onSurfaceVariant : theme.colors.primary }
+                      ]}
+                    >
+                      {user.is_following ? '已关注' : '关注'}
+                    </Text>
+                  </Pressable>
                 </Pressable>
               ))}
             </View>
@@ -390,43 +432,45 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
     paddingVertical: 0,
   },
-  searchBtn: {
-    paddingHorizontal: 16,
+  textBtn: {
+    paddingHorizontal: 8,
     paddingVertical: 8,
-    borderRadius: 18,
   },
-  searchBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+  textBtnLabel: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 
-  // ==================== 分段选择器 ====================
+  // ==================== Tab 切换 ====================
   tabRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  segmentedControl: {
     flexDirection: 'row',
-    borderRadius: 20,
-    padding: 3,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  segmentText: {
-    fontSize: 14,
+  tabItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    position: 'relative',
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 15,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 16,
+    right: 16,
+    height: 2,
+    borderRadius: 1,
   },
 
   // ==================== 错误提示 ====================
@@ -455,19 +499,62 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
 
-  // ==================== 搜索结果 ====================
-  highlightFooter: {
-    gap: 6,
+  // ==================== 用户列表 ====================
+  userList: {
+    gap: 0,
   },
-  highlightTitle: {
-    fontSize: 16,
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  userAvatar: {
+    width: 48,
+    height: 48,
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  userName: {
+    fontSize: 15,
     fontWeight: '600',
   },
-  highlightBody: {
-    fontSize: 14,
-    lineHeight: 20,
+  userMeta: {
+    fontSize: 13,
   },
-  metaText: {
-    // color is set dynamically
+  followBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  followBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // ==================== 搜索摘要 ====================
+  snippetContainer: {
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  snippetText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
