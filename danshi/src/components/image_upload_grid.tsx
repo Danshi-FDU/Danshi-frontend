@@ -248,7 +248,7 @@ export default function ImageUploadGrid({
                 handleRemoveImage(idx);
               }}
             >
-              <Ionicons name="close" size={14} color="#fff" />
+              <Ionicons name="close" size={14} color={theme.colors.onPrimary} />
             </Pressable>
           </Pressable>
         ))}

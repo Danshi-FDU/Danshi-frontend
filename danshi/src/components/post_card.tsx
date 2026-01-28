@@ -91,15 +91,11 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const getTagTextStyle = (variant: 'location' | 'recommend' | 'warning' | 'default') => {
-    switch (variant) {
-      case 'recommend':
-        return styles.tagTextRecommend;
-      case 'warning':
-        return styles.tagTextWarning;
-      default:
-        return styles.tagTextDefault;
-    }
+  // 获取标签文字颜色（动态主题）
+  const getTagTextColor = (variant: 'location' | 'recommend' | 'warning' | 'default') => {
+    // 标签背景是半透明深色，文字统一用高对比度白色
+    // 使用 onPrimary 确保在深浅主题下都有足够对比度
+    return theme.colors.onPrimary;
   };
 
   return (
@@ -143,9 +139,9 @@ export const PostCard: React.FC<PostCardProps> = ({
             {overlayTags.map((tag) => (
               <View key={tag.key} style={[styles.overlayTag, getTagStyle(tag.variant)]}>
                 {tag.variant === 'location' && (
-                  <Ionicons name="location" size={10} color="rgba(255,255,255,0.95)" style={styles.tagIcon} />
+                  <Ionicons name="location" size={10} color={getTagTextColor(tag.variant)} style={styles.tagIcon} />
                 )}
-                <Text style={[styles.overlayTagText, getTagTextStyle(tag.variant)]} numberOfLines={1}>
+                <Text style={[styles.overlayTagText, { color: getTagTextColor(tag.variant) }]} numberOfLines={1}>
                   {tag.label}
                 </Text>
               </View>
@@ -364,15 +360,7 @@ const styles = StyleSheet.create({
   tagWarning: {
     backgroundColor: 'rgba(239,68,68,0.85)',
   },
-  tagTextDefault: {
-    color: '#FFFFFF',
-  },
-  tagTextRecommend: {
-    color: '#FFFFFF',
-  },
-  tagTextWarning: {
-    color: '#FFFFFF',
-  },
+  // 标签文字颜色已改为动态主题获取
 
   // ==================== 信息区域 ====================
   infoArea: {

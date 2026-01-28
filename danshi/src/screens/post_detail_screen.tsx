@@ -777,19 +777,32 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     </BottomSheet>
   );
 
-  // 根据帖子类型生成渐变色
+  // 根据帖子类型生成渐变色（使用主题语义颜色）
   const gradientColors = useMemo(() => {
+    const colors = theme.colors as any;
     if (post?.post_type === 'seeking') {
-      // 求助类型：蓝紫色系
-      return { primary: '#667EEA', secondary: '#764BA2', accent: '#A78BFA' };
+      // 求助类型：紫色系
+      return { 
+        primary: colors.seeking, 
+        secondary: colors.seekingContainer, 
+        accent: colors.onSeekingContainer 
+      };
     } else if (sharePostData?.share_type === 'warning') {
-      // 避雷类型：红橙色系
-      return { primary: '#F093FB', secondary: '#F5576C', accent: '#FDA4AF' };
+      // 避雷类型：红色系
+      return { 
+        primary: colors.warning, 
+        secondary: colors.warningContainer, 
+        accent: colors.onWarningContainer 
+      };
     } else {
-      // 推荐/分享类型：橙黄色系
-      return { primary: '#F97316', secondary: '#F59E0B', accent: '#FDBA74' };
+      // 推荐/分享类型：使用品牌主色（橙色系）
+      return { 
+        primary: theme.colors.primary, 
+        secondary: theme.colors.primaryContainer, 
+        accent: theme.colors.onPrimaryContainer 
+      };
     }
-  }, [post?.post_type, sharePostData?.share_type]);
+  }, [post?.post_type, sharePostData?.share_type, theme.colors]);
 
   // ==================== 统一顶部媒体区（Fallback Cover）====================
   const renderUnifiedHeroSection = () => {
@@ -1008,15 +1021,23 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         {post && (
           <View style={[
             styles.tagBadge,
-            post.post_type === 'seeking' 
-              ? styles.seekingBadge 
-              : (sharePostData?.share_type === 'warning' ? styles.warningBadge : styles.recommendBadge)
+            { 
+              backgroundColor: post.post_type === 'seeking' 
+                ? (theme.colors as any).seekingContainer 
+                : (sharePostData?.share_type === 'warning' 
+                    ? (theme.colors as any).warningContainer 
+                    : (theme.colors as any).recommendContainer)
+            }
           ]}>
             <Text style={[
               styles.tagBadgeText,
-              post.post_type === 'seeking'
-                ? styles.seekingText
-                : (sharePostData?.share_type === 'warning' ? styles.warningText : styles.recommendText)
+              { 
+                color: post.post_type === 'seeking'
+                  ? (theme.colors as any).seeking
+                  : (sharePostData?.share_type === 'warning' 
+                      ? (theme.colors as any).warning 
+                      : (theme.colors as any).recommend)
+              }
             ]}>
               {sharePostData && sharePostData.share_type ? SHARE_LABEL[sharePostData.share_type] : TYPE_LABEL[post.post_type]}
             </Text>
@@ -1264,13 +1285,13 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   <View style={[styles.heroCircle, styles.desktopHeroCircle2, { backgroundColor: gradientColors.secondary }]} />
                 </View>
                 <View style={styles.desktopHeroContent}>
-                  <View style={styles.heroTypeBadge}>
-                    <Text style={styles.heroTypeBadgeText}>
+                  <View style={[styles.heroTypeBadge, { backgroundColor: `${theme.colors.inverseOnSurface}33` }]}>
+                    <Text style={[styles.heroTypeBadgeText, { color: theme.colors.inverseOnSurface }]}>
                       {sharePostData?.share_type ? SHARE_LABEL[sharePostData.share_type] : TYPE_LABEL[post?.post_type ?? 'share']}
                     </Text>
                   </View>
-                  <Text style={styles.desktopHeroTitle} numberOfLines={4}>{post?.title}</Text>
-                  <Text style={styles.heroMeta}>{formatDate(post?.created_at)}</Text>
+                  <Text style={[styles.desktopHeroTitle, { color: theme.colors.inverseOnSurface, textShadowColor: theme.colors.shadow }]} numberOfLines={4}>{post?.title}</Text>
+                  <Text style={[styles.heroMeta, { color: `${theme.colors.inverseOnSurface}BF` }]}>{formatDate(post?.created_at)}</Text>
                 </View>
               </View>
             )}
@@ -1573,7 +1594,7 @@ const styles = StyleSheet.create({
   },
   infoCardLine: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
     minHeight: 24,
   },
@@ -1630,24 +1651,7 @@ const styles = StyleSheet.create({
   locationBadge: {
     // backgroundColor is set dynamically
   },
-  recommendBadge: {
-    backgroundColor: '#D1FAE5',
-  },
-  warningBadge: {
-    backgroundColor: '#FEE2E2',
-  },
-  seekingBadge: {
-    backgroundColor: '#EDE9FE',
-  },
-  recommendText: {
-    color: '#059669',
-  },
-  warningText: {
-    color: '#DC2626',
-  },
-  seekingText: {
-    color: '#7C3AED',
-  },
+  // 类型徽章颜色已改为动态使用主题语义颜色 (recommend/warning/seeking)
   topicTag: {
     fontSize: 13,
     fontWeight: '500',
@@ -1899,11 +1903,11 @@ const styles = StyleSheet.create({
   desktopHeroTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#fff',
+    // color 在使用时通过 theme.colors.inverseOnSurface 设置（白色文字在彩色渐变背景上）
     textAlign: 'center',
     marginVertical: 16,
     lineHeight: 36,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    // textShadow 颜色使用 theme.colors.shadow
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -1986,21 +1990,22 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
+  // Hero 区域样式 - 白色文字/元素用于彩色渐变背景上（通过 inverseOnSurface 动态设置）
   heroTypeBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    // color: theme.colors.inverseOnSurface (在组件中动态设置)
   },
   heroTitle: {
     fontSize: 26,
     fontWeight: '800',
     lineHeight: 34,
-    color: '#fff',
+    // color: theme.colors.inverseOnSurface (在组件中动态设置)
     letterSpacing: -0.3,
   },
   heroMeta: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
+    // color: 使用 inverseOnSurface 配合 opacity (在组件中动态设置)
   },
   heroAuthorCard: {
     flexDirection: 'row',
@@ -2009,7 +2014,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    // backgroundColor: 使用 inverseOnSurface 配合 15% opacity (在组件中动态设置)
     borderRadius: 16,
     backdropFilter: 'blur(10px)',
   },
@@ -2025,29 +2030,27 @@ const styles = StyleSheet.create({
   heroAuthorName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    // color: theme.colors.inverseOnSurface (在组件中动态设置)
   },
   heroAuthorBio: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    // color: 使用 inverseOnSurface 配合 70% opacity (在组件中动态设置)
     marginTop: 2,
   },
   heroFollowBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    // backgroundColor/borderColor: 使用 inverseOnSurface 配合 opacity (在组件中动态设置)
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   heroFollowBtnFollowed: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
+    // backgroundColor/borderColor: theme.colors.inverseOnSurface (在组件中动态设置)
   },
   heroFollowBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    // color: theme.colors.inverseOnSurface (在组件中动态设置)
   },
 
   // ==================== No-Image Content Section ====================

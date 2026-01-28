@@ -1225,12 +1225,13 @@ export default function PostScreen({
 			return `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 		};
 
-		// 获取渐变颜色（与详情页一致）
+		// 获取渐变颜色（使用主题语义颜色）
+		const colors = theme.colors as any;
 		const gradientColors = post_type === 'seeking' 
-			? { primary: '#667EEA', secondary: '#764BA2', accent: '#A78BFA' }  // 求助：蓝紫色
+			? { primary: colors.seeking, secondary: colors.seekingContainer, accent: colors.onSeekingContainer }
 			: share_type === 'warning' 
-				? { primary: '#F093FB', secondary: '#F5576C', accent: '#FDA4AF' }  // 避雷：粉红色
-				: { primary: '#F97316', secondary: '#F59E0B', accent: '#FDBA74' };  // 推荐：橙黄色
+				? { primary: colors.warning, secondary: colors.warningContainer, accent: colors.onWarningContainer }
+				: { primary: theme.colors.primary, secondary: theme.colors.primaryContainer, accent: theme.colors.onPrimaryContainer };
 
 		const hasImages = filtered_images.length > 0;
 
@@ -1399,19 +1400,19 @@ export default function PostScreen({
 							{post_type === 'share' && (
 								<View style={[
 									styles.previewTagBadge,
-									share_type === 'warning' ? styles.previewWarningBadge : styles.previewRecommendBadge
+									{ backgroundColor: share_type === 'warning' ? colors.warningContainer : colors.recommendContainer }
 								]}>
 									<Text style={[
 										styles.previewTagBadgeText,
-										share_type === 'warning' ? styles.previewWarningText : styles.previewRecommendText
+										{ color: share_type === 'warning' ? colors.warning : colors.recommend }
 									]}>
 										{share_type === 'recommend' ? '推荐' : '避雷'}
 									</Text>
 								</View>
 							)}
 							{post_type === 'seeking' && (
-								<View style={[styles.previewTagBadge, styles.previewSeekingBadge]}>
-									<Text style={[styles.previewTagBadgeText, styles.previewSeekingText]}>求助</Text>
+								<View style={[styles.previewTagBadge, { backgroundColor: colors.seekingContainer }]}>
+									<Text style={[styles.previewTagBadgeText, { color: colors.seeking }]}>求助</Text>
 								</View>
 							)}
 							{parsedTags.map((tag, idx) => (
@@ -1621,8 +1622,8 @@ export default function PostScreen({
 								style={[
 									styles.subTypeBtn,
 									share_type === 'recommend' && {
-										backgroundColor: '#D1FAE5',
-										borderColor: '#059669',
+										backgroundColor: (theme.colors as any).recommendContainer,
+										borderColor: (theme.colors as any).recommend,
 									},
 									share_type !== 'recommend' && {
 										borderColor: theme.colors.outlineVariant,
@@ -1632,7 +1633,7 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color: share_type === 'recommend' ? '#059669' : theme.colors.onSurfaceVariant,
+										color: share_type === 'recommend' ? (theme.colors as any).recommend : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'recommend' ? '600' : '400',
 									}}
@@ -1644,8 +1645,8 @@ export default function PostScreen({
 								style={[
 									styles.subTypeBtn,
 									share_type === 'warning' && {
-										backgroundColor: '#FEE2E2',
-										borderColor: '#DC2626',
+										backgroundColor: (theme.colors as any).warningContainer,
+										borderColor: (theme.colors as any).warning,
 									},
 									share_type !== 'warning' && {
 										borderColor: theme.colors.outlineVariant,
@@ -1655,7 +1656,7 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color: share_type === 'warning' ? '#DC2626' : theme.colors.onSurfaceVariant,
+										color: share_type === 'warning' ? (theme.colors as any).warning : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'warning' ? '600' : '400',
 									}}
@@ -2303,24 +2304,7 @@ const styles = StyleSheet.create({
 	previewLocationBadge: {
 		// backgroundColor is set dynamically
 	},
-	previewRecommendBadge: {
-		backgroundColor: '#D1FAE5',
-	},
-	previewWarningBadge: {
-		backgroundColor: '#FEE2E2',
-	},
-	previewSeekingBadge: {
-		backgroundColor: '#EDE9FE',
-	},
-	previewRecommendText: {
-		color: '#059669',
-	},
-	previewWarningText: {
-		color: '#DC2626',
-	},
-	previewSeekingText: {
-		color: '#7C3AED',
-	},
+	// 预览徽章颜色已改为动态使用主题语义颜色 (recommend/warning/seeking)
 	previewTopicTag: {
 		fontSize: 13,
 		fontWeight: '500',

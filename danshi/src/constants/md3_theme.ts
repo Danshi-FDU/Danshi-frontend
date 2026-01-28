@@ -1,5 +1,63 @@
 import { MD3DarkTheme, MD3LightTheme, MD3Theme } from 'react-native-paper'
 
+// ==================== 语义颜色扩展 ====================
+// 帖子类型颜色：推荐(green)、避雷(red)、求助(purple)
+
+export interface SemanticColors {
+  // 推荐类型 (绿色)
+  recommend: string;
+  onRecommend: string;
+  recommendContainer: string;
+  onRecommendContainer: string;
+  // 避雷类型 (红色)
+  warning: string;
+  onWarning: string;
+  warningContainer: string;
+  onWarningContainer: string;
+  // 求助类型 (紫色)
+  seeking: string;
+  onSeeking: string;
+  seekingContainer: string;
+  onSeekingContainer: string;
+}
+
+const semanticLight: SemanticColors = {
+  // 推荐：绿色系
+  recommend: '#059669',
+  onRecommend: '#FFFFFF',
+  recommendContainer: '#D1FAE5',
+  onRecommendContainer: '#065F46',
+  // 避雷：红色系
+  warning: '#DC2626',
+  onWarning: '#FFFFFF',
+  warningContainer: '#FEE2E2',
+  onWarningContainer: '#7F1D1D',
+  // 求助：紫色系
+  seeking: '#7C3AED',
+  onSeeking: '#FFFFFF',
+  seekingContainer: '#EDE9FE',
+  onSeekingContainer: '#5B21B6',
+};
+
+const semanticDark: SemanticColors = {
+  // 推荐：绿色系 (深色模式调亮)
+  recommend: '#34D399',
+  onRecommend: '#065F46',
+  recommendContainer: '#065F46',
+  onRecommendContainer: '#D1FAE5',
+  // 避雷：红色系 (深色模式调亮)
+  warning: '#F87171',
+  onWarning: '#7F1D1D',
+  warningContainer: '#7F1D1D',
+  onWarningContainer: '#FEE2E2',
+  // 求助：紫色系 (深色模式调亮)
+  seeking: '#A78BFA',
+  onSeeking: '#5B21B6',
+  seekingContainer: '#5B21B6',
+  onSeekingContainer: '#EDE9FE',
+};
+
+// ==================== MD3 基础颜色 ====================
 
 const brandLight = {
   primary: '#F97316',
@@ -108,9 +166,16 @@ const brandDark = {
   surfaceContainerHighest: '#353535',
 };
 
-function buildTheme(mode: 'light' | 'dark'): MD3Theme {
+// ==================== 扩展主题类型 ====================
+
+export type ExtendedMD3Theme = MD3Theme & {
+  colors: MD3Theme['colors'] & SemanticColors;
+};
+
+function buildTheme(mode: 'light' | 'dark'): ExtendedMD3Theme {
   const base = mode === 'dark' ? MD3DarkTheme : MD3LightTheme
   const palette = mode === 'dark' ? brandDark : brandLight
+  const semantic = mode === 'dark' ? semanticDark : semanticLight
 
   return {
     ...base,
@@ -118,10 +183,11 @@ function buildTheme(mode: 'light' | 'dark'): MD3Theme {
     colors: {
       ...base.colors,
       ...palette,
+      ...semantic,
     },
   }
 }
 
-export function getMD3Theme(mode: 'light' | 'dark'): MD3Theme {
+export function getMD3Theme(mode: 'light' | 'dark'): ExtendedMD3Theme {
   return buildTheme(mode)
 }

@@ -16,6 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Button, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/src/context/auth_context';
+import { useNotifications, formatUnreadCount } from '@/src/context/notifications_context';
 import { usersService } from '@/src/services/users_service';
 import type { UserAggregateStats } from '@/src/models/Stats';
 import type { UserProfile } from '@/src/repositories/users_repository';
@@ -129,6 +130,7 @@ const AdminConsoleCard: React.FC<AdminConsoleCardProps> = ({ role }) => {
 
 export default function MyselfScreen() {
   const { user, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -152,6 +154,7 @@ export default function MyselfScreen() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   const displayName = useMemo(
     () => profile?.name ?? user?.name ?? '未登录',
@@ -165,6 +168,11 @@ export default function MyselfScreen() {
     () => profile?.avatar_url ?? user?.avatar_url ?? null,
     [profile?.avatar_url, user?.avatar_url]
   );
+
+  // 当 avatarUrl 变化时重置加载错误状态
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [avatarUrl]);
 
   // 加载用户资料
   const loadProfile = useCallback(async () => {
@@ -296,9 +304,21 @@ export default function MyselfScreen() {
         {/* ==================== 顶部操作栏 ==================== */}
         <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: theme.colors.surface }]}>
           <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>个人中心</Text>
-          <Pressable style={styles.headerBtn} onPress={() => router.push('/myself/settings')}>
-            <Ionicons name="settings-outline" size={24} color={theme.colors.onSurfaceVariant} />
-          </Pressable>
+          <View style={styles.headerRight}>
+            {/* 通知入口 */}
+            <Pressable style={styles.headerBtn} onPress={() => router.push('/notifications')}>
+              <Ionicons name="notifications-outline" size={24} color={theme.colors.onSurfaceVariant} />
+              {unreadCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: theme.colors.error }]}>
+                  <Text style={styles.badgeText}>{formatUnreadCount(unreadCount)}</Text>
+                </View>
+              )}
+            </Pressable>
+            {/* 设置入口 */}
+            <Pressable style={styles.headerBtn} onPress={() => router.push('/myself/settings')}>
+              <Ionicons name="settings-outline" size={24} color={theme.colors.onSurfaceVariant} />
+            </Pressable>
+          </View>
         </View>
 
         {/* ==================== 用户信息区 ==================== */}
@@ -306,11 +326,15 @@ export default function MyselfScreen() {
           {/* 悬浮头像 */}
           <View style={styles.profileHeaderRow}>
             <Pressable
-              style={styles.avatarContainer}
+              style={[styles.avatarContainer, { backgroundColor: theme.colors.primaryContainer }]}
               onPress={() => router.push('/myself/settings')}
             >
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+              {avatarUrl && !avatarLoadError ? (
+                <Image 
+                  source={{ uri: avatarUrl }} 
+                  style={styles.avatar}
+                  onError={() => setAvatarLoadError(true)}
+                />
               ) : (
                 <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primaryContainer }]}>
                   <Ionicons name="person" size={40} color={theme.colors.primary} />
@@ -472,12 +496,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 
   // ==================== Profile Section ====================
@@ -497,7 +542,6 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 44,
     overflow: 'hidden',
-    elevation: 4,
   },
   avatar: {
     width: '100%',

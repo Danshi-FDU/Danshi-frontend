@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, StyleSheet, Pressable, Animated, Easing, Platform, KeyboardAvoidingView } from 'react-native';
 import { useTheme } from '@/src/context/theme_context';
+import { useTheme as usePaperTheme } from 'react-native-paper';
 
 export type BottomSheetProps = {
   visible: boolean;
@@ -11,6 +12,7 @@ export type BottomSheetProps = {
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, children, height }) => {
   const { card } = useTheme();
+  const paperTheme = usePaperTheme();
   const translateY = useRef(new Animated.Value(1)).current; // 1 -> hidden, 0 -> shown
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, chil
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-          <Animated.View style={[styles.backdrop, { backgroundColor: '#000', opacity: backdropOpacity }]} />
+          <Animated.View style={[styles.backdrop, { backgroundColor: paperTheme.colors.scrim, opacity: backdropOpacity }]} />
         </Pressable>
         <Animated.View
           style={[

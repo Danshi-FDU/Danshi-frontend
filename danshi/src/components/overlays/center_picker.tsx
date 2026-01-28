@@ -75,13 +75,14 @@ export const CenterPicker: React.FC<CenterPickerProps> = ({
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.container}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-          <Animated.View style={[styles.backdrop, { opacity }]} />
+          <Animated.View style={[styles.backdrop, { backgroundColor: theme.colors.scrim, opacity: opacity.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] }) }]} />
         </Pressable>
         <Animated.View
           style={[
             styles.picker,
             {
               backgroundColor: theme.colors.surface,
+              shadowColor: theme.colors.shadow,
               transform: [{ scale }],
               opacity,
             },
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    // backgroundColor 已移至动态样式，使用 theme.colors.scrim
   },
   picker: {
     width: '100%',
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#000',
+    // shadowColor 使用 theme.colors.shadow（已在 MD3 主题中定义为 #000000）
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },

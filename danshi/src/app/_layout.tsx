@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeModeProvider, useTheme } from '@/src/context/theme_context';
 import { AuthProvider } from '@/src/context/auth_context';
 import { WaterfallSettingsProvider } from '@/src/context/waterfall_context';
+import { NotificationsProvider } from '@/src/context/notifications_context';
 import { PaperProvider } from 'react-native-paper';
 import { getMD3Theme } from '@/src/constants/md3_theme';
 
@@ -13,9 +14,11 @@ export default function RootLayout() {
     <ThemeModeProvider>
       <ThemedPaperRoot>
         <AuthProvider>
-          <WaterfallSettingsProvider>
-            <RootStack />
-          </WaterfallSettingsProvider>
+          <NotificationsProvider>
+            <WaterfallSettingsProvider>
+              <RootStack />
+            </WaterfallSettingsProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </ThemedPaperRoot>
     </ThemeModeProvider>
@@ -47,6 +50,7 @@ function RootStack() {
         <Stack.Screen name="post" />
         <Stack.Screen name="user" />
         <Stack.Screen name="search" />
+        <Stack.Screen name="notifications" />
       </Stack>
     </View>
   );

@@ -46,8 +46,14 @@ export default function UserProfileScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   const isCurrentUser = currentUser?.id === userId;
+
+  // 当头像 URL 变化时重置加载错误状态
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [profile?.avatar_url]);
 
   // 加载用户资料
   const loadUserData = useCallback(async () => {
@@ -232,9 +238,13 @@ export default function UserProfileScreen() {
             <View style={[styles.profileSection, { backgroundColor: theme.colors.surface }]}>
               {/* 头像和用户信息并排 */}
               <View style={styles.profileHeaderRow}>
-                <View style={styles.avatarContainer}>
-                  {profile.avatar_url ? (
-                    <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                <View style={[styles.avatarContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                  {profile.avatar_url && !avatarLoadError ? (
+                    <Image 
+                      source={{ uri: profile.avatar_url }} 
+                      style={styles.avatar}
+                      onError={() => setAvatarLoadError(true)}
+                    />
                   ) : (
                     <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primaryContainer }]}>
                       <Ionicons name="person" size={40} color={theme.colors.primary} />
@@ -465,7 +475,6 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 44,
     overflow: 'hidden',
-    elevation: 4,
   },
   avatar: {
     width: '100%',

@@ -255,20 +255,20 @@ export default function ImageViewer({
   if (!visible) return null;
 
   const content = (
-    <View style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.95)' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+    <View style={[styles.container, { backgroundColor: theme.colors.scrim }]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.scrim} />
       
       {/* 顶部栏 */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <IconButton
           icon="close"
-          iconColor="#fff"
+          iconColor={theme.colors.inverseOnSurface}
           size={28}
           onPress={onClose}
           style={styles.closeButton}
         />
         {images.length > 1 && (
-          <Text style={styles.counter}>
+          <Text style={[styles.counter, { color: theme.colors.inverseOnSurface }]}>
             {currentIndex + 1} / {images.length}
           </Text>
         )}
@@ -305,7 +305,11 @@ export default function ImageViewer({
               key={index}
               style={[
                 styles.dot,
-                index === currentIndex ? styles.dotActive : styles.dotInactive,
+                { 
+                  backgroundColor: index === currentIndex 
+                    ? theme.colors.inverseOnSurface 
+                    : `${theme.colors.inverseOnSurface}66` // 40% opacity
+                },
               ]}
             />
           ))}
@@ -354,7 +358,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   counter: {
-    color: '#fff',
+    // color 已移至动态样式
     fontSize: 16,
     fontWeight: '500',
   },
@@ -394,10 +398,5 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  dotActive: {
-    backgroundColor: '#fff',
-  },
-  dotInactive: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
+  // dotActive 和 dotInactive 颜色已移至动态样式
 });

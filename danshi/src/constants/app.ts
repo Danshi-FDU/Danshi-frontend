@@ -71,6 +71,12 @@ export const API_ENDPOINTS = {
     POSTS: '/api/v1/search/posts',
     USERS: '/api/v1/search/users',
   },
+  NOTIFICATIONS: {
+    LIST: '/api/v1/notifications',
+    UNREAD_COUNT: '/api/v1/notifications/unread-count',
+    MARK_READ: '/api/v1/notifications/:notificationId/read',
+    MARK_ALL_READ: '/api/v1/notifications/read-all',
+  },
   /*
   CONFIG: {
     CANTEENS: '/api/v1/config/canteens',
