@@ -37,6 +37,7 @@ export const MyPostsScreen: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
+  // 本页会隐藏 TabBar，因此只按安全区预留底部空间
   const bottomContentPadding = useMemo(() => insets.bottom + 24, [insets.bottom]);
 
   const { minHeight, maxHeight } = useWaterfallSettings();
@@ -271,7 +272,8 @@ export const MyPostsScreen: React.FC = () => {
         </ScrollView>
       )}
       {error ? (
-        <View style={styles.errorContainer}>
+        <View style={[styles.errorContainer, { bottom: insets.bottom + 16 }]}
+        >
           <Text variant="bodySmall" style={{ color: theme.colors.error }}>
             {error}
           </Text>

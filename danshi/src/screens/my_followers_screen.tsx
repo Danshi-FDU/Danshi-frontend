@@ -45,44 +45,39 @@ const UserListItem: React.FC<UserListItemProps> = ({
 
   const renderActionButton = () => {
     if (listType === 'followers') {
-      // 粉丝列表：显示回关或已关注
+      // 粉丝列表：显示回关或已关注（和通知界面保持一致的胶囊描边风格）
       return (
         <Pressable
           style={[
             styles.actionBtn,
             isFollowed
-              ? { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline }
-              : { backgroundColor: theme.colors.primary },
+              ? { backgroundColor: theme.colors.surfaceVariant }
+              : { borderWidth: 1, borderColor: theme.colors.primary, backgroundColor: 'transparent' },
           ]}
           onPress={isFollowed ? undefined : onFollowBack}
           disabled={isProcessing || isFollowed}
         >
           {isProcessing ? (
-            <ActivityIndicator size={14} color={isFollowed ? theme.colors.onSurfaceVariant : theme.colors.onPrimary} />
+            <ActivityIndicator size={14} color={isFollowed ? theme.colors.onSurfaceVariant : theme.colors.primary} />
           ) : (
-            <>
-              {isFollowed && (
-                <Ionicons name="checkmark" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-              )}
-              <Text
-                style={[
-                  styles.actionBtnText,
-                  { color: isFollowed ? theme.colors.onSurfaceVariant : theme.colors.onPrimary },
-                ]}
-              >
-                {isMutual ? '互关' : isFollowed ? '已关注' : '回关'}
-              </Text>
-            </>
+            <Text
+              style={[
+                styles.actionBtnText,
+                { color: isFollowed ? theme.colors.onSurfaceVariant : theme.colors.primary },
+              ]}
+            >
+              {isMutual ? '互相关注' : isFollowed ? '已关注' : '回关'}
+            </Text>
           )}
         </Pressable>
       );
     } else {
-      // 关注列表：显示已关注，点击可取消
+      // 关注列表：显示已关注，点击可取消（和通知界面保持一致的胶囊风格）
       return (
         <Pressable
           style={[
             styles.actionBtn,
-            { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outline },
+            { backgroundColor: theme.colors.surfaceVariant },
           ]}
           onPress={onUnfollow}
           disabled={isProcessing}
@@ -90,12 +85,9 @@ const UserListItem: React.FC<UserListItemProps> = ({
           {isProcessing ? (
             <ActivityIndicator size={14} color={theme.colors.onSurfaceVariant} />
           ) : (
-            <>
-              <Ionicons name="checkmark" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-              <Text style={[styles.actionBtnText, { color: theme.colors.onSurfaceVariant }]}>
-                已关注
-              </Text>
-            </>
+            <Text style={[styles.actionBtnText, { color: theme.colors.onSurfaceVariant }]}>
+              已关注
+            </Text>
           )}
         </Pressable>
       );
@@ -427,10 +419,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    paddingVertical: 6,
+    borderRadius: 16,
     minWidth: 72,
   },
   actionBtnText: {

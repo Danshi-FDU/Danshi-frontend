@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, Pressable, TextInput as RNTextInput, Platform, Image, TextStyle } from 'react-native';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { StyleSheet, View, ScrollView, Pressable, TextInput as RNTextInput, Platform, Image, TextStyle, useWindowDimensions } from 'react-native';
 import {
   ActivityIndicator,
   Text,
   useTheme as usePaperTheme,
+  Chip,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
@@ -14,6 +15,12 @@ import { Masonry } from '@/src/components/md3/masonry';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// 宽屏断点
+const WIDE_BREAKPOINT = 768;
+const SEARCH_HISTORY_KEY = '@search_history';
+const MAX_HISTORY_ITEMS = 10;
 
 type TabValue = 'posts' | 'users';
 
@@ -92,6 +99,10 @@ export default function SearchScreen() {
   const theme = usePaperTheme();
   const bp = useBreakpoint();
   const { minHeight, maxHeight } = useWaterfallSettings();
+  const { width: windowWidth } = useWindowDimensions();
+  
+  // 判断是否宽屏
+  const isWideScreen = windowWidth >= WIDE_BREAKPOINT;
 
   const horizontalPadding = pickByBreakpoint(bp, { base: 16, sm: 18, md: 20, lg: 24, xl: 24 });
   const spacing = pickByBreakpoint(bp, { base: 14, sm: 16, md: 18, lg: 20, xl: 24 });
@@ -99,13 +110,39 @@ export default function SearchScreen() {
   const gridVerticalGap = gridGap + 8;
 
   const [keyword, setKeyword] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<TabValue>('posts');
   const [posts, setPosts] = useState<SearchPost[]>([]);
   const [users, setUsers] = useState<SearchUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // 加载搜索历史
+  useEffect(() => {
+    AsyncStorage.getItem(SEARCH_HISTORY_KEY)
+      .then((data) => {
+        if (data) {
+          setSearchHistory(JSON.parse(data));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 保存搜索历史
+  const saveToHistory = useCallback(async (term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    const newHistory = [trimmed, ...searchHistory.filter((h) => h !== trimmed)].slice(0, MAX_HISTORY_ITEMS);
+    setSearchHistory(newHistory);
+    await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory));
+  }, [searchHistory]);
+
+  // 清除搜索历史
+  const clearHistory = useCallback(async () => {
+    setSearchHistory([]);
+    await AsyncStorage.removeItem(SEARCH_HISTORY_KEY);
+  }, []);
 
   const handlePostPress = useCallback(
     (postId: string) => {
@@ -150,8 +187,18 @@ export default function SearchScreen() {
   }, []);
 
   const handleSearch = useCallback(() => {
-    doSearch(activeTab, keyword.trim());
-  }, [activeTab, keyword, doSearch]);
+    const term = keyword.trim();
+    if (term) {
+      saveToHistory(term);
+    }
+    doSearch(activeTab, term);
+  }, [activeTab, keyword, doSearch, saveToHistory]);
+
+  const handleHistoryPress = useCallback((term: string) => {
+    setKeyword(term);
+    saveToHistory(term);
+    doSearch(activeTab, term);
+  }, [activeTab, doSearch, saveToHistory]);
 
   const handleTabChange = useCallback(
     (value: TabValue) => {
@@ -167,135 +214,171 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* ==================== 顶部导航栏 ==================== */}
-      <View
-        style={[
-          styles.topBar,
-          {
-            paddingTop: insets.top,
-            backgroundColor: theme.colors.background,
-          },
-        ]}
-      >
-        {/* 第一行：返回 + 搜索框 + 搜索/取消按钮 */}
-        <View style={styles.topBarContent}>
-          {/* 左侧：返回按钮 */}
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.onSurface} />
-          </Pressable>
-
-          {/* 中间：搜索框 - 使用填充色背景，无边框 */}
-          <View
-            style={[
-              styles.searchInputWrapper,
-              {
-                backgroundColor: theme.colors.surfaceVariant,
-                borderRadius: 22,
-              },
-            ]}
-          >
-            <Ionicons name="search" size={18} color={theme.colors.onSurfaceVariant} />
-            <RNTextInput
-              value={keyword}
-              onChangeText={setKeyword}
-              onSubmitEditing={handleSearch}
-              placeholder="搜索美食或用户"
-              placeholderTextColor={theme.colors.outline}
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoFocus
-              selectionColor={theme.colors.primary}
-              style={[
-                styles.searchInput,
-                {
-                  color: theme.colors.onSurface,
-                  fontSize: 15,
-                },
-                Platform.OS === 'web' && ({ outlineStyle: 'none', borderWidth: 0 } as any),
-              ]}
-            />
-            {keyword.trim() ? (
-              <Pressable onPress={() => setKeyword('')} hitSlop={8}>
-                <Ionicons name="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
+      {/* 宽屏时使用居中容器 */}
+      <View style={[
+        styles.contentWrapper,
+        isWideScreen && styles.wideContentWrapper,
+      ]}>
+        {/* ==================== 顶部导航栏 ==================== */}
+        <View
+          style={[
+            styles.topBar,
+            {
+              paddingTop: isWideScreen ? 24 : insets.top,
+              backgroundColor: theme.colors.background,
+            },
+          ]}
+        >
+          {/* 第一行：搜索框 */}
+          <View style={[styles.topBarContent, isWideScreen && styles.wideTopBarContent]}>
+            {/* 左侧：返回按钮 - 仅在窄屏显示 */}
+            {!isWideScreen && (
+              <Pressable style={styles.backBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={24} color={theme.colors.onSurface} />
               </Pressable>
-            ) : null}
+            )}
+
+            {/* 中间：搜索框 */}
+            <View
+              style={[
+                styles.searchInputWrapper,
+                {
+                  backgroundColor: theme.colors.surfaceVariant,
+                  borderRadius: isWideScreen ? 26 : 22,
+                },
+                isWideScreen && styles.wideSearchInputWrapper,
+              ]}
+            >
+              <Ionicons name="search" size={isWideScreen ? 20 : 18} color={theme.colors.onSurfaceVariant} />
+              <RNTextInput
+                value={keyword}
+                onChangeText={setKeyword}
+                onSubmitEditing={handleSearch}
+                placeholder="搜索美食或用户"
+                placeholderTextColor={theme.colors.outline}
+                returnKeyType="search"
+                autoCapitalize="none"
+                selectionColor={theme.colors.primary}
+                style={[
+                  styles.searchInput,
+                  {
+                    color: theme.colors.onSurface,
+                    fontSize: isWideScreen ? 16 : 15,
+                  },
+                  Platform.OS === 'web' && ({ outlineStyle: 'none', borderWidth: 0 } as any),
+                ]}
+              />
+              {keyword.trim() ? (
+                <Pressable onPress={() => setKeyword('')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={isWideScreen ? 20 : 18} color={theme.colors.onSurfaceVariant} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {/* 右侧：按钮 - 窄屏显示文字，宽屏显示图标或隐藏 */}
+            {!isWideScreen && (
+              <Pressable
+                style={styles.textBtn}
+                onPress={keyword.trim() ? handleSearch : () => router.back()}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size={16} color={theme.colors.primary} />
+                ) : (
+                  <Text style={[styles.textBtnLabel, { color: keyword.trim() ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
+                    {keyword.trim() ? '搜索' : '取消'}
+                  </Text>
+                )}
+              </Pressable>
+            )}
+            {isWideScreen && keyword.trim() && (
+              <Pressable
+                style={[styles.wideSearchBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={handleSearch}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size={18} color={theme.colors.onPrimary} />
+                ) : (
+                  <Ionicons name="search" size={20} color={theme.colors.onPrimary} />
+                )}
+              </Pressable>
+            )}
           </View>
 
-          {/* 右侧：纯文字按钮 */}
-          <Pressable
-            style={styles.textBtn}
-            onPress={keyword.trim() ? handleSearch : () => router.back()}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size={16} color={theme.colors.primary} />
-            ) : (
-              <Text style={[styles.textBtnLabel, { color: keyword.trim() ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
-                {keyword.trim() ? '搜索' : '取消'}
+          {/* 第二行：帖子/用户选择器 */}
+          <View style={[
+            styles.tabRow, 
+            { borderBottomWidth: 1, borderBottomColor: theme.colors.outlineVariant },
+            isWideScreen && styles.wideTabRow,
+          ]}>
+            <Pressable
+              style={[styles.tabItem, isWideScreen && styles.wideTabItem]}
+              onPress={() => handleTabChange('posts')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  isWideScreen && styles.wideTabText,
+                  {
+                    color: activeTab === 'posts' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                    fontWeight: activeTab === 'posts' ? '600' : '400',
+                  },
+                ]}
+              >
+                帖子
               </Text>
-            )}
-          </Pressable>
-        </View>
-
-        {/* 第二行：帖子/用户选择器 - 下划线样式 */}
-        <View style={[styles.tabRow, { borderBottomWidth: 1, borderBottomColor: theme.colors.outlineVariant }]}>
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => handleTabChange('posts')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: activeTab === 'posts' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
-                  fontWeight: activeTab === 'posts' ? '600' : '400',
-                },
-              ]}
+              {activeTab === 'posts' && (
+                <View style={[
+                  styles.tabIndicator, 
+                  { backgroundColor: theme.colors.primary },
+                  isWideScreen && styles.wideTabIndicator,
+                ]} />
+              )}
+            </Pressable>
+            <Pressable
+              style={[styles.tabItem, isWideScreen && styles.wideTabItem]}
+              onPress={() => handleTabChange('users')}
             >
-              帖子
-            </Text>
-            {activeTab === 'posts' && (
-              <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
-            )}
-          </Pressable>
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => handleTabChange('users')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: activeTab === 'users' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
-                  fontWeight: activeTab === 'users' ? '600' : '400',
-                },
-              ]}
-            >
-              用户
-            </Text>
-            {activeTab === 'users' && (
-              <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
-            )}
-          </Pressable>
-        </View>
-      </View>
-
-      {/* ==================== 内容区域 ==================== */}
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ 
-          paddingHorizontal: horizontalPadding, 
-          paddingBottom: insets.bottom + spacing * 2,
-          paddingTop: spacing,
-        }}
-      >
-        {/* 错误提示 */}
-        {error ? (
-          <View style={[styles.errorCard, { backgroundColor: theme.colors.errorContainer }]}>
-            <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
-            <Text style={{ color: theme.colors.error, flex: 1, fontSize: 13 }}>{error}</Text>
+              <Text
+                style={[
+                  styles.tabText,
+                  isWideScreen && styles.wideTabText,
+                  {
+                    color: activeTab === 'users' ? theme.colors.onSurface : theme.colors.onSurfaceVariant,
+                    fontWeight: activeTab === 'users' ? '600' : '400',
+                  },
+                ]}
+              >
+                用户
+              </Text>
+              {activeTab === 'users' && (
+                <View style={[
+                  styles.tabIndicator, 
+                  { backgroundColor: theme.colors.primary },
+                  isWideScreen && styles.wideTabIndicator,
+                ]} />
+              )}
+            </Pressable>
           </View>
-        ) : null}
+        </View>
+
+        {/* ==================== 内容区域 ==================== */}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ 
+            paddingHorizontal: isWideScreen ? 0 : horizontalPadding, 
+            paddingBottom: insets.bottom + spacing * 2,
+            paddingTop: spacing,
+          }}
+        >
+          {/* 错误提示 */}
+          {error ? (
+            <View style={[styles.errorCard, { backgroundColor: theme.colors.errorContainer }]}>
+              <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+              <Text style={{ color: theme.colors.error, flex: 1, fontSize: 13 }}>{error}</Text>
+            </View>
+          ) : null}
 
         {/* 搜索结果 */}
         {!loading && hasSearched && !error ? (
@@ -395,16 +478,57 @@ export default function SearchScreen() {
           )
         ) : null}
 
-        {/* 未搜索时的提示 */}
+        {/* 未搜索时的提示 - 增加历史搜索 */}
         {!hasSearched && !loading && !error ? (
-          <View style={styles.hintContainer}>
-            <Ionicons name="search-outline" size={48} color={theme.colors.outlineVariant} />
-            <Text style={[styles.hintText, { color: theme.colors.onSurfaceVariant }]}>
-              输入关键词搜索美食或用户
-            </Text>
+          <View style={[styles.hintContainer, isWideScreen && styles.wideHintContainer]}>
+            {/* 历史搜索 */}
+            {searchHistory.length > 0 && (
+              <View style={styles.historySection}>
+                <View style={styles.historySectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                    最近搜索
+                  </Text>
+                  <Pressable onPress={clearHistory} hitSlop={8}>
+                    <Text style={[styles.clearText, { color: theme.colors.onSurfaceVariant }]}>
+                      清除
+                    </Text>
+                  </Pressable>
+                </View>
+                <View style={styles.historyChips}>
+                  {searchHistory.map((term, index) => (
+                    <Chip
+                      key={`history-${index}`}
+                      mode="outlined"
+                      style={[styles.historyChip, { borderColor: theme.colors.outlineVariant }]}
+                      textStyle={{ color: theme.colors.onSurface, fontSize: 13 }}
+                      onPress={() => handleHistoryPress(term)}
+                      onClose={() => {
+                        const newHistory = searchHistory.filter((_, i) => i !== index);
+                        setSearchHistory(newHistory);
+                        AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory));
+                      }}
+                      closeIcon="close"
+                    >
+                      {term}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 空状态图标 - 仅在没有历史时显示 */}
+            {searchHistory.length === 0 && (
+              <View style={styles.emptyHint}>
+                <Ionicons name="search-outline" size={48} color={theme.colors.outlineVariant} />
+                <Text style={[styles.hintText, { color: theme.colors.onSurfaceVariant }]}>
+                  输入关键词搜索美食或用户
+                </Text>
+              </View>
+            )}
           </View>
         ) : null}
       </ScrollView>
+      </View>
     </View>
   );
 }
@@ -412,6 +536,17 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  
+  // ==================== 宽屏容器 ====================
+  contentWrapper: {
+    flex: 1,
+  },
+  wideContentWrapper: {
+    maxWidth: 680,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
   },
 
   // ==================== 顶部导航栏 ====================
@@ -425,6 +560,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
+  wideTopBarContent: {
+    paddingHorizontal: 0,
+    paddingVertical: 16,
+    gap: 12,
+  },
   backBtn: {
     padding: 4,
   },
@@ -435,6 +575,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
+  },
+  wideSearchInputWrapper: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
   },
   searchInput: {
     flex: 1,
@@ -449,11 +593,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
   },
+  wideSearchBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // ==================== Tab 切换 ====================
   tabRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
+  },
+  wideTabRow: {
+    paddingHorizontal: 0,
+    justifyContent: 'center',
   },
   tabItem: {
     paddingVertical: 12,
@@ -461,8 +616,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
   },
+  wideTabItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
   tabText: {
     fontSize: 15,
+  },
+  wideTabText: {
+    fontSize: 16,
   },
   tabIndicator: {
     position: 'absolute',
@@ -471,6 +633,12 @@ const styles = StyleSheet.create({
     right: 16,
     height: 2,
     borderRadius: 1,
+  },
+  wideTabIndicator: {
+    height: 3,
+    left: 24,
+    right: 24,
+    borderRadius: 1.5,
   },
 
   // ==================== 错误提示 ====================
@@ -486,9 +654,15 @@ const styles = StyleSheet.create({
 
   // ==================== 空状态/提示 ====================
   hintContainer: {
+    paddingTop: 24,
+  },
+  wideHintContainer: {
+    paddingTop: 32,
+  },
+  emptyHint: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
+    paddingTop: 60,
     gap: 12,
   },
   hintText: {
@@ -497,6 +671,32 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 24,
+  },
+
+  // ==================== 历史搜索 ====================
+  historySection: {
+    marginBottom: 28,
+  },
+  historySectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  clearText: {
+    fontSize: 13,
+  },
+  historyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  historyChip: {
+    backgroundColor: 'transparent',
   },
 
   // ==================== 用户列表 ====================

@@ -272,7 +272,7 @@ export default function ExploreScreen() {
             <View style={styles.searchBarWrapper}>
               <Pressable
                 style={[styles.searchBar, { backgroundColor: pTheme.colors.surfaceVariant }]}
-                onPress={() => router.push('/search')}
+                onPress={() => router.push('/(tabs)/search')}
               >
                 <Ionicons name="search-outline" size={20} color={pTheme.colors.onSurfaceVariant} />
                 <Text style={[styles.searchPlaceholder, { color: pTheme.colors.onSurfaceVariant }]}>
@@ -288,7 +288,7 @@ export default function ExploreScreen() {
             <Text style={[styles.headerTitle, { color: pTheme.colors.onSurface }]}>发现</Text>
             <Pressable
               style={styles.headerBtn}
-              onPress={() => router.push('/search')}
+              onPress={() => router.push('/(tabs)/search')}
               accessibilityLabel="搜索帖子"
             >
               <Ionicons name="search-outline" size={24} color={pTheme.colors.onSurfaceVariant} />

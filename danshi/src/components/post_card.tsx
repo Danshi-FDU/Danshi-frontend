@@ -10,6 +10,16 @@ const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
   warning: '避雷',
 };
 
+// 莫兰迪色系背景色组（低饱和、高明度）
+const POSTER_COLORS = [
+  { bg: '#FFF2E8', text: '#8B5A2B' },  // 温暖米黄
+  { bg: '#E8F3FF', text: '#2E5A8B' },  // 清爽淡蓝
+  { bg: '#F7E8FF', text: '#6B4D8A' },  // 淡雅香芋紫
+  { bg: '#E8FFEA', text: '#3D7A4A' },  // 清新薄荷绿
+  { bg: '#FFFBE8', text: '#8B7A2B' },  // 淡柠檬黄
+  { bg: '#F2F4F7', text: '#5A5F6B' },  // 高级灰
+];
+
 
 type PostCardProps = {
   post: Post;
@@ -37,13 +47,21 @@ export const PostCard: React.FC<PostCardProps> = ({
   const firstImage = post.images?.[0];
 
   // 使用伪随机比例保持瀑布流参差不齐效果
-  const fixedAspectRatio = useMemo(() => {
-    const seed = post.id
+  const seed = useMemo(() => {
+    return post.id
       ? Array.from(post.id).reduce((acc, char) => acc + char.charCodeAt(0), 0)
       : 0;
+  }, [post.id]);
+
+  const fixedAspectRatio = useMemo(() => {
     const ratioVariants = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5];
     return ratioVariants[seed % ratioVariants.length];
-  }, [post.id]);
+  }, [seed]);
+
+  // 文字海报随机颜色
+  const posterColor = useMemo(() => {
+    return POSTER_COLORS[seed % POSTER_COLORS.length];
+  }, [seed]);
 
   // 价格显示逻辑
   const priceLabel = useMemo(() => {
@@ -122,14 +140,17 @@ export const PostCard: React.FC<PostCardProps> = ({
             resizeMode="cover"
           />
         ) : (
-          // 精致占位图
-          <View style={[styles.placeholderContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <View style={styles.placeholderContent}>
-              <View style={[styles.placeholderLogo, { backgroundColor: theme.colors.outlineVariant }]}>
-                <Ionicons name="restaurant" size={24} color={theme.colors.onSurfaceVariant} />
-              </View>
-              <Text style={[styles.placeholderText, { color: theme.colors.onSurfaceVariant }]}>旦食</Text>
-            </View>
+          // 文字海报 - 莫兰迪色全填充 + 装饰引号水印
+          <View style={[styles.textPoster, { backgroundColor: posterColor.bg }]}>
+            {/* 左上角装饰引号水印 */}
+            <Text style={[styles.quoteWatermark, { color: posterColor.text }]}>"</Text>
+            {/* 主体文字 */}
+            <Text 
+              style={[styles.posterText, { color: posterColor.text }]} 
+              numberOfLines={4}
+            >
+              {post.title || post.content?.slice(0, 60) || '分享美食'}
+            </Text>
           </View>
         )}
 
@@ -300,30 +321,32 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
 
-  // 精致占位图
-  placeholderContainer: {
+  // ==================== 文字海报（莫兰迪色全填充）====================
+  textPoster: {
     width: '100%',
     aspectRatio: 1,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    justifyContent: 'center',  // 垂直居中
+    alignItems: 'flex-start',  // 水平左对齐
+    position: 'relative',
+    overflow: 'hidden',
   },
-  placeholderContent: {
-    alignItems: 'center',
-    gap: 6,
+  quoteWatermark: {
+    position: 'absolute',
+    top: -8,
+    left: 8,
+    fontSize: 72,
+    fontWeight: '700',
+    opacity: 0.2,
+    lineHeight: 72,
   },
-  placeholderLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 2,
+  posterText: {
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 31,  // 22 * 1.4 ≈ 31
   },
 
   // ==================== 悬浮标签 ====================

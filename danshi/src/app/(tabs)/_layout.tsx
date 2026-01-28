@@ -127,10 +127,19 @@ export default function TabsLayout() {
   // 是否在管理界面（隐藏底部栏）
   const isInAdminRoute = pathname.includes('/myself/admin');
 
+  // 在这些子页面中隐藏 TabBar（发现/发布/我的）
+  const isInMyselfSubscreen =
+    pathname.includes('/myself/posts') ||
+    pathname.includes('/myself/settings') ||
+    pathname.includes('/myself/followers') ||
+    pathname.includes('/myself/following');
+  const isInSearchRoute = pathname.includes('/search');
+  const shouldHideTabBar = showSidebar || isInAdminRoute || isInMyselfSubscreen || isInSearchRoute;
+
   const screenOptions = React.useMemo(
     () => ({
       headerShown: false,
-      tabBarStyle: (showSidebar || isInAdminRoute)
+      tabBarStyle: shouldHideTabBar
         ? { display: 'none' as const }
         : {
             position: 'absolute' as const,
@@ -154,7 +163,7 @@ export default function TabsLayout() {
         ) : null,
       sceneContainerStyle: {
         backgroundColor: theme.background,
-        paddingBottom: (showSidebar || isInAdminRoute) ? 0 : tabBarTotalHeight,
+        paddingBottom: shouldHideTabBar ? 0 : tabBarTotalHeight,
       },
       tabBarActiveTintColor: theme.colors.primary,
       tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
@@ -164,7 +173,7 @@ export default function TabsLayout() {
       lazy: true,
       freezeOnBlur: true,
     }),
-    [theme, tabBarPadding, tabBarTotalHeight, showSidebar, isInAdminRoute]
+    [theme, tabBarPadding, tabBarTotalHeight, shouldHideTabBar]
   );
 
   if (isLoading) return null;
@@ -209,6 +218,12 @@ export default function TabsLayout() {
                 ),
               }}
             />
+            <Tabs.Screen
+              name="search"
+              options={{
+                href: null, // 从 Tab Bar 中隐藏
+              }}
+            />
           </Tabs>
         </View>
       </View>
@@ -247,6 +262,14 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          href: null, // 从 Tab Bar 中隐藏
+          tabBarStyle: { display: 'none' },
+          sceneContainerStyle: { paddingBottom: 0 },
         }}
       />
     </Tabs>

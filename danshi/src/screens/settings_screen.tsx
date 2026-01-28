@@ -561,7 +561,10 @@ export default function SettingsScreen() {
         visible={snackbar.visible}
         onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
         duration={2000}
-        style={{ backgroundColor: snackbar.type === 'success' ? pTheme.colors.tertiary : pTheme.colors.error }}
+        style={{
+          backgroundColor: snackbar.type === 'success' ? pTheme.colors.tertiary : pTheme.colors.error,
+          marginBottom: insets.bottom,
+        }}
       >
         {snackbar.message}
       </Snackbar>

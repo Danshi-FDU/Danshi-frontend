@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Image } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,22 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
   const [followLoading, setFollowLoading] = useState(false);
 
   const { id, type, sender, content, is_read, created_at, related_id, related_type } = notification;
+
+  // 对 follow 类型通知，检查是否已关注该用户
+  useEffect(() => {
+    if (type !== 'follow') return;
+    let cancelled = false;
+    usersService.getUser(sender.id)
+      .then((profile) => {
+        if (!cancelled) {
+          setIsFollowing(profile.is_following);
+        }
+      })
+      .catch((e) => {
+        console.warn('[NotificationItem] Failed to check follow status:', e);
+      });
+    return () => { cancelled = true; };
+  }, [type, sender.id]);
 
   // 获取动作文案
   const actionText = notificationsService.getNotificationTypeLabel(type);
@@ -132,7 +148,7 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
       {/* 右侧：关注按钮 或 缩略图 */}
       <View style={styles.rightSide}>
         {type === 'follow' ? (
-          // 关注类型显示关注按钮
+          // 关注类型显示回关/互相关注按钮
           <Pressable
             style={[
               styles.followBtn,
@@ -140,8 +156,8 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
                 ? { backgroundColor: theme.colors.surfaceVariant }
                 : { borderWidth: 1, borderColor: theme.colors.primary },
             ]}
-            onPress={handleFollowPress}
-            disabled={followLoading}
+            onPress={isFollowing ? undefined : handleFollowPress}
+            disabled={followLoading || isFollowing}
           >
             <Text
               style={[
@@ -149,7 +165,7 @@ export function NotificationItem({ notification, onMarkAsRead }: NotificationIte
                 { color: isFollowing ? theme.colors.onSurfaceVariant : theme.colors.primary },
               ]}
             >
-              {isFollowing ? '互相关注' : '回粉'}
+              {isFollowing ? '互相关注' : '回关'}
             </Text>
           </Pressable>
         ) : (related_type === 'post' || type === 'like_post' || type === 'comment' || type === 'mention') ? (
