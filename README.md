@@ -80,22 +80,26 @@ danshi/
 ### 安装步骤
 
 1. **克隆项目**
+
 ```bash
 git clone https://github.com/Danshi-FDU/Danshi-frontend.git
 cd Danshi-frontend/danshi
 ```
 
 2. **安装依赖**
+
 ```bash
 npm install
 ```
 
 3. **启动开发服务**
+
 ```bash
 npm run start
 ```
 
 或
+
 ```bash
 npx expo start
 ```
@@ -163,6 +167,64 @@ eas submit -p android --profile production
 eas submit -p ios --profile production
 ```
 
+#### iOS TestFlight 发布流程
+
+本项目 iOS 生产构建在 [danshi/eas.json](danshi/eas.json) 中使用 `production` profile（`distribution=store`）。
+
+**前置条件**
+
+- 用于签名的 Apple ID 必须在 https://developer.apple.com/account 中属于某个 **Team**，且该 Team 具有 **付费 Apple Developer Program** 会员资格。
+  - 仅能登录 https://appstoreconnect.apple.com 并不代表有 Developer Portal Team。
+- `ios.bundleIdentifier` 必须与 App Store Connect 中创建的 App 的 Bundle ID 一致。
+- App Store Connect 需要有足够权限（例如“App 管理”通常足够进行 TestFlight 配置）。
+
+**步骤 A：构建 ipa（生成可用于 TestFlight 的构建产物）**
+
+在 `Danshi-frontend/danshi` 目录执行：
+
+```bash
+npm install
+npm run eas:login
+npm run build:ios:testflight
+```
+
+构建完成后，终端会输出 EAS 构建链接；可以在 EAS Dashboard 查看构建状态与产物。
+
+**步骤 B：提交到 TestFlight（上传到 App Store Connect）**
+
+推荐使用 App Store Connect API Key（更稳定，避免 Apple ID 2FA 交互问题）：
+
+1) 打开 App Store Connect → Users and Access → Keys
+2) 创建一个 API Key（角色建议 `App Manager` 或更高）
+3) 下载 `.p8`（只会提供一次），记下 `Key ID` 和 `Issuer ID`
+
+然后在终端提交：
+
+```bash
+npm run submit:ios:testflight
+```
+
+首次提交会进入交互式配置（可选择使用 API Key 或 Apple ID）；按提示完成后会开始上传。
+
+**步骤 C：在 App Store Connect 发放 TestFlight 安装**
+
+1) App Store Connect → 你的 App → TestFlight
+2) 等待构建从 `Processing` 变为可用（苹果需要处理一段时间）
+3) 选择测试范围：
+   - Internal Testing：团队内部人员，通常最快
+   - External Testing：外部测试，需要添加测试员，且首次可能需要 Beta App Review
+4) 选择“公开链接（Public Link）”或邀请指定测试员
+
+**常见问题排查**
+
+- `Authentication with Apple Developer Portal failed! You have no team associated...`
+  - 处理：确认 https://developer.apple.com/account 的 Membership 为 Active，且能看到 Team。
+  - 如果你只有 App Store Connect 权限：让 Account Holder 在 Developer Portal 把你加入 Team（并授予证书/描述文件相关权限）。
+- Bundle ID 不匹配/找不到 App
+  - 处理：检查 `danshi/app.json` 的 `expo.ios.bundleIdentifier` 与 App Store Connect 中的 Bundle ID 是否一致。
+- External Testing 卡住
+  - 处理：先走 Internal Testing；外部测试按 App Store Connect 提示补齐合规信息并提交 Beta App Review。
+
 ### 3. Web 分发
 
 ```bash
@@ -181,6 +243,4 @@ npx expo export --platform web
 ## 📚 相关文档
 
 - [doc/Architecture/README.md](doc/Architecture/README.md)
-
 - [Expo Documentation](https://docs.expo.dev/)
-
