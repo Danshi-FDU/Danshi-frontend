@@ -6,12 +6,13 @@ import {
   Pressable,
   RefreshControl,
   Animated,
-  Platform,
 } from 'react-native';
 import { Text, useTheme, ActivityIndicator } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import type { Notification, NotificationType, ListNotificationsParams } from '@/src/repositories/notifications_repository';
 import { notificationsService } from '@/src/services/notifications_service';
@@ -242,11 +243,41 @@ export default function NotificationsScreen() {
   // Tab 切换
   const handleTabChange = useCallback((tab: TabValue) => {
     if (tab === activeTab) return;
+    setLoading(true); // 立即显示加载动画，避免闪现空状态
     setActiveTab(tab);
     setNotifications([]);
     setPage(1);
     setHasMore(true);
   }, [activeTab]);
+
+  // 滑动切换 Tab
+  const handleSwipeLeft = useCallback(() => {
+    const currentIndex = TABS.findIndex((t) => t.value === activeTab);
+    if (currentIndex < TABS.length - 1) {
+      handleTabChange(TABS[currentIndex + 1].value);
+    }
+  }, [activeTab, handleTabChange]);
+
+  const handleSwipeRight = useCallback(() => {
+    const currentIndex = TABS.findIndex((t) => t.value === activeTab);
+    if (currentIndex > 0) {
+      handleTabChange(TABS[currentIndex - 1].value);
+    }
+  }, [activeTab, handleTabChange]);
+
+  // 手势处理
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20]) // 水平滑动超过20才触发
+    .failOffsetY([-10, 10]) // 垂直滑动超过10则失败（让垂直滚动优先）
+    .onEnd((event) => {
+      const { translationX, velocityX } = event;
+      // 滑动距离超过50或速度超过500才切换
+      if (translationX < -50 || velocityX < -500) {
+        runOnJS(handleSwipeLeft)();
+      } else if (translationX > 50 || velocityX > 500) {
+        runOnJS(handleSwipeRight)();
+      }
+    });
 
   // 渲染列表项
   const renderItem = useCallback(
@@ -265,12 +296,6 @@ export default function NotificationsScreen() {
       </View>
     );
   }, [loadingMore, theme.colors.primary]);
-
-  // 分隔线
-  const renderSeparator = useCallback(
-    () => <View style={[styles.separator, { backgroundColor: theme.colors.outlineVariant }]} />,
-    [theme.colors.outlineVariant]
-  );
 
   // 检查是否有未读
   const hasUnread = notifications.some((n) => !n.is_read);
@@ -325,32 +350,36 @@ export default function NotificationsScreen() {
         ))}
       </View>
 
-      {/* 内容区域 */}
-      {loading ? (
-        <SkeletonList theme={theme} />
-      ) : notifications.length === 0 ? (
-        <EmptyState theme={theme} />
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ItemSeparatorComponent={renderSeparator}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary]}
+      {/* 内容区域 - 支持左右滑动切换Tab */}
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.contentArea}>
+          {loading ? (
+            <SkeletonList theme={theme} />
+          ) : notifications.length === 0 ? (
+            <EmptyState theme={theme} />
+          ) : (
+            <FlatList
+              data={notifications}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              ListFooterComponent={renderFooter}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.3}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={theme.colors.primary}
+                  colors={[theme.colors.primary]}
+                  progressBackgroundColor={theme.colors.surface}
+                />
+              }
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
             />
-          }
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+          )}
+        </View>
+      </GestureDetector>
     </View>
   );
 }
@@ -359,6 +388,9 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentArea: {
     flex: 1,
   },
   header: {
@@ -411,7 +443,8 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: 72, // 对齐内容区域
+    marginLeft: 12, // 对齐内容区域
+    marginRight: 12, // 对齐内容区域
   },
   footer: {
     paddingVertical: 16,

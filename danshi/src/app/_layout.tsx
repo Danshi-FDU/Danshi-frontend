@@ -2,6 +2,7 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { Platform, View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeModeProvider, useTheme } from '@/src/context/theme_context';
 import { AuthProvider } from '@/src/context/auth_context';
 import { WaterfallSettingsProvider } from '@/src/context/waterfall_context';
@@ -11,17 +12,19 @@ import { getMD3Theme } from '@/src/constants/md3_theme';
 
 export default function RootLayout() {
   return (
-    <ThemeModeProvider>
-      <ThemedPaperRoot>
-        <AuthProvider>
-          <NotificationsProvider>
-            <WaterfallSettingsProvider>
-              <RootStack />
-            </WaterfallSettingsProvider>
-          </NotificationsProvider>
-        </AuthProvider>
-      </ThemedPaperRoot>
-    </ThemeModeProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <ThemeModeProvider>
+        <ThemedPaperRoot>
+          <AuthProvider>
+            <NotificationsProvider>
+              <WaterfallSettingsProvider>
+                <RootStack />
+              </WaterfallSettingsProvider>
+            </NotificationsProvider>
+          </AuthProvider>
+        </ThemedPaperRoot>
+      </ThemeModeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -61,6 +64,9 @@ function ThemedPaperRoot({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

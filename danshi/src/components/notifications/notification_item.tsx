@@ -127,28 +127,36 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
 
   return (
     <Pressable
-      style={[styles.container, { backgroundColor: theme.colors.surface }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: theme.colors.outlineVariant,
+        },
+      ]}
       onPress={handlePress}
       android_ripple={{ color: theme.colors.surfaceVariant }}
     >
-      {/* 未读小圆点 */}
-      {!is_read && (
-        <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
-      )}
-
-      {/* 左侧：头像 */}
-      <Pressable onPress={handleAvatarPress} style={styles.avatarContainer}>
-        {sender.avatar_url ? (
-          <Image
-            source={{ uri: sender.avatar_url }}
-            style={[styles.avatar, { opacity: readOpacity }]}
-          />
-        ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.surfaceVariant, opacity: readOpacity }]}>
-            <Ionicons name="person" size={20} color={theme.colors.onSurfaceVariant} />
-          </View>
+      {/* 左侧：头像区域（含未读小圆点） */}
+      <View style={styles.avatarWrapper}>
+        {/* 未读小圆点 */}
+        {!is_read && (
+          <View style={[styles.unreadDot, { backgroundColor: theme.colors.primary }]} />
         )}
-      </Pressable>
+        <Pressable onPress={handleAvatarPress} style={styles.avatarContainer}>
+          {sender.avatar_url ? (
+            <Image
+              source={{ uri: sender.avatar_url }}
+              style={[styles.avatar, { opacity: readOpacity }]}
+            />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.surfaceVariant, opacity: readOpacity }]}>
+              <Ionicons name="person" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+          )}
+        </Pressable>
+      </View>
 
       {/* 中间：内容 */}
       <View style={[styles.content, { opacity: readOpacity }]}>
@@ -194,10 +202,10 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
                 { color: isFollowing ? theme.colors.onSurfaceVariant : theme.colors.primary },
               ]}
             >
-              {isFollowing ? '取消关注' : '回关'}
+              {isFollowing ? '取关' : '回关'}
             </Text>
           </Pressable>
-        ) : (related_type === 'post' || type === 'like_post' || type === 'comment' || type === 'mention') ? (
+        ) : (related_type === 'post' || type === 'like_post' || type === 'comment' || type === 'reply' || type === 'mention') ? (
           // 帖子相关类型显示缩略图占位
           <View style={[styles.thumbnail, { backgroundColor: theme.colors.surfaceVariant }]}>
             <Ionicons name="image-outline" size={20} color={theme.colors.outline} />
@@ -213,21 +221,23 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    position: 'relative',
+    minHeight: 96, // 统一最小高度，保证分割线间距一致
+  },
+  avatarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
   },
   unreadDot: {
-    position: 'absolute',
-    left: 6,
-    top: 24,
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginRight: 6,
   },
   avatarContainer: {
-    marginRight: 12,
   },
   avatar: {
     width: 44,
