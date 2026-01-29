@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
   FlatList,
   Platform,
+  LayoutChangeEvent,
 } from 'react-native';
 import {
   ActivityIndicator,
@@ -20,7 +21,7 @@ import {
   useTheme as usePaperTheme,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { postsService } from '@/src/services/posts_service';
 import { usersService } from '@/src/services/users_service';
 import type { Post, SeekingPost, SharePost } from '@/src/models/Post';
@@ -108,6 +109,32 @@ function formatDate(value?: string) {
 
 const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const router = useRouter();
+  const localParams = useLocalSearchParams();
+  const normalizeParam = useCallback((value: unknown): string | null => {
+    if (Array.isArray(value)) return value[0] ?? null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    }
+    return null;
+  }, []);
+  // 检查是否需要自动滚动到评论区（如通知跳转）
+  const [autoScrollToComments, setAutoScrollToComments] = useState(false);
+  const [pendingScrollCommentId, setPendingScrollCommentId] = useState<string | null>(null);
+  useEffect(() => {
+    // 兼容 web 和 app 路由参数
+    const params = (localParams as Record<string, unknown>) || (router as any)?.params || (router as any)?.query || {};
+    const scrollTo = normalizeParam(params.scrollTo);
+    const commentId = normalizeParam(params.commentId);
+    if ((scrollTo === 'comment' || commentId) && commentId) {
+      setAutoScrollToComments(true);
+      setPendingScrollCommentId(commentId);
+      return;
+    }
+    if (scrollTo === 'comments') {
+      setAutoScrollToComments(true);
+    }
+  }, [router, localParams, normalizeParam]);
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -149,6 +176,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const threadRootCommentRef = useRef<Comment | null>(threadRootComment);
   const scrollRef = useRef<ScrollView | null>(null);
   const commentsOffsetRef = useRef(0);
+  const commentsListOffsetRef = useRef(0);
+  const commentPositionsRef = useRef<Record<string, number>>({});
 
   const isDesktop = windowWidth >= BREAKPOINTS.desktop;
 
@@ -260,6 +289,91 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       setThreadRootComment(updated);
     }
   }, [comments, threadRootComment]);
+
+  // 自动滚动到评论区
+  useEffect(() => {
+    if (autoScrollToComments && scrollRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current && commentsOffsetRef.current) {
+          scrollRef.current.scrollTo({ y: commentsOffsetRef.current - 16, animated: true });
+        }
+        setAutoScrollToComments(false);
+      }, 400); // 延迟以确保渲染完成
+    }
+  }, [autoScrollToComments, comments]);
+
+  const findCommentTarget = useCallback((commentId: string) => {
+    const topComment = commentsRef.current.find((c) => c.id === commentId);
+    if (topComment) return { entity: topComment, parent: topComment };
+
+    for (const c of commentsRef.current) {
+      const reply = c.replies?.find((r) => r.id === commentId);
+      if (reply) return { entity: reply, parent: c };
+    }
+
+    for (const replies of Object.values(commentRepliesRef.current)) {
+      const reply = replies.find((r) => r.id === commentId);
+      if (reply) {
+        const parent = reply.parent_id
+          ? commentsRef.current.find((c) => c.id === reply.parent_id) ?? null
+          : null;
+        return { entity: reply, parent };
+      }
+    }
+    return null;
+  }, []);
+
+  const scrollToCommentId = useCallback((commentId: string) => {
+    const y = commentPositionsRef.current[commentId];
+    if (typeof y !== 'number' || !scrollRef.current) return false;
+    scrollRef.current.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    return true;
+  }, []);
+
+  const handleCommentLayout = useCallback(
+    (commentId: string) => (e: LayoutChangeEvent) => {
+      const baseOffset = commentsOffsetRef.current + commentsListOffsetRef.current;
+      const y = baseOffset + e.nativeEvent.layout.y;
+      commentPositionsRef.current[commentId] = y;
+      if (pendingScrollCommentId === commentId && scrollToCommentId(commentId)) {
+        setPendingScrollCommentId(null);
+      }
+    },
+    [pendingScrollCommentId, scrollToCommentId]
+  );
+
+  useEffect(() => {
+    if (!pendingScrollCommentId) return;
+    const targetInfo = findCommentTarget(pendingScrollCommentId);
+    const replyParent = targetInfo?.parent ?? null;
+    const targetId = commentPositionsRef.current[pendingScrollCommentId]
+      ? pendingScrollCommentId
+      : replyParent?.id;
+
+    if (targetInfo?.entity && replyParent && targetInfo.entity.id !== replyParent.id) {
+      if (!threadRootComment || threadRootComment.id !== replyParent.id) {
+        setThreadRootComment(replyParent);
+      }
+      if (!threadVisible) {
+        setThreadVisible(true);
+      }
+      if (!commentReplies[replyParent.id] && (replyParent.reply_count ?? 0) > 0) {
+        fetchRepliesForComment(replyParent.id).catch(() => {});
+      }
+    }
+
+    if (targetId && scrollToCommentId(targetId)) {
+      setPendingScrollCommentId(null);
+    }
+  }, [
+    pendingScrollCommentId,
+    findCommentTarget,
+    scrollToCommentId,
+    commentReplies,
+    fetchRepliesForComment,
+    threadRootComment,
+    threadVisible,
+  ]);
 
   const refreshing = loader === 'refresh';
   const isInitialLoading = loader === 'initial';
@@ -1091,7 +1205,10 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           </Text>
         </View>
       ) : comments.length ? (
-        <View style={[styles.commentsList, { paddingBottom: commentsBottomPadding }]}>
+        <View
+          style={[styles.commentsList, { paddingBottom: commentsBottomPadding }]}
+          onLayout={(e) => { commentsListOffsetRef.current = e.nativeEvent.layout.y; }}
+        >
           {comments.map((item, index) => {
             const cachedReplies = commentReplies[item.id];
             const previewReplies = flattenReplies(item.replies ?? []);
@@ -1106,7 +1223,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             const remainingReplies = Math.max(totalReplyCount - repliesPreview.length, 0);
             const commentKey = item.id ?? `comment-${index}`;
             return (
-              <View key={commentKey} style={styles.commentItem}>
+              <View key={commentKey} style={styles.commentItem} onLayout={handleCommentLayout(item.id)}>
                 <CommentItem
                   comment={item}
                   depth={0}
@@ -1119,30 +1236,32 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                 {shouldInlineReplies ? (
                   <View style={styles.repliesBlock}>
                     {repliesPreview.map((reply) => (
-                      <CommentItem
-                        key={reply.id}
-                        comment={reply}
-                        isReply
-                        depth={1}
-                        showReplySummary={false}
-                        onLike={handleToggleCommentLike}
-                        onReply={handleReplyToComment}
-                      />
+                      <View key={reply.id} onLayout={handleCommentLayout(reply.id)}>
+                        <CommentItem
+                          comment={reply}
+                          isReply
+                          depth={1}
+                          showReplySummary={false}
+                          onLike={handleToggleCommentLike}
+                          onReply={handleReplyToComment}
+                        />
+                      </View>
                     ))}
                   </View>
                 ) : null}
                 {isDesktop && totalReplyCount > REPLY_PREVIEW_COUNT ? (
                   <View style={styles.repliesBlock}>
                     {repliesPreview.map((reply) => (
-                      <CommentItem
-                        key={reply.id}
-                        comment={reply}
-                        isReply
-                        depth={1}
-                        showReplySummary={false}
-                        onLike={handleToggleCommentLike}
-                        onReply={handleReplyToComment}
-                      />
+                      <View key={reply.id} onLayout={handleCommentLayout(reply.id)}>
+                        <CommentItem
+                          comment={reply}
+                          isReply
+                          depth={1}
+                          showReplySummary={false}
+                          onLike={handleToggleCommentLike}
+                          onReply={handleReplyToComment}
+                        />
+                      </View>
                     ))}
                     <Button
                       mode="text"

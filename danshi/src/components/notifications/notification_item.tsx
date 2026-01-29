@@ -64,13 +64,30 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
     if (!is_read) {
       onMarkAsRead?.(id);
       decrementUnreadCount();
-      // 静默调用 API
       notificationsService.markAsRead(id).catch((e) => {
         console.warn('[NotificationItem] Failed to mark as read:', e);
       });
     }
 
-    // 跳转逻辑
+
+    // 评论相关通知：related_id为帖子id，跳转到帖子详情并定位评论区
+    if (notification.type === 'comment' && notification.related_type === 'post' && notification.related_id) {
+      router.push({
+        pathname: '/post/[postId]',
+        params: { postId: notification.related_id, scrollTo: 'comments' },
+      } as any);
+      return;
+    }
+
+    // 回复相关通知：直接用 post_id 跳转到帖子详情并定位评论
+    if (notification.type === 'reply' && notification.related_type === 'comment' && notification.related_id && notification.post_id) {
+      router.push({
+        pathname: '/post/[postId]',
+        params: { postId: notification.post_id, scrollTo: 'comment', commentId: notification.related_id },
+      } as any);
+      return;
+    }
+
     const route = notificationsService.getNotificationRoute(notification);
     if (route) {
       router.push(route as any);
@@ -79,7 +96,7 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
     if (notification.related_type === 'comment') {
       Alert.alert('无法跳转', '该通知未包含帖子信息');
     }
-  }, [id, type, is_read, sender.id, related_id, onMarkAsRead, decrementUnreadCount]);
+  }, [id, type, is_read, sender.id, related_id, onMarkAsRead, decrementUnreadCount, notification]);
 
   // 处理头像点击
   const handleAvatarPress = useCallback(() => {

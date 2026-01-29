@@ -44,6 +44,7 @@ export type Notification = {
   sender: NotificationSender;
   related_id?: string | null;
   related_type?: NotificationRelatedType | null;
+  post_id?: string | null;
   content?: string | null; // 通知内容预览（评论内容的前100个字符）
   is_read: boolean;
   created_at: string; // ISO 8601

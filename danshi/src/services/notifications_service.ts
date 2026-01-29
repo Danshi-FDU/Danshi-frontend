@@ -72,19 +72,14 @@ export const notificationsService = {
    * - related_type=comment: 尝试从扩展字段获取 post_id
    */
   getNotificationPostId(notification: Notification): string | null {
-    const anyNotification = notification as Notification & {
-      post_id?: string | null;
-      related_post_id?: string | null;
-      post?: { id?: string | null } | null;
-    };
     if (notification.related_type === 'post' && notification.related_id) {
       return notification.related_id;
     }
     if (notification.related_type === 'comment') {
       return (
-        anyNotification.post_id ||
-        anyNotification.related_post_id ||
-        anyNotification.post?.id ||
+        notification.post_id ||
+        (notification as Notification & { related_post_id?: string | null }).related_post_id ||
+        (notification as Notification & { post?: { id?: string | null } | null }).post?.id ||
         null
       );
     }
