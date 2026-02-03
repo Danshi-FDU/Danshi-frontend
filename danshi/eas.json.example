@@ -16,6 +16,16 @@
         "EXPO_PUBLIC_USE_MOCK": "false"
       }
     },
+    "testflight": {
+      "ios": {
+        "distribution": "store",
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://your_backend",
+        "EXPO_PUBLIC_USE_MOCK": "false"
+      }
+    },
     "production": {
       "ios": {
         "distribution": "store"
@@ -30,6 +40,7 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "testflight": {}
   }
 }

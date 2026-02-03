@@ -136,96 +136,85 @@ Mock/Server 切换与接口契约说明详见 [doc/Architecture/README.md](doc/A
 - **iOS Bundle ID**：com.exdoubled.danshi
 - **Android Package**：com.exdoubled.DanShi
 - **Web 输出**：static
-- **EAS Project ID**：-----eas-project-id-----
+- **EAS Project ID**：d7bd18a3-1439-434c-8c64-9f8f37e54a74
+- **Owner**：danshi-cslg
 
 如需修改发布信息，请同步更新 [danshi/app.json](danshi/app.json) 与相关分发流程。
 
-### 1. 预览分发
+### EAS Build Profiles
 
-适用于测试与产品验收，无需上架：
+**iOS**
 
-```bash
-# 生成测试包（Android/iOS）
-eas build -p android --profile preview
-eas build -p ios --profile preview
-```
+| Profile | distribution | 用途 |
+|---------|-------------|------|
+| `preview` | `internal` | Ad Hoc 分发（需要 UDID） |
+| `testflight` | `store` | TestFlight 测试分发 |
+| `production` | `store` | App Store 正式发布 |
 
-构建完成后可在 EAS Dashboard 下载安装包或通过邀请分发。
+**Android**
 
-### 2. 生产发布
-
-```bash
-# 生成生产包
-eas build -p android --profile production
-eas build -p ios --profile production
-```
-
-如需上架，可使用：
-
-```bash
-eas submit -p android --profile production
-eas submit -p ios --profile production
-```
+| Profile | buildType | npm 脚本 | 用途 |
+|---------|-----------|----------|------|
+| `preview` | `apk` | `npm run build:apk` | 直接安装 |
+| `production` | `apk` | `npm run build:aab` | 生产发布 |
 
 #### iOS TestFlight 发布流程
 
-本项目 iOS 生产构建在 [danshi/eas.json](danshi/eas.json) 中使用 `preview` profile（`distribution=internel`）。
+本项目已在 [danshi/eas.json.example](danshi/eas.json.example) 中配置了专用的 `testflight` profile（`distribution=store`），用于 TestFlight 分发。
+
+首先讲一下本项目 testflight 分发的步骤：
+eas打包-> app connect 认证 -> testflight 认证并分发
+你需要先登录 eas 和 apple 账号
+
+```bash
+# 第一步：构建
+npm run build:ios:testflight
+
+# 第二步：提交到 App Store Connect
+npm run submit:ios:testflight
+
+# 或者一步完成构建和提交
+npm run build:submit:ios:testflight
+```
+
+然后在 [App Store Connect](https://appstoreconnect.apple.com) → TestFlight 页面选择内部测试/外部测试分发。
 
 **前置条件**
 
-- 用于签名的 Apple ID 必须在 https://developer.apple.com/account 中属于某个 **Team**，且该 Team 具有 **付费 Apple Developer Program** 会员资格。
-  - 仅能登录 https://appstoreconnect.apple.com 并不代表有 Developer Portal Team。
-- `ios.bundleIdentifier` 必须与 App Store Connect 中创建的 App 的 Bundle ID 一致。
-- App Store Connect 需要有足够权限（例如“App 管理”通常足够进行 TestFlight 配置）。
+- Apple ID 必须属于某个 **Team**，且该 Team 具有 **付费 Apple Developer Program** 会员资格
+- `ios.bundleIdentifier` 必须与 App Store Connect 中创建的 App 的 Bundle ID 一致
+- App Store Connect 需要有足够权限（"App 管理"通常足够）
 
-**步骤 A：构建 ipa（生成可用于 TestFlight 的构建产物）**
+**首次使用详细步骤**
 
-首先修改 `Danshi-frontend/danshi` 目录下的 `eas.json` 文件（如果没有参照 `eas.json.example` 创建一个），修改 `preview` 下的后端为真实后端。
+1. 确认 `danshi/eas.json` 文件存在（参照 `eas.json.example` 创建），确保 `testflight` profile 中的后端地址正确
 
-在 `Danshi-frontend/danshi` 目录执行：
+2. 登录 EAS 和配置提交凭证：
 
 ```bash
 npm install
 npm run eas:login
-npm run build:ios:testflight
 ```
 
-构建完成后，终端会输出 EAS 构建链接；可以在 EAS Dashboard 查看构建状态与产物。
-
-**步骤 B：提交到 TestFlight（上传到 App Store Connect）**
-
-推荐使用 App Store Connect API Key（更稳定，避免 Apple ID 2FA 交互问题）：
-
-1) 打开 App Store Connect → Users and Access → Keys
-2) 创建一个 API Key（角色建议 `App Manager` 或更高）
-3) 下载 `.p8`（只会提供一次），记下 `Key ID` 和 `Issuer ID`
-
-然后在终端提交：
+3. 构建并提交（首次提交会进入交互式配置，可选择 API Key 或 Apple ID）：
 
 ```bash
+npm run build:ios:testflight
 npm run submit:ios:testflight
 ```
 
-首次提交会进入交互式配置（可选择使用 API Key 或 Apple ID）；按提示完成后会开始上传。
+4. 在 App Store Connect 发放 TestFlight：
+   - 等待构建处理完成（约 10-30 分钟）
+   - **Internal Testing**：团队内部（最多 100 人），无需审核
+   - **External Testing**：外部测试员（最多 10,000 人），首次需要 Beta App Review
 
-**步骤 C：在 App Store Connect 发放 TestFlight 安装**
+**推荐：使用 API Key 提交（避免 2FA 问题）**
 
-1) App Store Connect → 你的 App → TestFlight
-2) 等待构建从 `Processing` 变为可用（苹果需要处理一段时间）
-3) 选择测试范围：
-   - Internal Testing：团队内部人员，通常最快
-   - External Testing：外部测试，需要添加测试员，且首次可能需要 Beta App Review
-4) 选择“公开链接（Public Link）”或邀请指定测试员
+1) App Store Connect → Users and Access → Keys
+2) 创建 API Key（角色建议 `App Manager`）
+3) 下载 `.p8` 文件，记下 `Key ID` 和 `Issuer ID`
+4) 首次运行 `submit` 命令时选择使用 API Key
 
-**常见问题排查**
-
-- `Authentication with Apple Developer Portal failed! You have no team associated...`
-  - 处理：确认 https://developer.apple.com/account 的 Membership 为 Active，且能看到 Team。
-  - 如果你只有 App Store Connect 权限：让 Account Holder 在 Developer Portal 把你加入 Team（并授予证书/描述文件相关权限）。
-- Bundle ID 不匹配/找不到 App
-  - 处理：检查 `danshi/app.json` 的 `expo.ios.bundleIdentifier` 与 App Store Connect 中的 Bundle ID 是否一致。
-- External Testing 卡住
-  - 处理：先走 Internal Testing；外部测试按 App Store Connect 提示补齐合规信息并提交 Beta App Review。
 
 ### 3. Web 分发
 

@@ -11,12 +11,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.exdoubled.danshi",
+      "icon": "./assets/images/ios-icon.png",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "3"
     },
     "android": {
       "usesCleartextTraffic": true,
