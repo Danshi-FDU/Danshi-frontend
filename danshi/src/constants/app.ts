@@ -17,80 +17,81 @@ if (!USE_MOCK && !process.env.EXPO_PUBLIC_API_URL) {
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://example.invalid';
 export const REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_REQUEST_TIMEOUT_MS ?? 10000);
 
-// API endpoints (path only). Base URL comes from src/config
+// API endpoints (path only, without /api/v1 prefix). 
+// Base URL with /api/v1 prefix comes from src/config
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/api/v1/auth/login',    // POST
-    REGISTER: '/api/v1/auth/register',  // POST
-    ME: '/api/v1/auth/me',  // GET
-    LOGOUT: '/api/v1/auth/logout',  // POST
-    REFRESH: '/api/v1/auth/refresh', // POST 
+    LOGIN: '/auth/login',    // POST
+    REGISTER: '/auth/register',  // POST
+    ME: '/auth/me',  // GET
+    LOGOUT: '/auth/logout',  // POST
+    REFRESH: '/auth/refresh', // POST 
   },
   USERS: {
-    ROOT: '/api/v1/users', // GET /:userId, PUT /:userId
-    POSTS: '/api/v1/users/:userId/posts',
-    FAVORITES: '/api/v1/users/:userId/favorites',
-    FOLLOWING: '/api/v1/users/:userId/following',
-    FOLLOWERS: '/api/v1/users/:userId/followers',
-    FOLLOW: '/api/v1/users/:userId/follow',
+    ROOT: '/users', // GET /:userId, PUT /:userId
+    POSTS: '/users/:userId/posts',
+    FAVORITES: '/users/:userId/favorites',
+    FOLLOWING: '/users/:userId/following',
+    FOLLOWERS: '/users/:userId/followers',
+    FOLLOW: '/users/:userId/follow',
   },
   ADMIN: {
-    POSTS_PENDING: '/api/v1/admin/posts/pending',
-    POST_REVIEW: '/api/v1/admin/posts/:postId/review',
-    POSTS: '/api/v1/admin/posts',
-    POST_DELETE: '/api/v1/admin/posts/:postId',
-    USERS: '/api/v1/admin/users',
-    USER_ROLE: '/api/v1/admin/users/:userId/role',
-    USER_STATUS: '/api/v1/admin/users/:userId/status',
-    ADMINS: '/api/v1/admin/admins',
-    SUPER_ADMINS: '/api/v1/admin/super-admins',
-    COMMENTS: '/api/v1/admin/comments',
-    COMMENT_DELETE: '/api/v1/admin/comments/:commentId',
+    POSTS_PENDING: '/admin/posts/pending',
+    POST_REVIEW: '/admin/posts/:postId/review',
+    POSTS: '/admin/posts',
+    POST_DELETE: '/admin/posts/:postId',
+    USERS: '/admin/users',
+    USER_ROLE: '/admin/users/:userId/role',
+    USER_STATUS: '/admin/users/:userId/status',
+    ADMINS: '/admin/admins',
+    SUPER_ADMINS: '/admin/super-admins',
+    COMMENTS: '/admin/comments',
+    COMMENT_DELETE: '/admin/comments/:commentId',
   },
   POSTS: {
-    GETPOSTPRE: '/api/v1/posts',  // GET
-    GETPOSTALL: '/api/v1/posts/:postId',  // GET
-    CREATEPOST: '/api/v1/posts',  // POST
-    UPDATEPOST: '/api/v1/posts/:postId',  // PUT
-    DELETEPOST: '/api/v1/posts/:postId',  // DELETE
-    LIKEPOST: '/api/v1/posts/:postId/like',  // POST
-    UNLIKEPOST: '/api/v1/posts/:postId/like',  // DELETE
-    FAVORITEPOST: '/api/v1/posts/:postId/favorite',  // POST
-    UNFAVORITEPOST: '/api/v1/posts/:postId/favorite',  // DELETE
-    COMPANION_STATUS: '/api/v1/posts/:postId/companion-status', // PUT
+    GETPOSTPRE: '/posts',  // GET
+    GETPOSTALL: '/posts/:postId',  // GET
+    CREATEPOST: '/posts',  // POST
+    UPDATEPOST: '/posts/:postId',  // PUT
+    DELETEPOST: '/posts/:postId',  // DELETE
+    LIKEPOST: '/posts/:postId/like',  // POST
+    UNLIKEPOST: '/posts/:postId/like',  // DELETE
+    FAVORITEPOST: '/posts/:postId/favorite',  // POST
+    UNFAVORITEPOST: '/posts/:postId/favorite',  // DELETE
+    COMPANION_STATUS: '/posts/:postId/companion-status', // PUT
   },
   COMMENTS: {
-    LIST_FOR_POST: '/api/v1/posts/:postId/comments',
-    LIST_REPLIES: '/api/v1/comments/:commentId/replies',
-    CREATE: '/api/v1/posts/:postId/comments',
-    LIKE: '/api/v1/comments/:commentId/like',
-    UNLIKE: '/api/v1/comments/:commentId/like',
-    DELETE: '/api/v1/comments/:commentId',
+    LIST_FOR_POST: '/posts/:postId/comments',
+    LIST_REPLIES: '/comments/:commentId/replies',
+    CREATE: '/posts/:postId/comments',
+    LIKE: '/comments/:commentId/like',
+    UNLIKE: '/comments/:commentId/like',
+    DELETE: '/comments/:commentId',
   },
   SEARCH: {
-    POSTS: '/api/v1/search/posts',
-    USERS: '/api/v1/search/users',
+    POSTS: '/search/posts',
+    USERS: '/search/users',
   },
   NOTIFICATIONS: {
-    LIST: '/api/v1/notifications',
-    UNREAD_COUNT: '/api/v1/notifications/unread-count',
-    MARK_READ: '/api/v1/notifications/:notificationId/read',
-    MARK_ALL_READ: '/api/v1/notifications/read-all',
+    LIST: '/notifications',
+    UNREAD_COUNT: '/notifications/unread-count',
+    MARK_READ: '/notifications/:notificationId/read',
+    MARK_ALL_READ: '/notifications/read-all',
   },
   /*
   CONFIG: {
-    CANTEENS: '/api/v1/config/canteens',
-    CUISINES: '/api/v1/config/cuisines',
-    FLAVORS: '/api/v1/config/flavors',
-    POST_TYPES: '/api/v1/config/post-types',
+    CANTEENS: '/config/canteens',
+    CUISINES: '/config/cuisines',
+    FLAVORS: '/config/flavors',
+    POST_TYPES: '/config/post-types',
   },
   UPLOAD: {
-    IMAGE: '/api/v1/upload/image',
-    IMAGES: '/api/v1/upload/images',
+    IMAGE: '/upload/image',
+    IMAGES: '/upload/images',
   },
   STATS: {
-    PLATFORM: '/api/v1/stats/platform',
-    USER: '/api/v1/stats/user/:userId',
+    PLATFORM: '/stats/platform',
+    USER: '/stats/user/:userId',
   },
   */
 } as const;
