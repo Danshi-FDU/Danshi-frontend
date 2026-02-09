@@ -209,12 +209,36 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     setCommentLoading(true);
     try {
       const res = await commentsService.listByPost(postIdValue, { sortBy: sort, limit: 10 });
-      setComments(res.comments);
+      console.log('[fetchComments] received', res.comments.length, 'comments');
+      
+      // 为 replies 数组中的每个回复添加 parent_id（后端不返回此字段）
+      const commentsWithParentId = res.comments.map((comment) => {
+        if (comment.replies && comment.replies.length > 0) {
+          const repliesWithParentId = comment.replies.map((reply) => ({
+            ...reply,
+            parent_id: comment.id, // 设置 parent_id 为根评论的 ID
+          }));
+          return {
+            ...comment,
+            replies: repliesWithParentId,
+          };
+        }
+        return comment;
+      });
+      
+      // 检查是否有子评论被错误地当作根评论
+      commentsWithParentId.forEach((c, idx) => {
+        if (c.parent_id) {
+          console.warn(`[fetchComments] WARNING: Comment at index ${idx} (id: ${c.id}) has parent_id: ${c.parent_id}, should be a root comment!`);
+        }
+      });
+      
+      setComments(commentsWithParentId);
       setCommentPagination(res.pagination);
       setCommentReplies((prev) => {
         if (!Object.keys(prev).length) return prev;
         const next: Record<string, CommentReply[]> = {};
-        for (const comment of res.comments) {
+        for (const comment of commentsWithParentId) {
           if (prev[comment.id]) {
             next[comment.id] = prev[comment.id];
           }
@@ -224,7 +248,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       setCommentRepliesPagination((prev) => {
         if (!Object.keys(prev).length) return prev;
         const next: Record<string, CommentsPagination> = {};
-        for (const comment of res.comments) {
+        for (const comment of commentsWithParentId) {
           if (prev[comment.id]) {
             next[comment.id] = prev[comment.id];
           }
@@ -234,7 +258,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       setCommentRepliesExpanded((prev) => {
         if (!Object.keys(prev).length) return prev;
         const next: Record<string, boolean> = {};
-        for (const comment of res.comments) {
+        for (const comment of commentsWithParentId) {
           if (prev[comment.id]) {
             next[comment.id] = prev[comment.id];
           }
@@ -303,20 +327,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   }, [autoScrollToComments, comments]);
 
   const findCommentTarget = useCallback((commentId: string) => {
+    // 检查是否是顶级评论
     const topComment = commentsRef.current.find((c) => c.id === commentId);
     if (topComment) return { entity: topComment, parent: topComment };
 
+    // 在顶级评论的 replies 预览中查找
     for (const c of commentsRef.current) {
       const reply = c.replies?.find((r) => r.id === commentId);
-      if (reply) return { entity: reply, parent: c };
+      if (reply) return { entity: reply, parent: c }; // parent 是根评论
     }
 
-    for (const replies of Object.values(commentRepliesRef.current)) {
+    // 在 commentReplies 中查找（展开的回复列表）
+    for (const [rootId, replies] of Object.entries(commentRepliesRef.current)) {
       const reply = replies.find((r) => r.id === commentId);
       if (reply) {
-        const parent = reply.parent_id
-          ? commentsRef.current.find((c) => c.id === reply.parent_id) ?? null
-          : null;
+        // parent 应该是根评论，而不是子评论的 parent_id
+        const parent = commentsRef.current.find((c) => c.id === rootId) ?? null;
         return { entity: reply, parent };
       }
     }
@@ -351,6 +377,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       : replyParent?.id;
 
     if (targetInfo?.entity && replyParent && targetInfo.entity.id !== replyParent.id) {
+      console.log('[useEffect-pendingScrollCommentId] replyParent:', replyParent.id, 'parent_id:', replyParent.parent_id);
       if (!threadRootComment || threadRootComment.id !== replyParent.id) {
         setThreadRootComment(replyParent);
       }
@@ -358,6 +385,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         setThreadVisible(true);
       }
       if (!commentReplies[replyParent.id] && (replyParent.reply_count ?? 0) > 0) {
+        console.log('[useEffect-pendingScrollCommentId] calling fetchRepliesForComment with replyParent.id:', replyParent.id);
         fetchRepliesForComment(replyParent.id).catch(() => {});
       }
     }
@@ -499,8 +527,20 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     });
     // 同步更新回复详情面板中的根评论状态
     setThreadRootComment((prev) => {
-      if (prev && prev.id === targetId) {
+      if (!prev) return prev;
+      // 如果更新的是根评论本身
+      if (prev.id === targetId) {
         return { ...prev, ...patch } as Comment;
+      }
+      // 如果更新的是根评论的某个回复（在 replies 预览中）
+      if (prev.replies?.length) {
+        const updatedReplies = prev.replies.map((reply) =>
+          reply.id === targetId ? { ...reply, ...patch } as CommentReply : reply
+        );
+        // 检查是否真的有更新
+        if (updatedReplies.some((r, idx) => r !== prev.replies![idx])) {
+          return { ...prev, replies: updatedReplies };
+        }
       }
       return prev;
     });
@@ -576,6 +616,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const handleOpenCommentSheet = useCallback(() => setCommentSheetVisible(true), []);
   const handleReplyToComment = useCallback((entity: Comment | CommentReply) => {
+    console.log('[handleReplyToComment] entity:', JSON.stringify({
+      id: entity.id,
+      parent_id: entity.parent_id,
+      content: entity.content?.substring(0, 20),
+    }));
     setCommentReplyTarget(entity);
     setCommentSheetVisible(true);
   }, []);
@@ -586,10 +631,18 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   }, []);
 
   const fetchRepliesForComment = useCallback(async (commentId: string, page = 1, append = false) => {
+    console.log('[fetchRepliesForComment] called with commentId:', commentId, 'page:', page);
     setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: true }));
     try {
       const res = await commentsService.listReplies(commentId, { limit: 20, page });
-      const flattened = flattenReplies(res.replies ?? []);
+      
+      // 为 replies 数组中的每个回复添加 parent_id（后端不返回此字段）
+      const repliesWithParentId = (res.replies ?? []).map((reply) => ({
+        ...reply,
+        parent_id: commentId, // 设置 parent_id 为根评论的 ID
+      }));
+      
+      const flattened = flattenReplies(repliesWithParentId);
       setCommentReplies((prev) => {
         const existing = append ? prev[commentId] ?? [] : [];
         const merged = append ? [...existing, ...flattened] : flattened;
@@ -597,6 +650,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       });
       setCommentRepliesPagination((prev) => ({ ...prev, [commentId]: res.pagination }));
     } catch (e) {
+      console.error('[fetchRepliesForComment] error:', e, 'commentId:', commentId);
       showAlert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
     } finally {
       setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
@@ -604,9 +658,14 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   }, []);
 
   const handleShowRepliesPanel = useCallback((entity: CommentEntity) => {
-    const rootComment = 'reply_count' in entity
-      ? entity
+    console.log('[handleShowRepliesPanel] called with entity:', entity.id, 'parent_id:', entity.parent_id);
+    // 判断是否是根评论：根评论的 parent_id 为 null 或 undefined
+    const isRootComment = !entity.parent_id;
+    const rootComment = isRootComment
+      ? (entity as Comment)
       : comments.find((c) => c.id === entity.parent_id) ?? null;
+    
+    console.log('[handleShowRepliesPanel] isRootComment:', isRootComment, 'rootComment:', rootComment?.id);
     if (!rootComment) return;
     setThreadRootComment(rootComment);
     setThreadVisible(true);
@@ -618,6 +677,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     }
     const hasReplies = commentReplies[rootComment.id]?.length;
     if (!hasReplies && (rootComment.reply_count ?? 0) > 0) {
+      console.log('[handleShowRepliesPanel] calling fetchRepliesForComment with rootComment.id:', rootComment.id);
       fetchRepliesForComment(rootComment.id).catch(() => {});
     }
   }, [comments, commentReplies, fetchRepliesForComment]);
@@ -628,6 +688,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const handleLoadMoreThreadReplies = useCallback(() => {
     if (!threadRootComment) return;
+    console.log('[handleLoadMoreThreadReplies] threadRootComment:', threadRootComment.id, 'parent_id:', threadRootComment.parent_id);
     const pagination = commentRepliesPagination[threadRootComment.id];
     const nextPage = (pagination?.page ?? 1) + 1;
     if (pagination && nextPage > (pagination.total_pages ?? Infinity)) return;
@@ -636,10 +697,12 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   const handleReloadThreadReplies = useCallback(() => {
     if (!threadRootComment) return;
+    console.log('[handleReloadThreadReplies] threadRootComment:', threadRootComment.id, 'parent_id:', threadRootComment.parent_id);
     fetchRepliesForComment(threadRootComment.id).catch(() => {});
   }, [threadRootComment, fetchRepliesForComment]);
 
   const handleDesktopToggleReplies = useCallback((comment: Comment) => {
+    console.log('[handleDesktopToggleReplies] comment:', comment.id, 'parent_id:', comment.parent_id);
     setCommentRepliesExpanded((prev) => {
       const nextExpanded = !prev[comment.id];
       if (nextExpanded && !commentReplies[comment.id]) {
@@ -687,51 +750,74 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     const content = commentInput.trim();
     if (!content) return;
     try {
-      // 统一扁平化：任何深度的回复都映射到顶级评论 parent_id。
-      let parent_id: string | undefined; let reply_to_user_id: string | undefined;
+      // 根据 API_ALL 文档：后端会自动处理层级关系
+      // 前端只需传入被回复评论的ID作为 parent_id，后端会自动找到根评论
+      let parent_id: string | undefined;
+      let reply_to_user_id: string | undefined;
+      let rootCommentId: string | undefined; // 用于刷新回复列表的根评论ID
+      
+      console.log('[handleSubmitComment] commentReplyTarget:', JSON.stringify({
+        id: commentReplyTarget?.id,
+        parent_id: commentReplyTarget?.parent_id,
+        content: commentReplyTarget?.content?.substring(0, 20),
+      }));
+      
       if (commentReplyTarget) {
+        // 🔑 根据 API 文档：前端只需传入被回复评论的ID作为 parent_id
+        // 后端会自动处理层级关系，找到根评论
+        parent_id = commentReplyTarget.id;
+        reply_to_user_id = commentReplyTarget.author?.id;
+        
+        // 计算 rootCommentId（用于前端刷新回复列表）
         if (!commentReplyTarget.parent_id) {
-          // 直接回复顶级
-          parent_id = commentReplyTarget.id;
-          reply_to_user_id = commentReplyTarget.author?.id;
+          // 回复一级评论：parent_id 就是根评论ID
+          rootCommentId = commentReplyTarget.id;
         } else {
-          // 回复某条回复：确保 parent_id 指向真正的顶级评论
-          const directParentId = commentReplyTarget.parent_id;
-          // 如果 directParentId 在顶级 comments 中，说明它就是顶级
-          const isTop = comments.some((c) => c.id === directParentId);
-          if (isTop) {
-            parent_id = directParentId;
-            reply_to_user_id = commentReplyTarget.author?.id;
+          // 回复子评论：使用 findCommentTarget 找到根评论
+          const target = findCommentTarget(commentReplyTarget.id);
+          if (target?.parent) {
+            // parent 总是根评论（findCommentTarget 已经处理了这个逻辑）
+            rootCommentId = target.parent.id;
           } else {
-            // 可能出现“第三层”旧数据：尝试在所有顶级的 replies 中找到其父，取其 parent_id 作为顶级
-            let resolvedTop: string | undefined;
-            for (const c of comments) {
-              if (c.replies?.some((r) => r.id === directParentId)) {
-                resolvedTop = c.id; break;
-              }
-            }
-            parent_id = resolvedTop ?? directParentId; // 兜底：即使没找到也用 directParentId
-            reply_to_user_id = commentReplyTarget.author?.id;
+            // 兜底：如果找不到，使用 parent_id
+            rootCommentId = commentReplyTarget.parent_id;
           }
         }
       }
-      const createdEntity = await commentsService.create(post.id, {
+      
+      console.log('[handleSubmitComment] before create - parent_id:', parent_id, 'rootCommentId:', rootCommentId);
+      
+      const createdResponse = await commentsService.create(post.id, {
         content,
         parent_id,
         reply_to_user_id,
       });
+      
+      // 🔍 后端返回的数据结构是 { comment: {...} }，需要提取 comment 字段
+      const createdEntity = (createdResponse as any)?.comment || createdResponse;
+      
+      console.log('[handleSubmitComment] after create - createdResponse:', createdResponse);
+      console.log('[handleSubmitComment] after create - createdEntity (extracted):', createdEntity);
+      
+      // 不再需要验证逻辑，rootCommentId 已经在提交前正确计算
+      
       const isReply = !!parent_id;
-      if (isReply && createdEntity) {
-        const newReply = createdEntity as CommentReply;
+      if (isReply && createdEntity && rootCommentId) {
+        // 🔧 为新创建的回复添加 parent_id（后端不返回此字段）
+        const newReply: CommentReply = {
+          ...(createdEntity as CommentReply),
+          parent_id: rootCommentId,
+        };
+        
         let updatedReplyLength = 0;
         setCommentReplies((prev) => {
-          const prevList = prev[parent_id!] ?? [];
+          const prevList = prev[rootCommentId!] ?? [];
           const merged = [newReply, ...prevList];
           updatedReplyLength = merged.length;
-          return { ...prev, [parent_id!]: merged };
+          return { ...prev, [rootCommentId!]: merged };
         });
         setCommentRepliesPagination((prev) => {
-          const prevPagination = prev[parent_id!];
+          const prevPagination = prev[rootCommentId!];
           const limit = prevPagination?.limit ?? 20;
           const total = prevPagination?.total != null
             ? prevPagination.total + 1
@@ -739,7 +825,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           const total_pages = Math.max(1, Math.ceil(total / limit));
           return {
             ...prev,
-            [parent_id!]: {
+            [rootCommentId!]: {
               page: prevPagination?.page ?? 1,
               limit,
               total,
@@ -748,7 +834,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           };
         });
         setComments((prev) => prev.map((comment) => {
-          if (comment.id !== parent_id) return comment;
+          if (comment.id !== rootCommentId) return comment;
           const previewSource = flattenReplies(comment.replies ?? []);
           const preview = [newReply, ...previewSource].slice(0, REPLY_PREVIEW_COUNT);
           return {
@@ -771,10 +857,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       setCommentReplyTarget(null);
       setCommentSheetVisible(false);
       await fetchComments(post.id, commentSort);
-      // 如果是回复评论，自动展开该评论的回复列表以显示新回复
-      if (parent_id) {
+      // 如果是回复评论，自动刷新该根评论的回复列表以显示新回复
+      // 注意：只能查询一级评论的回复，所以必须使用 rootCommentId
+      if (rootCommentId) {
         try {
-          await fetchRepliesForComment(parent_id);
+          await fetchRepliesForComment(rootCommentId);
         } catch (e) {
           console.warn('auto refresh replies failed', e);
         }
@@ -788,7 +875,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     } catch (e) {
       showAlert('评论失败', (e as Error)?.message ?? '暂时无法发表评论');
     }
-  }, [commentInput, commentReplyTarget, post, fetchComments, commentSort]);
+  }, [commentInput, commentReplyTarget, post, fetchComments, commentSort, fetchRepliesForComment]);
 
   const handleCycleCommentSort = useCallback(() => {
     setCommentSort((prev) => (prev === 'latest' ? 'hot' : 'latest'));
