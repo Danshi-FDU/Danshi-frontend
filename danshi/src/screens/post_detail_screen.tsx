@@ -121,20 +121,31 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   // 检查是否需要自动滚动到评论区（如通知跳转）
   const [autoScrollToComments, setAutoScrollToComments] = useState(false);
   const [pendingScrollCommentId, setPendingScrollCommentId] = useState<string | null>(null);
+  const handledScrollParamsRef = useRef<string | null>(null);
   useEffect(() => {
-    // 兼容 web 和 app 路由参数
-    const params = (localParams as Record<string, unknown>) || (router as any)?.params || (router as any)?.query || {};
+    // 仅消费一次同一组路由定位参数，避免手动滑动时被重复拉回
+    const params = (localParams as Record<string, unknown>) || {};
     const scrollTo = normalizeParam(params.scrollTo);
-    const commentId = normalizeParam(params.commentId);
+    const commentId = normalizeParam(
+      params.commentId ??
+      params.comment_id ??
+      params.targetCommentId ??
+      params.relatedId ??
+      params.related_id
+    );
+    const handledKey = `${postId}:${scrollTo ?? ''}:${commentId ?? ''}`;
+    if (handledScrollParamsRef.current === handledKey) return;
     if ((scrollTo === 'comment' || commentId) && commentId) {
       setAutoScrollToComments(true);
       setPendingScrollCommentId(commentId);
+      handledScrollParamsRef.current = handledKey;
       return;
     }
     if (scrollTo === 'comments') {
       setAutoScrollToComments(true);
+      handledScrollParamsRef.current = handledKey;
     }
-  }, [router, localParams, normalizeParam]);
+  }, [postId, localParams, normalizeParam]);
   const insets = useSafeAreaInsets();
   const theme = usePaperTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -178,6 +189,9 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const commentsOffsetRef = useRef(0);
   const commentsListOffsetRef = useRef(0);
   const commentPositionsRef = useRef<Record<string, number>>({});
+  const fetchRepliesForCommentRef = useRef<(commentId: string, page?: number, append?: boolean) => Promise<void>>(
+    async () => {}
+  );
 
   const isDesktop = windowWidth >= BREAKPOINTS.desktop;
 
@@ -386,7 +400,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       }
       if (!commentReplies[replyParent.id] && (replyParent.reply_count ?? 0) > 0) {
         console.log('[useEffect-pendingScrollCommentId] calling fetchRepliesForComment with replyParent.id:', replyParent.id);
-        fetchRepliesForComment(replyParent.id).catch(() => {});
+        fetchRepliesForCommentRef.current(replyParent.id).catch(() => {});
       }
     }
 
@@ -398,7 +412,6 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     findCommentTarget,
     scrollToCommentId,
     commentReplies,
-    fetchRepliesForComment,
     threadRootComment,
     threadVisible,
   ]);
@@ -656,6 +669,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
     }
   }, []);
+  fetchRepliesForCommentRef.current = fetchRepliesForComment;
 
   const handleShowRepliesPanel = useCallback((entity: CommentEntity) => {
     console.log('[handleShowRepliesPanel] called with entity:', entity.id, 'parent_id:', entity.parent_id);

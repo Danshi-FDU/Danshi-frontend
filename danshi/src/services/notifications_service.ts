@@ -139,16 +139,23 @@ export const notificationsService = {
   getNotificationRoute(notification: Notification): { pathname: string; params?: Record<string, string> } | null {
     const { type, sender } = notification;
     const postId = this.getNotificationPostId(notification);
+    const commentId = notification.related_type === 'comment' ? (notification.related_id ?? null) : null;
 
     switch (type) {
       case 'comment':
       case 'reply':
       case 'like_post':
       case 'mention':
+        if (postId && commentId) {
+          return { pathname: '/post/[postId]', params: { postId, scrollTo: 'comment', commentId } };
+        }
         if (postId) return { pathname: '/post/[postId]', params: { postId } };
         return null;
 
       case 'like_comment':
+        if (postId && commentId) {
+          return { pathname: '/post/[postId]', params: { postId, scrollTo: 'comment', commentId } };
+        }
         if (postId) return { pathname: '/post/[postId]', params: { postId } };
         return null;
 
