@@ -1,13 +1,19 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
-import { Avatar, Button, IconButton, Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { View, StyleSheet, Pressable, type ViewStyle } from 'react-native';
+import { Avatar, Button, IconButton, Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import type { CommentEntity, MentionedUser } from '@/src/models/Comment';
 import { UserAvatar } from '@/src/components/user_avatar';
 
 type BaseProps = {
   onLike?: (comment: CommentEntity) => void;
   onReply?: (comment: CommentEntity) => void;
-  onMoreOptions?: (comment: CommentEntity) => void;
+  getMoreActions?: (comment: CommentEntity) => {
+    key: string;
+    title: string;
+    icon?: string;
+    destructive?: boolean;
+    onPress: () => void;
+  }[];
   onShowReplies?: (comment: CommentEntity) => void;
 };
 
@@ -64,22 +70,23 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   showReplySummary = true,
   onLike,
   onReply,
-  onMoreOptions,
+  getMoreActions,
   onShowReplies,
 }) => {
   const theme = usePaperTheme();
+  const [menuVisible, setMenuVisible] = React.useState(false);
   const isAuthor = comment.is_author;
   const handleLike = () => onLike?.(comment);
   const handleReply = () => onReply?.(comment);
-  const handleMoreOptions = () => onMoreOptions?.(comment);
   const handleShowReplies = () => onShowReplies?.(comment);
+  const moreActions = getMoreActions?.(comment) ?? [];
   const totalReplyCount = replyCount ?? 0;
   const showReplySummaryButton = showReplySummary && totalReplyCount > 0 && !!onShowReplies;
 
   const isNested = isReply || depth > 0;
   const avatarSize = 40;
 
-  const containerStyles = [styles.container];
+  const containerStyles: ViewStyle[] = [styles.container];
   if (isNested) {
     containerStyles.push(styles.replyContainer);
     containerStyles.push(depth === 1 ? styles.replyFirstLevel : styles.replySubsequent);
@@ -115,15 +122,34 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </Text>
             ) : null}
           </View>
-          <IconButton
-            icon="dots-horizontal"
-            size={18}
-            onPress={handleMoreOptions}
-            accessibilityLabel="更多操作"
-            iconColor={theme.colors.onSurfaceVariant}
-            style={styles.moreButton}
-            disabled={!onMoreOptions}
-          />
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={(
+              <IconButton
+                icon="dots-horizontal"
+                size={18}
+                onPress={() => setMenuVisible(true)}
+                accessibilityLabel="更多操作"
+                iconColor={theme.colors.onSurfaceVariant}
+                style={styles.moreButton}
+                disabled={!moreActions.length}
+              />
+            )}
+          >
+            {moreActions.map((action) => (
+              <Menu.Item
+                key={action.key}
+                onPress={() => {
+                  setMenuVisible(false);
+                  action.onPress();
+                }}
+                title={action.title}
+                leadingIcon={action.icon}
+                titleStyle={action.destructive ? { color: theme.colors.error } : undefined}
+              />
+            ))}
+          </Menu>
         </View>
 
         <Pressable style={styles.bodyPressable} onPress={handleReply}>

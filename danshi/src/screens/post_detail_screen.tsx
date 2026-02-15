@@ -48,6 +48,8 @@ function flattenReplies(replies: CommentReply[]): CommentReply[] {
 const REPLY_PREVIEW_COUNT = 3;
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 import { useAuth } from '@/src/context/auth_context';
+import { isAdmin } from '@/src/lib/auth/roles';
+import { adminService } from '@/src/services/admin_service';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 // 响应式断点
@@ -181,6 +183,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const commentSortRef = useRef<'latest' | 'hot'>(commentSort);
   // 使用 ref 同步跟踪正在处理点赞的评论，避免快速点击时的竞态问题
   const commentLikeLoadingRef = useRef<Set<string>>(new Set());
+  const commentDeleteLoadingRef = useRef<Set<string>>(new Set());
   // 使用 ref 存储最新的评论状态，避免闭包中读取旧数据
   const commentsRef = useRef<Comment[]>(comments);
   const commentRepliesRef = useRef<Record<string, CommentReply[]>>(commentReplies);
@@ -627,6 +630,57 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     handleToggleCommentLikeById(entity.id);
   }, [handleToggleCommentLikeById]);
 
+  const isCurrentUserAdmin = !!currentUser?.role && isAdmin(currentUser.role);
+
+  const handleDeleteCommentByEntity = useCallback(async (entity: CommentEntity) => {
+    if (!post?.id) return;
+    const targetId = entity.id;
+    if (commentDeleteLoadingRef.current.has(targetId)) return;
+    commentDeleteLoadingRef.current.add(targetId);
+    try {
+      if (isCurrentUserAdmin) {
+        await adminService.deleteComment(targetId);
+      } else {
+        await commentsService.remove(targetId);
+      }
+
+      // 删除后统一刷新，避免本地复杂树结构同步出错
+      await fetchComments(post.id, commentSortRef.current);
+
+      if (threadRootComment?.id === targetId) {
+        setThreadVisible(false);
+        setThreadRootComment(null);
+      } else if (threadRootComment) {
+        await fetchRepliesForCommentRef.current(threadRootComment.id).catch(() => {});
+      }
+
+      setPost((prev) =>
+        prev ? {
+          ...prev,
+          stats: {
+            ...(prev.stats ?? {}),
+            comment_count: Math.max(0, (prev.stats?.comment_count ?? 0) - 1),
+          },
+        } : prev
+      );
+    } catch (e) {
+      showAlert('删除失败', (e as Error)?.message ?? '暂时无法删除这条评论');
+    } finally {
+      commentDeleteLoadingRef.current.delete(targetId);
+    }
+  }, [post?.id, isCurrentUserAdmin, fetchComments, threadRootComment]);
+
+  const handleConfirmDeleteComment = useCallback((entity: CommentEntity) => {
+    Alert.alert(
+      '删除评论',
+      '确定要删除这条评论吗？此操作不可撤销。',
+      [
+        { text: '取消', style: 'cancel' },
+        { text: '删除', style: 'destructive', onPress: () => { handleDeleteCommentByEntity(entity).catch(() => {}); } },
+      ]
+    );
+  }, [handleDeleteCommentByEntity]);
+
   const handleOpenCommentSheet = useCallback(() => setCommentSheetVisible(true), []);
   const handleReplyToComment = useCallback((entity: Comment | CommentReply) => {
     console.log('[handleReplyToComment] entity:', JSON.stringify({
@@ -637,6 +691,28 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     setCommentReplyTarget(entity);
     setCommentSheetVisible(true);
   }, []);
+  const getCommentMoreActions = useCallback((entity: CommentEntity) => {
+    const canDeleteAsOwner = !!currentUser?.id && !!entity.author?.id && entity.author.id === currentUser.id;
+    const canDelete = isCurrentUserAdmin || canDeleteAsOwner;
+    const actions: { key: string; title: string; icon?: string; destructive?: boolean; onPress: () => void }[] = [
+      {
+        key: 'reply',
+        title: '回复',
+        icon: 'reply',
+        onPress: () => handleReplyToComment(entity),
+      },
+    ];
+    if (canDelete) {
+      actions.push({
+        key: 'delete',
+        title: isCurrentUserAdmin && entity.author?.id !== currentUser?.id ? '删除' : '删除',
+        icon: 'delete',
+        destructive: true,
+        onPress: () => handleConfirmDeleteComment(entity),
+      });
+    }
+    return actions;
+  }, [currentUser, isCurrentUserAdmin, handleReplyToComment, handleConfirmDeleteComment]);
   const handleCancelReply = useCallback(() => setCommentReplyTarget(null), []);
   const handleCloseCommentSheet = useCallback(() => {
     setCommentSheetVisible(false);
@@ -938,6 +1014,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
               showReplySummary={false}
               onLike={handleToggleCommentLike}
               onReply={handleReplyToComment}
+              getMoreActions={getCommentMoreActions}
             />
             <View style={[styles.threadDividerLine, { backgroundColor: theme.colors.surfaceVariant }]} />
             {threadRepliesList.length ? (
@@ -948,6 +1025,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   showReplySummary={false}
                   onLike={handleToggleCommentLike}
                   onReply={handleReplyToComment}
+                  getMoreActions={getCommentMoreActions}
                 />
               ))
             ) : threadReplyTotal > 0 ? (
@@ -991,6 +1069,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       )}
     </BottomSheet>
   );
+
 
   // 根据帖子类型生成渐变色（使用主题语义颜色）
   const gradientColors = useMemo(() => {
@@ -1331,6 +1410,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                   replyCount={showReplySummary ? totalReplyCount : undefined}
                   onLike={handleToggleCommentLike}
                   onReply={handleReplyToComment}
+                  getMoreActions={getCommentMoreActions}
                   onShowReplies={showReplySummary ? handleShowRepliesPanel : undefined}
                   showReplySummary={showReplySummary}
                 />
@@ -1345,6 +1425,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                           showReplySummary={false}
                           onLike={handleToggleCommentLike}
                           onReply={handleReplyToComment}
+                          getMoreActions={getCommentMoreActions}
                         />
                       </View>
                     ))}
@@ -1361,6 +1442,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                           showReplySummary={false}
                           onLike={handleToggleCommentLike}
                           onReply={handleReplyToComment}
+                          getMoreActions={getCommentMoreActions}
                         />
                       </View>
                     ))}
