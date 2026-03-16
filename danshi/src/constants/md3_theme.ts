@@ -1,4 +1,4 @@
-import { MD3DarkTheme, MD3LightTheme, MD3Theme } from 'react-native-paper'
+import { MD3DarkTheme, MD3LightTheme, MD3Theme, useTheme as usePaperTheme } from 'react-native-paper'
 import { generatePalette } from '@/src/lib/theme/color_generator'
 
 // ==================== 语义颜色扩展 ====================
@@ -205,4 +205,12 @@ function buildTheme(mode: 'light' | 'dark', accentColor?: string): ExtendedMD3Th
  */
 export function getMD3Theme(mode: 'light' | 'dark', accentColor?: string): ExtendedMD3Theme {
   return buildTheme(mode, accentColor)
+}
+
+/**
+ * 类型安全的主题 Hook，返回包含语义颜色的扩展主题。
+ * 用于替代 `usePaperTheme()` + `theme.colors as any` 的模式。
+ */
+export function useExtendedTheme(): ExtendedMD3Theme {
+  return usePaperTheme<ExtendedMD3Theme>();
 }

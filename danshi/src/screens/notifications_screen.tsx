@@ -173,7 +173,7 @@ export default function NotificationsScreen() {
         setHasMore(pagination.page < pagination.total_pages);
         setPage(pageNum);
       } catch (error) {
-        console.warn('[NotificationsScreen] Failed to load notifications:', error);
+        if (__DEV__) console.warn('[NotificationsScreen] Failed to load notifications:', error);
       }
     },
     [activeTab, getCurrentTypeFilter]
@@ -223,7 +223,7 @@ export default function NotificationsScreen() {
       );
       clearUnreadCount();
     } catch (error) {
-      console.warn('[NotificationsScreen] Failed to mark all as read:', error);
+      if (__DEV__) console.warn('[NotificationsScreen] Failed to mark all as read:', error);
       // 恢复动画
       dotsOpacity.setValue(1);
     } finally {

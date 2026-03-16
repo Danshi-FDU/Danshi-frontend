@@ -1,26 +1,8 @@
-import { useWindowDimensions } from 'react-native';
-import { breakpoints, type Breakpoint, type BreakpointKey } from '@/src/constants/breakpoints';
+/**
+ * 向后兼容的 re-export。
+ * 所有响应式功能已统一到 use_responsive.ts 中。
+ */
+export { useBreakpoint, useMinWidth, useMaxWidth } from './use_responsive';
 
-export function useViewport() {
-  const { width, height, scale, fontScale } = useWindowDimensions();
-  return { width, height, scale, fontScale };
-}
-
-export function useBreakpoint(): Breakpoint {
-  const { width } = useWindowDimensions();
-  if (width >= breakpoints.xl) return 'xl';
-  if (width >= breakpoints.lg) return 'lg';
-  if (width >= breakpoints.md) return 'md';
-  if (width >= breakpoints.sm) return 'sm';
-  return 'base';
-}
-
-export function useMinWidth(bp: BreakpointKey) {
-  const { width } = useWindowDimensions();
-  return width >= breakpoints[bp];
-}
-
-export function useMaxWidth(bp: BreakpointKey) {
-  const { width } = useWindowDimensions();
-  return width < breakpoints[bp];
-}
+/** @deprecated 使用 useResponsive() 替代 */
+export { useResponsive as useViewport } from './use_responsive';

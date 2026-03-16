@@ -43,7 +43,7 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
       const { unread_count } = await notificationsService.getUnreadCount();
       setUnreadCount(unread_count);
     } catch (error) {
-      console.warn('[NotificationsContext] Failed to fetch unread count:', error);
+      if (__DEV__) console.warn('[NotificationsContext] Failed to fetch unread count:', error);
     } finally {
       setLoading(false);
     }

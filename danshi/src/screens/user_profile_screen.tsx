@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Image, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { Button, Text, useTheme as usePaperTheme, ActivityIndicator } from 'react-native-paper';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { useAuth } from '@/src/context/auth_context';
 import { usersService } from '@/src/services/users_service';
@@ -125,10 +125,10 @@ export default function UserProfileScreen() {
     } catch (error: any) {
       // 忽略 companion 类型相关的验证错误
       if (error?.message?.includes('companion') || error?.message?.includes('PostType')) {
-        console.warn('后端返回了不支持的帖子类型，已忽略');
+        if (__DEV__) console.warn('后端返回了不支持的帖子类型，已忽略');
         setPosts([]);
       } else {
-        console.warn('Load user posts failed:', error);
+        if (__DEV__) console.warn('Load user posts failed:', error);
       }
     } finally {
       setPostsLoading(false);
@@ -334,12 +334,12 @@ export default function UserProfileScreen() {
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/followers` as any)}>
+                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/followers` as Href)}>
                   <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(profile.stats.follower_count)}</Text>
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>粉丝</Text>
                 </Pressable>
                 <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/following` as any)}>
+                <Pressable style={styles.statItem} onPress={() => router.push(`/user/${userId}/following` as Href)}>
                   <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(profile.stats.following_count)}</Text>
                   <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>关注</Text>
                 </Pressable>

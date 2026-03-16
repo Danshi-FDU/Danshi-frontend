@@ -11,7 +11,7 @@ import { postsService } from '@/src/services/posts_service';
 import { AppError } from '@/src/lib/errors/app_error';
 import { Masonry } from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import type { UserPostListItem } from '@/src/repositories/users_repository';
@@ -66,7 +66,7 @@ export const MyPostsScreen: React.FC = () => {
       } catch (err: any) {
         // 忽略 companion 类型相关的验证错误
         if (err?.message?.includes('companion') || err?.message?.includes('PostType')) {
-          console.warn('后端返回了不支持的帖子类型，已忽略');
+          if (__DEV__) console.warn('后端返回了不支持的帖子类型，已忽略');
           setPosts([]);
         } else {
           const message = err instanceof AppError ? err.message : '读取数据失败，请稍后重试';

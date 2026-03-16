@@ -136,7 +136,7 @@ export function usePostActions({ post, setPost, currentUserId }: UsePostActionsP
     try {
       await Share.share({ message: `${post.title}\n来自旦食社区，快来看看！` });
     } catch (error) {
-      console.warn('[post_detail] share failed', error);
+      if (__DEV__) console.warn('[post_detail] share failed', error);
     }
   }, [post]);
 

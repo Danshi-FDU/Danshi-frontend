@@ -16,13 +16,13 @@ import {
 	Chip,
 	IconButton,
 	Text,
-	useTheme as usePaperTheme,
 	ActivityIndicator,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { useExtendedTheme } from '@/src/constants/md3_theme';
 import { postsService } from '@/src/services/posts_service';
 import { CANTEEN_OPTIONS } from '@/src/constants/selects';
 import CenterPicker from '@/src/components/overlays/center_picker';
@@ -31,6 +31,7 @@ import ImageViewer from '@/src/components/image_viewer';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/src/context/auth_context';
 import { formatCurrentDate } from '@/src/utils/time_format';
+import { WEB_NO_OUTLINE } from '@/src/utils';
 import type {
 	Category,
 	CommonCreateBase,
@@ -62,7 +63,7 @@ export default function PostScreen({
 	const maxWidth = pickByBreakpoint<DimensionValue>(bp, { base: '100%', sm: 540, md: 580, lg: 620, xl: 660 });
 	const horizontalPadding = pickByBreakpoint(bp, { base: 24, sm: 28, md: 32, lg: 36, xl: 40 });
 	const insets = useSafeAreaInsets();
-	const theme = usePaperTheme();
+	const theme = useExtendedTheme();
 	// 发帖页面隐藏了 Tab Bar，底部只需安全区域间距
 	const bottomContentPadding = useMemo(() => Math.max(insets.bottom, 16) + 16, [insets.bottom]);
 	const { user: currentUser } = useAuth();
@@ -726,7 +727,7 @@ export default function PostScreen({
 							borderRadius: 8,
 							padding: titleFocused ? 12 : 0,
 						},
-						Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+						WEB_NO_OUTLINE,
 					]}
 				/>
 
@@ -748,7 +749,7 @@ export default function PostScreen({
 							borderRadius: 8,
 							padding: contentFocused ? 12 : 0,
 						},
-						Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+						WEB_NO_OUTLINE,
 					]}
 				/>
 				<Text style={[styles.charCount, { color: theme.colors.outline }]}>
@@ -885,7 +886,7 @@ export default function PostScreen({
 								style={[
 									styles.tagTextInput, 
 									{ color: theme.colors.onSurface },
-									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+									WEB_NO_OUTLINE,
 								]}
 								autoFocus
 							/>
@@ -966,7 +967,7 @@ export default function PostScreen({
 											borderBottomColor: focusedField === 'cuisine' ? theme.colors.primary : theme.colors.outlineVariant,
 											borderBottomWidth: focusedField === 'cuisine' ? 2 : 1,
 										},
-										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+										WEB_NO_OUTLINE,
 									]}
 								/>
 							</View>
@@ -992,7 +993,7 @@ export default function PostScreen({
 												borderBottomColor: focusedField === 'price' ? theme.colors.primary : theme.colors.outlineVariant,
 												borderBottomWidth: focusedField === 'price' ? 2 : 1,
 											},
-											Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+											WEB_NO_OUTLINE,
 										]}
 									/>
 								</View>
@@ -1044,7 +1045,7 @@ export default function PostScreen({
 										borderBottomColor: focusedField === 'flavors' ? theme.colors.primary : theme.colors.outlineVariant,
 										borderBottomWidth: focusedField === 'flavors' ? 2 : 1,
 									},
-									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+									WEB_NO_OUTLINE,
 								]}
 							/>
 						</View>
@@ -1085,7 +1086,7 @@ export default function PostScreen({
 											borderBottomColor: focusedField === 'budgetMin' ? theme.colors.primary : theme.colors.outlineVariant,
 											borderBottomWidth: focusedField === 'budgetMin' ? 2 : 1,
 										},
-										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+										WEB_NO_OUTLINE,
 									]}
 								/>
 							</View>
@@ -1107,7 +1108,7 @@ export default function PostScreen({
 											borderBottomColor: focusedField === 'budgetMax' ? theme.colors.primary : theme.colors.outlineVariant,
 											borderBottomWidth: focusedField === 'budgetMax' ? 2 : 1,
 										},
-										Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+										WEB_NO_OUTLINE,
 									]}
 								/>
 							</View>
@@ -1158,7 +1159,7 @@ export default function PostScreen({
 										borderBottomColor: focusedField === 'preferFlavors' ? theme.colors.tertiary : theme.colors.outlineVariant,
 										borderBottomWidth: focusedField === 'preferFlavors' ? 2 : 1,
 									},
-									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+									WEB_NO_OUTLINE,
 								]}
 							/>
 						</View>
@@ -1207,7 +1208,7 @@ export default function PostScreen({
 										borderBottomColor: focusedField === 'avoidFlavors' ? theme.colors.error : theme.colors.outlineVariant,
 										borderBottomWidth: focusedField === 'avoidFlavors' ? 2 : 1,
 									},
-									Platform.OS === 'web' && { outlineStyle: 'none' } as any,
+									WEB_NO_OUTLINE,
 								]}
 							/>
 						</View>
@@ -1221,7 +1222,7 @@ export default function PostScreen({
 	// ==================== 宽屏预览面板（与帖子详情页一致）====================
 	const renderPreviewPanel = () => {
 		// 获取渐变颜色（使用主题语义颜色）
-		const colors = theme.colors as any;
+		const colors = theme.colors;
 		const gradientColors = post_type === 'seeking' 
 			? { primary: colors.seeking, secondary: colors.seekingContainer, accent: colors.onSeekingContainer }
 			: share_type === 'warning' 
@@ -1617,8 +1618,8 @@ export default function PostScreen({
 								style={[
 									styles.subTypeBtn,
 									share_type === 'recommend' && {
-										backgroundColor: (theme.colors as any).recommendContainer,
-										borderColor: (theme.colors as any).recommend,
+										backgroundColor: theme.colors.recommendContainer,
+										borderColor: theme.colors.recommend,
 									},
 									share_type !== 'recommend' && {
 										borderColor: theme.colors.outlineVariant,
@@ -1628,7 +1629,7 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color: share_type === 'recommend' ? (theme.colors as any).recommend : theme.colors.onSurfaceVariant,
+										color: share_type === 'recommend' ? theme.colors.recommend : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'recommend' ? '600' : '400',
 									}}
@@ -1640,8 +1641,8 @@ export default function PostScreen({
 								style={[
 									styles.subTypeBtn,
 									share_type === 'warning' && {
-										backgroundColor: (theme.colors as any).warningContainer,
-										borderColor: (theme.colors as any).warning,
+										backgroundColor: theme.colors.warningContainer,
+										borderColor: theme.colors.warning,
 									},
 									share_type !== 'warning' && {
 										borderColor: theme.colors.outlineVariant,
@@ -1651,7 +1652,7 @@ export default function PostScreen({
 							>
 								<Text
 									style={{
-										color: share_type === 'warning' ? (theme.colors as any).warning : theme.colors.onSurfaceVariant,
+										color: share_type === 'warning' ? theme.colors.warning : theme.colors.onSurfaceVariant,
 										fontSize: 13,
 										fontWeight: share_type === 'warning' ? '600' : '400',
 									}}

@@ -1,6 +1,6 @@
 import { postsRepository, seedMockPosts } from '@/src/repositories/posts_repository';
 import { USE_MOCK } from '@/src/constants/app';
-import type { PostCreateInput, PostCreateResult, CompanionStatusUpdateRequest } from '@/src/models/Post';
+import type { PostCreateInput, PostCreateResult, CompanionStatusUpdateRequest, SharePostCreateInput } from '@/src/models/Post';
 import type { PostListFilters, PostsListResponse } from '@/src/repositories/posts_repository';
 import { AppError } from '@/src/lib/errors/app_error';
 
@@ -12,6 +12,22 @@ function ensureHttpUrls(arr?: string[], label?: string) {
     // 仅做基础校验，进一步规则留给后端
     if (!/^https?:\/\//i.test(s)) throw new AppError(`${label ?? '链接'} 需为 http(s) URL`);
   }
+}
+
+function normalizePostInput(input: PostCreateInput): PostCreateInput {
+  const base = {
+    ...input,
+    title: input.title.trim(),
+    content: input.content.trim(),
+    canteen: input.canteen?.trim() || input.canteen,
+    tags: input.tags?.map((t) => t.trim()).filter(Boolean),
+    images: input.images?.map((u) => u.trim()).filter(Boolean),
+  };
+  if (input.post_type === 'share') {
+    const share = input as SharePostCreateInput;
+    return { ...base, cuisine: share.cuisine?.trim() || share.cuisine } as PostCreateInput;
+  }
+  return base as PostCreateInput;
 }
 
 function validate(input: PostCreateInput) {
@@ -70,7 +86,8 @@ export const postsService = {
       // 如果是网络/CORS 或者服务端 500，可以选择回退到本地 mock（仅在环境允许时）
       const fallbackEnabled = USE_MOCK || (process.env.EXPO_PUBLIC_FALLBACK_TO_MOCK ?? 'false').toLowerCase() === 'true';
       const isNetworkOrCors = err && err.code === 'CORS_OR_NETWORK';
-      const isServer500 = err && ((err as any).status === 500 || (err as any).statusCode === 500);
+      const status = (err instanceof AppError) ? err.status : undefined;
+      const isServer500 = status === 500;
       if (fallbackEnabled && (isNetworkOrCors || isServer500)) {
         // 使用与 MockPostsRepository 相同的种子数据并做分页/排序处理
         const all = seedMockPosts();
@@ -105,15 +122,7 @@ export const postsService = {
 
   async create(input: PostCreateInput): Promise<PostCreateResult> {
     // 规范化可选字段：去除多余空白
-    const normalized: PostCreateInput = {
-      ...input,
-      title: input.title.trim(),
-      content: input.content.trim(),
-      canteen: input.canteen?.trim() || input.canteen,
-      cuisine: (input as any).cuisine?.trim() || (input as any).cuisine,
-      tags: input.tags?.map((t) => t.trim()).filter(Boolean),
-      images: input.images?.map((u) => u.trim()).filter(Boolean),
-    } as PostCreateInput;
+    const normalized = normalizePostInput(input);
 
     validate(normalized);
     return postsRepository.create(normalized);
@@ -121,15 +130,7 @@ export const postsService = {
 
   async update(postId: string, input: PostCreateInput): Promise<{ id: string; status: 'pending' | 'approved' | 'rejected' }> {
     if (!postId?.trim()) throw new AppError('缺少帖子 ID');
-    const normalized: PostCreateInput = {
-      ...input,
-      title: input.title.trim(),
-      content: input.content.trim(),
-      canteen: input.canteen?.trim() || input.canteen,
-      cuisine: (input as any).cuisine?.trim() || (input as any).cuisine,
-      tags: input.tags?.map((t) => t.trim()).filter(Boolean),
-      images: input.images?.map((u) => u.trim()).filter(Boolean),
-    } as PostCreateInput;
+    const normalized = normalizePostInput(input);
     validate(normalized);
     return postsRepository.update(postId.trim(), normalized);
   },
@@ -165,11 +166,12 @@ export const postsService = {
     if (!status || !['open', 'full', 'closed'].includes(status)) {
       throw new AppError('结伴状态不合法（open/full/closed）');
     }
-    if (typeof input.current_people !== 'undefined' && input.current_people !== null) {
-      const v = Number(input.current_people);
+    const sanitized = { ...input };
+    if (typeof sanitized.current_people !== 'undefined' && sanitized.current_people !== null) {
+      const v = Number(sanitized.current_people);
       if (!Number.isFinite(v) || v < 0) throw new AppError('当前人数需为非负整数');
-      (input as any).current_people = Math.floor(v);
+      sanitized.current_people = Math.floor(v);
     }
-    return postsRepository.updateCompanionStatus(postId.trim(), input);
+    return postsRepository.updateCompanionStatus(postId.trim(), sanitized);
   },
 };

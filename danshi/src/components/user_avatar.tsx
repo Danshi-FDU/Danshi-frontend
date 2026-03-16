@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, View, Image, StyleSheet, ViewStyle } from 'react-native';
 import { Text, useTheme as usePaperTheme } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 export type UserAvatarProps = {
@@ -32,7 +32,7 @@ export function UserAvatar({
 
   const handlePress = () => {
     if (disabled) return;
-    router.push(`/user/${userId}` as any);
+    router.push(`/user/${userId}` as Href);
   };
 
   return (

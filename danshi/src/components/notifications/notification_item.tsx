@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Image, Alert } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { Notification } from '@/src/repositories/notifications_repository';
@@ -42,7 +42,7 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
         }
       })
       .catch((e) => {
-        console.warn('[NotificationItem] Failed to check follow status:', e);
+        if (__DEV__) console.warn('[NotificationItem] Failed to check follow status:', e);
       });
     return () => { cancelled = true; };
   }, [type, sender.id]);
@@ -65,7 +65,7 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
       onMarkAsRead?.(id);
       decrementUnreadCount();
       notificationsService.markAsRead(id).catch((e) => {
-        console.warn('[NotificationItem] Failed to mark as read:', e);
+        if (__DEV__) console.warn('[NotificationItem] Failed to mark as read:', e);
       });
     }
 
@@ -75,7 +75,7 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
       router.push({
         pathname: '/post/[postId]',
         params: { postId: notification.post_id, scrollTo: 'comment', commentId: notification.related_id },
-      } as any);
+      } as Href);
       return;
     }
 
@@ -84,13 +84,13 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
       router.push({
         pathname: '/post/[postId]',
         params: { postId: notification.related_id || notification.post_id || '', scrollTo: 'comments' },
-      } as any);
+      } as Href);
       return;
     }
 
     const route = notificationsService.getNotificationRoute(notification);
     if (route) {
-      router.push(route as any);
+      router.push(route as Href);
       return;
     }
     if (notification.related_type === 'comment') {
@@ -116,7 +116,7 @@ export function NotificationItem({ notification, onMarkAsRead, refreshKey }: Not
         setIsFollowing(true);
       }
     } catch (e) {
-      console.warn('[NotificationItem] Failed to toggle follow:', e);
+      if (__DEV__) console.warn('[NotificationItem] Failed to toggle follow:', e);
     } finally {
       setFollowLoading(false);
     }

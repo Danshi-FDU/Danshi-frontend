@@ -10,8 +10,7 @@ export const STORAGE_KEYS = {
 // Runtime config & feature switches (can be overridden via EXPO_PUBLIC_* envs)
 // 生产环境默认关闭 Mock
 export const USE_MOCK = (process.env.EXPO_PUBLIC_USE_MOCK ?? 'false').toLowerCase() === 'true';
-if (!USE_MOCK && !process.env.EXPO_PUBLIC_API_URL) {
-  // eslint-disable-next-line no-console
+if (__DEV__ && !USE_MOCK && !process.env.EXPO_PUBLIC_API_URL) {
   console.warn('[config] USE_MOCK is false but EXPO_PUBLIC_API_URL is not set. Falling back to https://example.invalid');
 }
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://example.invalid';

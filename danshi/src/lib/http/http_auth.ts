@@ -63,11 +63,9 @@ async function refreshAccessToken(): Promise<boolean> {
     try {
       const refreshToken = await AuthStorage.getRefreshToken();
       if (!refreshToken) {
-        console.warn('[httpAuth] No refresh token available');
+        if (__DEV__) console.warn('[httpAuth] No refresh token available');
         return false;
       }
-
-      console.log('[httpAuth] Attempting to refresh access token...');
       
       type RefreshResponse = {
         code?: number;
@@ -87,7 +85,7 @@ async function refreshAccessToken(): Promise<boolean> {
       const newRefreshToken = res.data?.refresh_token ?? res.refresh_token;
       
       if (!token) {
-        console.warn('[httpAuth] Refresh response missing token');
+        if (__DEV__) console.warn('[httpAuth] Refresh response missing token');
         return false;
       }
 
@@ -97,10 +95,10 @@ async function refreshAccessToken(): Promise<boolean> {
         await AuthStorage.setRefreshToken(newRefreshToken);
       }
 
-      console.log('[httpAuth] Token refreshed successfully');
+      if (__DEV__) console.log('[httpAuth] Token refreshed successfully');
       return true;
     } catch (error: any) {
-      console.error('[httpAuth] Token refresh failed:', error?.message);
+      if (__DEV__) console.error('[httpAuth] Token refresh failed:', error?.message);
       // refresh_token 也过期了，清除所有 token（需要重新登录）
       await AuthStorage.clearToken();
       await AuthStorage.clearRefreshToken();
@@ -130,14 +128,10 @@ function createAuthHttpClient(): HttpClient {
     } catch (error: any) {
       // 检查是否是 token 过期错误（401 + 相关错误信息）
       if (isTokenExpiredError(error) && !isRetry) {
-        console.log('[httpAuth] Token expired, attempting refresh...');
-        
         // 尝试刷新 token
         const refreshed = await refreshAccessToken();
         
         if (refreshed) {
-          // 刷新成功，重试原始请求
-          console.log('[httpAuth] Retrying original request after token refresh');
           return makeRequest<T>(method, path, body, init, true);
         } else {
           // refresh_token 也过期了，抛出需要重新登录的错误

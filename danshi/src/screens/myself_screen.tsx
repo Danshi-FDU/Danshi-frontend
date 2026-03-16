@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Button, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,7 @@ import { ROLES } from '@/src/constants/app';
 import { Masonry } from '@/src/components/md3/masonry';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { mapUserPostListItemToPost } from '@/src/utils/post_converters';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -94,7 +94,7 @@ const AdminConsoleCard: React.FC<AdminConsoleCardProps> = ({ role }) => {
   return (
     <Pressable
       style={styles.adminConsoleWrapper}
-      onPress={() => router.push('/myself/admin' as any)}
+      onPress={() => router.push('/myself/admin' as Href)}
     >
       <View
         style={[
@@ -193,7 +193,7 @@ export default function MyselfScreen() {
         });
       }
     } catch (error) {
-      console.warn('Load profile failed:', error);
+      if (__DEV__) console.warn('Load profile failed:', error);
     } finally {
       setLoading(false);
     }
@@ -219,10 +219,10 @@ export default function MyselfScreen() {
     } catch (error: any) {
       // 忽略 companion 类型相关的验证错误
       if (error?.message?.includes('companion') || error?.message?.includes('PostType')) {
-        console.warn('后端返回了不支持的帖子类型，已忽略');
+        if (__DEV__) console.warn('后端返回了不支持的帖子类型，已忽略');
         setPosts([]);
       } else {
-        console.warn('Load posts failed:', error);
+        if (__DEV__) console.warn('Load posts failed:', error);
       }
     } finally {
       setPostsLoading(false);
@@ -245,10 +245,10 @@ export default function MyselfScreen() {
     } catch (error: any) {
       // 忽略 companion 类型相关的验证错误
       if (error?.message?.includes('companion') || error?.message?.includes('PostType')) {
-        console.warn('后端返回了不支持的帖子类型，已忽略');
+        if (__DEV__) console.warn('后端返回了不支持的帖子类型，已忽略');
         setFavorites([]);
       } else {
-        console.warn('Load favorites failed:', error);
+        if (__DEV__) console.warn('Load favorites failed:', error);
       }
     } finally {
       setFavoritesLoading(false);
@@ -379,17 +379,17 @@ export default function MyselfScreen() {
 
           {/* 数据栏 */}
           <View style={styles.statsRow}>
-            <Pressable style={styles.statItem} onPress={() => router.push('/myself/posts' as any)}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/posts' as Href)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.post_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>帖子</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => router.push('/myself/followers' as any)}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/followers' as Href)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.follower_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>粉丝</Text>
             </Pressable>
             <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <Pressable style={styles.statItem} onPress={() => router.push('/myself/following' as any)}>
+            <Pressable style={styles.statItem} onPress={() => router.push('/myself/following' as Href)}>
               <Text style={[styles.statNumber, { color: theme.colors.onSurface }]}>{formatCount(stats?.following_count)}</Text>
               <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>关注</Text>
             </Pressable>

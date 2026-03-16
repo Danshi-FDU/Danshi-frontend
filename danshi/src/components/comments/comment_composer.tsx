@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { WEB_NO_OUTLINE } from '@/src/utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { CommentAuthor } from '@/src/models/Comment';
 
@@ -78,7 +79,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
           {
             color: theme.colors.onSurface,
           },
-          Platform.OS === 'web' && ({ outlineStyle: 'none', borderWidth: 0 } as any),
+          WEB_NO_OUTLINE,
         ]}
       />
 

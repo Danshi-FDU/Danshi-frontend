@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Appbar, Text, useTheme as usePaperTheme } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/src/hooks/use_responsive';
-import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { breakpoints, pickByBreakpoint } from '@/src/constants/breakpoints';
 import { useAuth } from '@/src/context/auth_context';
 import { isAdmin, isSuperAdmin } from '@/src/lib/auth/roles';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// 断点：三列布局
-const THREE_COL_BREAKPOINT = 768; // md
 
 export default function AdminScreen() {
   const pTheme = usePaperTheme();
   const insets = useSafeAreaInsets();
-  const { current } = useResponsive();
+  const { current, width: windowWidth } = useResponsive();
   const { user } = useAuth();
-  const { width: windowWidth } = useWindowDimensions();
 
   // 是否为三列布局
-  const isThreeCol = windowWidth >= THREE_COL_BREAKPOINT;
+  const isThreeCol = windowWidth >= breakpoints.md;
   
   const contentHorizontalPadding = pickByBreakpoint(current, { base: 12, sm: 16, md: 20, lg: 24, xl: 24 });
   const isDark = pTheme.dark;
@@ -168,7 +165,7 @@ export default function AdminScreen() {
               {/* 帖子管理 */}
               <Pressable
                 style={styles.gridCardWrapperThree}
-                onPress={() => router.push('/myself/admin/posts' as any)}
+                onPress={() => router.push('/myself/admin/posts' as Href)}
               >
                 <LinearGradient
                   colors={cardGradientColors.posts}
@@ -188,7 +185,7 @@ export default function AdminScreen() {
               {/* 评论管理 */}
               <Pressable
                 style={styles.gridCardWrapperThree}
-                onPress={() => router.push('/myself/admin/comments' as any)}
+                onPress={() => router.push('/myself/admin/comments' as Href)}
               >
                 <LinearGradient
                   colors={cardGradientColors.comments}
@@ -208,7 +205,7 @@ export default function AdminScreen() {
               {/* 用户管理（三列时提上来） */}
               <Pressable
                 style={styles.gridCardWrapperThree}
-                onPress={() => router.push('/myself/admin/users' as any)}
+                onPress={() => router.push('/myself/admin/users' as Href)}
               >
                 <LinearGradient
                   colors={cardGradientColors.users}
@@ -232,7 +229,7 @@ export default function AdminScreen() {
                 {/* 帖子管理 */}
                 <Pressable
                   style={styles.gridCardWrapper}
-                  onPress={() => router.push('/myself/admin/posts' as any)}
+                  onPress={() => router.push('/myself/admin/posts' as Href)}
                 >
                   <LinearGradient
                     colors={cardGradientColors.posts}
@@ -252,7 +249,7 @@ export default function AdminScreen() {
                 {/* 评论管理 */}
                 <Pressable
                   style={styles.gridCardWrapper}
-                  onPress={() => router.push('/myself/admin/comments' as any)}
+                  onPress={() => router.push('/myself/admin/comments' as Href)}
                 >
                   <LinearGradient
                     colors={cardGradientColors.comments}
@@ -273,7 +270,7 @@ export default function AdminScreen() {
               {/* 用户管理通栏（仅超级管理员 + 窄屏） */}
               {userIsSuperAdmin && (
                 <Pressable
-                  onPress={() => router.push('/myself/admin/users' as any)}
+                  onPress={() => router.push('/myself/admin/users' as Href)}
                 >
                   <LinearGradient
                     colors={cardGradientColors.users}

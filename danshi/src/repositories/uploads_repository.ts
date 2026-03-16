@@ -104,9 +104,6 @@ class FDUHoleUploadsRepository implements UploadsRepository {
 
       const data: FDUHoleUploadResponse = await response.json();
       
-      // 调试日志 - 查看实际返回的数据结构
-      console.log('[FDUHole Upload] Response:', JSON.stringify(data, null, 2));
-      
       // 尝试从多种可能的格式中提取 URL
       const imageUrl = 
         data.url || 
@@ -122,9 +119,8 @@ class FDUHoleUploadsRepository implements UploadsRepository {
         if (data.success === false || data.error) {
           throw new Error(data.error || '上传失败');
         }
-        // 打印完整响应以便调试
-        console.error('[FDUHole Upload] Unexpected response format:', data);
-        throw new Error(`上传失败，服务器返回格式异常: ${JSON.stringify(data)}`);
+        if (__DEV__) console.error('[FDUHole Upload] Unexpected response format:', data);
+        throw new Error(`上传失败，服务器返回格式异常`);
       }
 
       // 从返回的 URL 中提取文件名

@@ -6,7 +6,7 @@ import { useAuth } from '@/src/context/auth_context';
 import { router } from 'expo-router';
 import { Button, Card, Text, TextInput, Banner } from 'react-native-paper';
 import { authService } from '@/src/services/auth_service';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { REGEX } from '../constants/app';
 

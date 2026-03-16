@@ -3,8 +3,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { StyleSheet, View, ScrollView, RefreshControl, Pressable, useWindowDimensions, TextInput } from 'react-native';
 import { Masonry } from '@/src/components/md3/masonry';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
-import { pickByBreakpoint } from '@/src/constants/breakpoints';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
+import { breakpoints, pickByBreakpoint } from '@/src/constants/breakpoints';
 import {
   Text,
   useTheme as usePaperTheme,
@@ -27,9 +27,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { LoaderState } from '@/src/constants/post_labels';
 
-
-// 断点：搜索栏显示 (3栏以上，即 lg)
-const SEARCHBAR_BREAKPOINT = 1024;
 
 type SortValue = SortBy;
 
@@ -68,7 +65,7 @@ export default function ExploreScreen() {
   const { width: windowWidth } = useWindowDimensions();
   
   // 3栏以上（≥1024px）显示搜索栏而非搜索图标
-  const showSearchBar = windowWidth >= SEARCHBAR_BREAKPOINT;
+  const showSearchBar = windowWidth >= breakpoints.lg;
   // 移动端列间距极小，紧凑布局
   const gap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });
   const verticalGap = pickByBreakpoint(bp, { base: 4, sm: 6, md: 10, lg: 14, xl: 16 });

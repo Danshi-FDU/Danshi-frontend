@@ -138,7 +138,7 @@ export function usePostComments({ postId, currentUser, isAdmin: isCurrentUserAdm
         return next;
       });
     } catch (e) {
-      console.warn('load comments failed', e);
+      if (__DEV__) console.warn('load comments failed', e);
     } finally {
       setCommentLoading(false);
     }
@@ -160,7 +160,7 @@ export function usePostComments({ postId, currentUser, isAdmin: isCurrentUserAdm
       });
       setCommentRepliesPagination((prev) => ({ ...prev, [commentId]: res.pagination }));
     } catch (e) {
-      console.error('[fetchRepliesForComment] error:', e);
+      if (__DEV__) console.error('[fetchRepliesForComment] error:', e);
       showAlert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
     } finally {
       setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
@@ -450,7 +450,7 @@ export function usePostComments({ postId, currentUser, isAdmin: isCurrentUserAdm
         try {
           await fetchRepliesForComment(rootCommentId);
         } catch {
-          console.warn('auto refresh replies failed');
+          if (__DEV__) console.warn('auto refresh replies failed');
         }
       }
 

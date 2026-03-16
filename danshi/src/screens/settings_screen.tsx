@@ -83,7 +83,7 @@ export default function SettingsScreen() {
       setHometown(fetchedProfile.hometown ?? '');
       setAvatarUrl(fetchedProfile.avatar_url ?? null);
     } catch (error) {
-      console.warn('Load profile failed:', error);
+      if (__DEV__) console.warn('Load profile failed:', error);
     } finally {
       setLoading(false);
     }
@@ -95,10 +95,7 @@ export default function SettingsScreen() {
 
   // 保存个人资料
   const handleSaveProfile = useCallback(async () => {
-    console.log('[Settings] handleSaveProfile called');
-    console.log('[Settings] user:', user);
     if (!user?.id) {
-      console.warn('[Settings] No user ID, cannot save');
       Alert.alert('错误', '用户未登录，无法保存');
       return;
     }
@@ -110,8 +107,6 @@ export default function SettingsScreen() {
         hometown: hometown.trim() || undefined,
         avatar_url: avatarUrl ?? undefined,
       };
-      console.log('[Settings] Saving profile with input:', JSON.stringify(input));
-      console.log('[Settings] User ID:', user.id);
       await usersService.updateUser(user.id, input);
       // 更新 profile 状态，使 hasUnsavedChanges 变为 false
       setProfile(prev => prev ? { ...prev, name: name.trim(), bio: bio.trim(), hometown: hometown.trim(), avatar_url: avatarUrl } : prev);
@@ -137,7 +132,7 @@ export default function SettingsScreen() {
         ]);
       }
     } catch (error: any) {
-      console.error('[Settings] Save failed:', error);
+      if (__DEV__) console.error('[Settings] Save failed:', error);
       if (Platform.OS === 'web') {
         window.alert('保存失败：' + (error?.message ?? '请稍后重试'));
       } else {

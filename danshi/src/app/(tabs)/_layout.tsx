@@ -1,15 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, Platform, useWindowDimensions, Pressable, Text as RNText, Image } from 'react-native';
-import { Tabs, Redirect, usePathname, useRouter } from 'expo-router';
+import { Tabs, Redirect, usePathname, useRouter, type Href } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '@/src/context/theme_context';
 import { HapticTab } from '@/src/components/haptic_tab';
 import { useAuth } from '@/src/context/auth_context';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// 侧边栏显示的断点 (2-3栏之间，即 md)
-const SIDEBAR_BREAKPOINT = 768;
+import { breakpoints } from '@/src/constants/breakpoints';
 
 // 侧边栏导航项
 const SIDEBAR_ITEMS = [
@@ -83,10 +81,10 @@ function Sidebar() {
                   backgroundColor: theme.effective === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
                 },
               ]}
-              onPress={() => router.push(item.href as any)}
+              onPress={() => router.push(item.href as Href)}
             >
               <Ionicons
-                name={iconName as any}
+                name={iconName as React.ComponentProps<typeof Ionicons>['name']}
                 size={24}
                 color={isActive ? theme.colors.primary : theme.colors.onSurfaceVariant}
               />
@@ -122,7 +120,7 @@ export default function TabsLayout() {
   const tabBarTotalHeight = tabBarBaseHeight + tabBarPadding;
 
   // 是否显示侧边栏
-  const showSidebar = windowWidth >= SIDEBAR_BREAKPOINT;
+  const showSidebar = windowWidth >= breakpoints.md;
   
   // 是否在管理界面（隐藏底部栏）
   const isInAdminRoute = pathname.includes('/myself/admin');

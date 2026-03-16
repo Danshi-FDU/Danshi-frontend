@@ -15,9 +15,9 @@ export class AppError extends Error {
 
   static from(error: unknown, fallbackMessage = '发生未知错误') {
     if (error instanceof AppError) return error;
-    const anyErr: any = error as any;
-    const status = anyErr?.status ?? anyErr?.response?.status;
-    const message = anyErr?.message ?? fallbackMessage;
+    const err = error as Record<string, unknown> | null | undefined;
+    const status = (err?.status as number | undefined) ?? (err?.response as Record<string, unknown> | undefined)?.status as number | undefined;
+    const message = (err?.message as string | undefined) ?? fallbackMessage;
     return new AppError(message, { status, cause: error });
   }
 }

@@ -9,13 +9,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { searchService, type SearchPost, type SearchUser } from '@/src/services/search_service';
-import { useBreakpoint } from '@/src/hooks/use_media_query';
+import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { Masonry } from '@/src/components/md3/masonry';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import { useWaterfallSettings } from '@/src/context/waterfall_context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WEB_NO_OUTLINE } from '@/src/utils';
 
 // 宽屏断点
 const WIDE_BREAKPOINT = 768;
@@ -265,7 +266,7 @@ export default function SearchScreen() {
                     color: theme.colors.onSurface,
                     fontSize: isWideScreen ? 16 : 15,
                   },
-                  Platform.OS === 'web' && ({ outlineStyle: 'none', borderWidth: 0 } as any),
+                  WEB_NO_OUTLINE,
                 ]}
               />
               {keyword.trim() ? (

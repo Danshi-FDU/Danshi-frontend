@@ -1,4 +1,4 @@
-import config from '@/src/config';
+import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '@/src/constants/app';
 import { AppError } from '@/src/lib/errors/app_error';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -20,8 +20,8 @@ export interface HttpClient {
 }
 
 export function createHttpClient(opts: HttpOptions = {}): HttpClient {
-  const baseUrl = opts.baseUrl ?? config.apiBaseUrl;
-  const timeoutMs = opts.timeoutMs ?? config.requestTimeoutMs;
+  const baseUrl = opts.baseUrl ?? API_BASE_URL;
+  const timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const defaultHeaders = {
     ...(opts.defaultHeaders ?? {}),
   } as Record<string, string>;
@@ -40,16 +40,12 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
 
-    // 打印当前使用的 baseUrl，帮助调试
-    // eslint-disable-next-line no-console
-    console.log('[HttpClient] Using baseUrl:', baseUrl);
-
     try {
       const token = await opts.getAuthToken?.();
       const headers: Record<string, string> = {
         'Accept': 'application/json',
         ...defaultHeaders,
-        ...(init?.headers as any)
+        ...(init?.headers as Record<string, string> | undefined),
       };
       const bodyIsBodyInit = isBodyInit(body);
       const payload: BodyInit | undefined = body == null ? undefined : bodyIsBodyInit ? (body as BodyInit) : JSON.stringify(body);
@@ -66,11 +62,10 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
       const { headers: _ignoredHeaders, ...restInit } = init ?? {};
 
       const fullUrl = `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
-      // eslint-disable-next-line no-console
-      console.log(`[HttpClient] ${method} ${fullUrl}`, {
-        headers: { ...headers, Authorization: headers['Authorization'] ? 'Bearer ***' : 'None' },
-        body: bodyIsBodyInit ? 'Blob/FormData' : payload
-      });
+
+      if (__DEV__) {
+        console.log(`[HttpClient] ${method} ${fullUrl}`);
+      }
 
       const res = await fetch(fullUrl, {
         method,
@@ -85,15 +80,14 @@ export function createHttpClient(opts: HttpOptions = {}): HttpClient {
       const data = isJson ? await res.json().catch(() => undefined) : await res.text().catch(() => undefined);
 
       if (!res.ok) {
-        const message = (data as any)?.message || `请求失败(${res.status})`;
+        const message = (data && typeof data === 'object' && 'message' in data ? (data as { message?: string }).message : undefined) || `请求失败(${res.status})`;
         throw new AppError(message, { status: res.status, cause: data });
       }
 
       return (data as unknown) as T;
     } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.error('[HttpClient] Request failed:', method, path, 'baseUrl:', baseUrl, 'error:', e?.message, e);
-      const name = (e && typeof e === 'object') ? (e as any).name : undefined;
+      if (__DEV__) console.error('[HttpClient] Request failed:', method, path, e?.message);
+      const name = (e instanceof Error) ? e.name : undefined;
       if (name === 'AbortError') {
         throw new AppError('请求超时', { code: 'TIMEOUT', cause: e });
       }

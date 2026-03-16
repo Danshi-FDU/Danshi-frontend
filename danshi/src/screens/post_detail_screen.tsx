@@ -15,7 +15,6 @@ import {
   Avatar,
   Button,
   Text,
-  useTheme as usePaperTheme,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -33,11 +32,8 @@ import { isAdmin } from '@/src/lib/auth/roles';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { usePostActions } from '@/src/hooks/use_post_actions';
 import { usePostComments, flattenReplies, REPLY_PREVIEW_COUNT } from '@/src/hooks/use_post_comments';
-
-// 响应式断点
-const BREAKPOINTS = {
-  desktop: 768,
-};
+import { breakpoints } from '@/src/constants/breakpoints';
+import { useExtendedTheme } from '@/src/constants/md3_theme';
 
 // 图片展示配置
 const IMAGE_CONFIG = {
@@ -90,7 +86,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     }
   }, [postId, localParams, normalizeParam]);
   const insets = useSafeAreaInsets();
-  const theme = usePaperTheme();
+  const theme = useExtendedTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { user: currentUser } = useAuth();
 
@@ -151,7 +147,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const commentsListOffsetRef = useRef(0);
   const commentPositionsRef = useRef<Record<string, number>>({});
 
-  const isDesktop = windowWidth >= BREAKPOINTS.desktop;
+  const isDesktop = windowWidth >= breakpoints.md;
 
   // 图片布局计算
   const imageLayout = useMemo(() => {
@@ -184,8 +180,9 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         is_favorited: data.is_favorited ?? false,
         stats: { ...(data.stats ?? {}), comment_count: data.stats?.comment_count ?? 0 },
       });
-      if (data.author && typeof (data.author as any).is_following === 'boolean') {
-        syncFollowState((data.author as any).is_following);
+      const author = data.author as (typeof data.author & { is_following?: boolean }) | undefined;
+      if (author && typeof author.is_following === 'boolean') {
+        syncFollowState(author.is_following);
       }
     } catch (e) {
       setError((e as Error)?.message ?? '加载帖子失败');
@@ -371,7 +368,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
   // 根据帖子类型生成渐变色（使用主题语义颜色）
   const gradientColors = useMemo(() => {
-    const colors = theme.colors as any;
+    const colors = theme.colors;
     if (post?.post_type === 'seeking') {
       // 求助类型：紫色系
       return { 
@@ -439,7 +436,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       ? SHARE_LABEL[sharePostData.share_type] 
       : TYPE_LABEL[post?.post_type ?? 'share'];
 
-    const typeIcon = post?.post_type === 'seeking' ? 'help-circle' : 
+    const typeIcon: React.ComponentProps<typeof Ionicons>['name'] = post?.post_type === 'seeking' ? 'help-circle' : 
       sharePostData?.share_type === 'warning' ? 'alert-circle' : 'heart';
 
     return (
@@ -460,7 +457,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         {/* 中央内容 - 大类型图标 */}
         <View style={styles.fallbackContent}>
           <View style={styles.fallbackIconContainer}>
-            <Ionicons name={typeIcon as any} size={64} color="rgba(255,255,255,0.85)" />
+            <Ionicons name={typeIcon} size={64} color="rgba(255,255,255,0.85)" />
           </View>
           <View style={styles.fallbackTypeBadge}>
             <Text style={styles.fallbackTypeBadgeText}>{typeLabel}</Text>
@@ -615,20 +612,20 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             styles.tagBadge,
             { 
               backgroundColor: post.post_type === 'seeking' 
-                ? (theme.colors as any).seekingContainer 
+                ? theme.colors.seekingContainer 
                 : (sharePostData?.share_type === 'warning' 
-                    ? (theme.colors as any).warningContainer 
-                    : (theme.colors as any).recommendContainer)
+                    ? theme.colors.warningContainer 
+                    : theme.colors.recommendContainer)
             }
           ]}>
             <Text style={[
               styles.tagBadgeText,
               { 
                 color: post.post_type === 'seeking'
-                  ? (theme.colors as any).seeking
+                  ? theme.colors.seeking
                   : (sharePostData?.share_type === 'warning' 
-                      ? (theme.colors as any).warning 
-                      : (theme.colors as any).recommend)
+                      ? theme.colors.warning 
+                      : theme.colors.recommend)
               }
             ]}>
               {sharePostData && sharePostData.share_type ? SHARE_LABEL[sharePostData.share_type] : TYPE_LABEL[post.post_type]}
