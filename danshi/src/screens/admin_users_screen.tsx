@@ -12,6 +12,7 @@ import type { AdminUserSummary } from '@/src/repositories/admin_repository';
 import type { Role } from '@/src/constants/app';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ROLES } from '@/src/constants/app';
+import { formatDate } from '@/src/utils/time_format';
 import { UserAvatar } from '@/src/components/user_avatar';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -119,10 +120,7 @@ export default function AdminUsersScreen() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-  };
+  const formatFullDate = (dateStr: string) => formatDate(dateStr, 'full');
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
@@ -219,7 +217,7 @@ export default function AdminUsersScreen() {
                   <Text style={[styles.metaSeparator, { color: pTheme.colors.outline }]}>·</Text>
                   <Ionicons name="time-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
                   <Text style={[styles.metaText, { color: pTheme.colors.onSurfaceVariant }]}>
-                    {formatDate(u.created_at)}
+                    {formatFullDate(u.created_at)}
                   </Text>
                 </View>
               </View>

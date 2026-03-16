@@ -30,6 +30,7 @@ import ImageUploadGrid from '@/src/components/image_upload_grid';
 import ImageViewer from '@/src/components/image_viewer';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/src/context/auth_context';
+import { formatCurrentDate } from '@/src/utils/time_format';
 import type {
 	Category,
 	CommonCreateBase,
@@ -1219,12 +1220,6 @@ export default function PostScreen({
 
 	// ==================== 宽屏预览面板（与帖子详情页一致）====================
 	const renderPreviewPanel = () => {
-		// 格式化日期
-		const formatDate = () => {
-			const now = new Date();
-			return `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-		};
-
 		// 获取渐变颜色（使用主题语义颜色）
 		const colors = theme.colors as any;
 		const gradientColors = post_type === 'seeking' 
@@ -1300,7 +1295,7 @@ export default function PostScreen({
 									{currentUser?.name || '我'}
 								</Text>
 								<Text style={[styles.previewAuthorMeta, { color: theme.colors.onSurfaceVariant }]}>
-									{formatDate()}
+									{formatCurrentDate()}
 								</Text>
 							</View>
 						</View>
@@ -1425,7 +1420,7 @@ export default function PostScreen({
 						{/* 浏览量和时间 */}
 						<View style={styles.previewMetaRow}>
 							<Text style={[styles.previewMetaText, { color: theme.colors.outline }]}>0 浏览</Text>
-							<Text style={[styles.previewMetaText, { color: theme.colors.outline }]}>发布于 {formatDate()}</Text>
+							<Text style={[styles.previewMetaText, { color: theme.colors.outline }]}>发布于 {formatCurrentDate()}</Text>
 						</View>
 					</View>
 

@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, type ViewStyle } from 'react-native';
 import { Avatar, Button, IconButton, Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 import type { CommentEntity, MentionedUser } from '@/src/models/Comment';
 import { UserAvatar } from '@/src/components/user_avatar';
+import { formatRelativeTime } from '@/src/utils/time_format';
 
 type BaseProps = {
   onLike?: (comment: CommentEntity) => void;
@@ -26,21 +27,6 @@ type CommentItemProps = BaseProps & {
   replyCount?: number;
   showReplySummary?: boolean;
 };
-
-function formatRelativeTime(dateString: string) {
-  if (!dateString) return '';
-  const now = Date.now();
-  const target = new Date(dateString).getTime();
-  const diffMs = Math.max(0, now - target);
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天前`;
-  return new Date(dateString).toLocaleDateString();
-}
 
 function MentionedText({ mentions }: { mentions?: MentionedUser[] }) {
   if (!mentions?.length) return null;

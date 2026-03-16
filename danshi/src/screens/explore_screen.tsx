@@ -25,12 +25,11 @@ import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 import { PostCard, estimatePostCardHeight } from '@/src/components/post_card';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
+import type { LoaderState } from '@/src/constants/post_labels';
 
 
 // 断点：搜索栏显示 (3栏以上，即 lg)
 const SEARCHBAR_BREAKPOINT = 1024;
-
-type LoaderState = 'idle' | 'initial' | 'refresh';
 
 type SortValue = SortBy;
 

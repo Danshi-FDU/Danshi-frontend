@@ -6,11 +6,8 @@ import {
   RefreshControl,
   StyleSheet,
   Pressable,
-  Alert,
-  Share,
   useWindowDimensions,
   FlatList,
-  Platform,
   LayoutChangeEvent,
 } from 'react-native';
 import {
@@ -23,34 +20,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { postsService } from '@/src/services/posts_service';
-import { usersService } from '@/src/services/users_service';
 import type { Post, SeekingPost, SharePost } from '@/src/models/Post';
-import type { Comment, CommentEntity, CommentReply, CommentsPagination } from '@/src/models/Comment';
+
 import { CommentItem } from '@/src/components/comments/comment_item';
 import { CommentComposer } from '@/src/components/comments/comment_composer';
 import ImageViewer from '@/src/components/image_viewer';
-import { commentsService } from '@/src/services/comments_service';
-
-// 扁平化嵌套回复：将三级及更深的回复全部提升为二级
-function flattenReplies(replies: CommentReply[]): CommentReply[] {
-  const result: CommentReply[] = [];
-  for (const reply of replies) {
-    // 添加当前回复（不含其 replies 字段）
-    const { replies: nestedReplies, ...replyWithoutNested } = reply as CommentReply & { replies?: CommentReply[] };
-    result.push(replyWithoutNested);
-    // 递归扁平化嵌套回复
-    if (nestedReplies?.length) {
-      result.push(...flattenReplies(nestedReplies));
-    }
-  }
-  return result;
-}
-const REPLY_PREVIEW_COUNT = 3;
+import { formatRelativeOrDate } from '@/src/utils/time_format';
+import { TYPE_LABEL, SHARE_LABEL, type LoaderState } from '@/src/constants/post_labels';
 import { BottomSheet } from '@/src/components/overlays/bottom_sheet';
 import { useAuth } from '@/src/context/auth_context';
 import { isAdmin } from '@/src/lib/auth/roles';
-import { adminService } from '@/src/services/admin_service';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { usePostActions } from '@/src/hooks/use_post_actions';
+import { usePostComments, flattenReplies, REPLY_PREVIEW_COUNT } from '@/src/hooks/use_post_comments';
 
 // 响应式断点
 const BREAKPOINTS = {
@@ -64,50 +46,9 @@ const IMAGE_CONFIG = {
   desktopLeftRatio: 0.55,
 };
 
-const TYPE_LABEL: Record<Post['post_type'], string> = {
-  share: '分享',
-  seeking: '求助',
-};
-
-const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
-  recommend: '推荐',
-  warning: '避雷',
-};
-
-type LoaderState = 'idle' | 'initial' | 'refresh';
-
 type Props = {
   postId: string;
 };
-
-// 跨平台 alert 辅助函数
-function showAlert(title: string, message?: string) {
-  if (Platform.OS === 'web') {
-    window.alert(message ? `${title}: ${message}` : title);
-  } else {
-    Alert.alert(title, message);
-  }
-}
-
-function formatDate(value?: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHour = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
-
-  if (diffMin < 1) return '刚刚';
-  if (diffMin < 60) return `${diffMin} 分钟前`;
-  if (diffHour < 24) return `${diffHour} 小时前`;
-  if (diffDay < 7) return `${diffDay} 天前`;
-
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${m}-${d}`;
-}
 
 const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const router = useRouter();
@@ -156,52 +97,61 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const [post, setPost] = useState<Post | null>(null);
   const [loader, setLoader] = useState<LoaderState>('initial');
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState({ like: false, favorite: false, follow: false });
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentSort, setCommentSort] = useState<'latest' | 'hot'>('latest');
-  const [commentPagination, setCommentPagination] = useState<CommentsPagination>({
-    page: 1,
-    limit: 10,
-    total: 0,
-    total_pages: 1,
-  });
-  const [commentLoading, setCommentLoading] = useState(false);
-  const [commentReplies, setCommentReplies] = useState<Record<string, CommentReply[]>>({});
-  const [commentRepliesPagination, setCommentRepliesPagination] = useState<Record<string, CommentsPagination>>({});
-  const [commentRepliesLoading, setCommentRepliesLoading] = useState<Record<string, boolean>>({});
-  const [commentRepliesExpanded, setCommentRepliesExpanded] = useState<Record<string, boolean>>({});
-  const [commentSheetVisible, setCommentSheetVisible] = useState(false);
-  const [threadVisible, setThreadVisible] = useState(false);
-  const [threadRootComment, setThreadRootComment] = useState<Comment | null>(null);
-  const [commentInput, setCommentInput] = useState('');
-  const [commentReplyTarget, setCommentReplyTarget] = useState<Comment | CommentReply | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageViewer, setImageViewer] = useState<{ visible: boolean; index: number }>({ visible: false, index: 0 });
-  const [shareSheetVisible, setShareSheetVisible] = useState(false);
-  const [isFollowed, setIsFollowed] = useState(false);
 
-  const commentSortRef = useRef<'latest' | 'hot'>(commentSort);
-  // 使用 ref 同步跟踪正在处理点赞的评论，避免快速点击时的竞态问题
-  const commentLikeLoadingRef = useRef<Set<string>>(new Set());
-  const commentDeleteLoadingRef = useRef<Set<string>>(new Set());
-  // 使用 ref 存储最新的评论状态，避免闭包中读取旧数据
-  const commentsRef = useRef<Comment[]>(comments);
-  const commentRepliesRef = useRef<Record<string, CommentReply[]>>(commentReplies);
-  const threadRootCommentRef = useRef<Comment | null>(threadRootComment);
+  const isCurrentUserAdmin = !!currentUser?.role && isAdmin(currentUser.role);
+
+  // ==================== 评论 Hook ====================
+  const onCommentCountChange = useCallback((delta: number) => {
+    setPost((prev) =>
+      prev ? {
+        ...prev,
+        stats: {
+          ...(prev.stats ?? {}),
+          comment_count: Math.max(0, (prev.stats?.comment_count ?? 0) + delta),
+        },
+      } : prev
+    );
+  }, []);
+
+  const commentsHook = usePostComments({
+    postId,
+    currentUser: currentUser ? { id: currentUser.id, role: currentUser.role } : null,
+    isAdmin: isCurrentUserAdmin,
+    onCommentCountChange,
+  });
+
+  const {
+    comments, commentSort, commentPagination, commentLoading,
+    commentReplies, commentRepliesLoading, commentRepliesPagination, commentRepliesExpanded,
+    commentSheetVisible, threadVisible, threadRootComment,
+    commentInput, setCommentInput, commentReplyTarget,
+    threadRepliesList, threadReplyTotal, threadLoading, threadHasMore,
+    fetchComments, fetchRepliesForComment,
+    handleToggleCommentLike, handleReplyToComment, getCommentMoreActions,
+    handleCancelReply, handleOpenCommentSheet, handleCloseCommentSheet,
+    handleSubmitComment, handleCycleCommentSort,
+    handleShowRepliesPanel, handleCloseThreadSheet,
+    handleLoadMoreThreadReplies, handleReloadThreadReplies,
+    handleDesktopToggleReplies,
+    findCommentTarget, commentsRef, fetchRepliesForCommentRef,
+  } = commentsHook;
+
+  // ==================== 交互操作 Hook ====================
+  const {
+    actionLoading, isFollowed, shareSheetVisible, setShareSheetVisible,
+    syncFollowState,
+    handleToggleLike, handleToggleFavorite, handleToggleFollow,
+    handleShareToPlatform, handleCopyPostId,
+  } = usePostActions({ post, setPost, currentUserId: currentUser?.id });
+
   const scrollRef = useRef<ScrollView | null>(null);
   const commentsOffsetRef = useRef(0);
   const commentsListOffsetRef = useRef(0);
   const commentPositionsRef = useRef<Record<string, number>>({});
-  const fetchRepliesForCommentRef = useRef<(commentId: string, page?: number, append?: boolean) => Promise<void>>(
-    async () => {}
-  );
 
   const isDesktop = windowWidth >= BREAKPOINTS.desktop;
-
-  // 同步 ref 与最新的 state，确保 callback 中能读取到最新数据
-  commentsRef.current = comments;
-  commentRepliesRef.current = commentReplies;
-  threadRootCommentRef.current = threadRootComment;
 
   // 图片布局计算
   const imageLayout = useMemo(() => {
@@ -222,79 +172,12 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   }, [windowWidth, windowHeight, isDesktop, insets.top]);
 
   // ==================== 数据获取 ====================
-  const fetchComments = useCallback(async (postIdValue: string, sort: 'latest' | 'hot') => {
-    setCommentLoading(true);
-    try {
-      const res = await commentsService.listByPost(postIdValue, { sortBy: sort, limit: 10 });
-      console.log('[fetchComments] received', res.comments.length, 'comments');
-      
-      // 为 replies 数组中的每个回复添加 parent_id（后端不返回此字段）
-      const commentsWithParentId = res.comments.map((comment) => {
-        if (comment.replies && comment.replies.length > 0) {
-          const repliesWithParentId = comment.replies.map((reply) => ({
-            ...reply,
-            parent_id: comment.id, // 设置 parent_id 为根评论的 ID
-          }));
-          return {
-            ...comment,
-            replies: repliesWithParentId,
-          };
-        }
-        return comment;
-      });
-      
-      // 检查是否有子评论被错误地当作根评论
-      commentsWithParentId.forEach((c, idx) => {
-        if (c.parent_id) {
-          console.warn(`[fetchComments] WARNING: Comment at index ${idx} (id: ${c.id}) has parent_id: ${c.parent_id}, should be a root comment!`);
-        }
-      });
-      
-      setComments(commentsWithParentId);
-      setCommentPagination(res.pagination);
-      setCommentReplies((prev) => {
-        if (!Object.keys(prev).length) return prev;
-        const next: Record<string, CommentReply[]> = {};
-        for (const comment of commentsWithParentId) {
-          if (prev[comment.id]) {
-            next[comment.id] = prev[comment.id];
-          }
-        }
-        return next;
-      });
-      setCommentRepliesPagination((prev) => {
-        if (!Object.keys(prev).length) return prev;
-        const next: Record<string, CommentsPagination> = {};
-        for (const comment of commentsWithParentId) {
-          if (prev[comment.id]) {
-            next[comment.id] = prev[comment.id];
-          }
-        }
-        return next;
-      });
-      setCommentRepliesExpanded((prev) => {
-        if (!Object.keys(prev).length) return prev;
-        const next: Record<string, boolean> = {};
-        for (const comment of commentsWithParentId) {
-          if (prev[comment.id]) {
-            next[comment.id] = prev[comment.id];
-          }
-        }
-        return next;
-      });
-    } catch (e) {
-      console.warn('load comments failed', e);
-    } finally {
-      setCommentLoading(false);
-    }
-  }, []);
-
   const fetchPost = useCallback(async (mode: LoaderState = 'initial') => {
     setLoader(mode);
     if (mode !== 'refresh') setError(null);
     try {
       const data = await postsService.get(postId);
-      await fetchComments(data.id, commentSortRef.current);
+      await fetchComments(data.id, commentSort);
       setPost({
         ...data,
         is_liked: data.is_liked ?? false,
@@ -302,34 +185,22 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         stats: { ...(data.stats ?? {}), comment_count: data.stats?.comment_count ?? 0 },
       });
       if (data.author && typeof (data.author as any).is_following === 'boolean') {
-        setIsFollowed((data.author as any).is_following);
+        syncFollowState((data.author as any).is_following);
       }
     } catch (e) {
       setError((e as Error)?.message ?? '加载帖子失败');
     } finally {
       setLoader('idle');
     }
-  }, [postId, fetchComments]);
+  }, [postId, fetchComments, commentSort, syncFollowState]);
 
   useEffect(() => {
     fetchPost('initial');
   }, [fetchPost]);
 
   useEffect(() => {
-    commentSortRef.current = commentSort;
-  }, [commentSort]);
-
-  useEffect(() => {
     if (post?.id) fetchComments(post.id, commentSort);
   }, [post?.id, commentSort, fetchComments]);
-
-  useEffect(() => {
-    if (!threadRootComment) return;
-    const updated = comments.find((c) => c.id === threadRootComment.id);
-    if (updated && updated !== threadRootComment) {
-      setThreadRootComment(updated);
-    }
-  }, [comments, threadRootComment]);
 
   // 自动滚动到评论区
   useEffect(() => {
@@ -342,29 +213,6 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       }, 400); // 延迟以确保渲染完成
     }
   }, [autoScrollToComments, comments]);
-
-  const findCommentTarget = useCallback((commentId: string) => {
-    // 检查是否是顶级评论
-    const topComment = commentsRef.current.find((c) => c.id === commentId);
-    if (topComment) return { entity: topComment, parent: topComment };
-
-    // 在顶级评论的 replies 预览中查找
-    for (const c of commentsRef.current) {
-      const reply = c.replies?.find((r) => r.id === commentId);
-      if (reply) return { entity: reply, parent: c }; // parent 是根评论
-    }
-
-    // 在 commentReplies 中查找（展开的回复列表）
-    for (const [rootId, replies] of Object.entries(commentRepliesRef.current)) {
-      const reply = replies.find((r) => r.id === commentId);
-      if (reply) {
-        // parent 应该是根评论，而不是子评论的 parent_id
-        const parent = commentsRef.current.find((c) => c.id === rootId) ?? null;
-        return { entity: reply, parent };
-      }
-    }
-    return null;
-  }, []);
 
   const scrollToCommentId = useCallback((commentId: string) => {
     const y = commentPositionsRef.current[commentId];
@@ -394,15 +242,11 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       : replyParent?.id;
 
     if (targetInfo?.entity && replyParent && targetInfo.entity.id !== replyParent.id) {
-      console.log('[useEffect-pendingScrollCommentId] replyParent:', replyParent.id, 'parent_id:', replyParent.parent_id);
+      // 通过 hook 的 handleShowRepliesPanel 打开回复面板并加载数据
       if (!threadRootComment || threadRootComment.id !== replyParent.id) {
-        setThreadRootComment(replyParent);
-      }
-      if (!threadVisible) {
-        setThreadVisible(true);
+        handleShowRepliesPanel(replyParent);
       }
       if (!commentReplies[replyParent.id] && (replyParent.reply_count ?? 0) > 0) {
-        console.log('[useEffect-pendingScrollCommentId] calling fetchRepliesForComment with replyParent.id:', replyParent.id);
         fetchRepliesForCommentRef.current(replyParent.id).catch(() => {});
       }
     }
@@ -416,7 +260,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     scrollToCommentId,
     commentReplies,
     threadRootComment,
-    threadVisible,
+    handleShowRepliesPanel,
   ]);
 
   const refreshing = loader === 'refresh';
@@ -425,550 +269,12 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   // ==================== 交互处理 ====================
   const handleRefresh = useCallback(() => fetchPost('refresh'), [fetchPost]);
 
-  const handleToggleLike = useCallback(async () => {
-    if (!post) return;
-    const currentlyLiked = post.is_liked;
-    const currentLikeCount = post.stats?.like_count ?? 0;
-
-    setActionLoading((prev) => ({ ...prev, like: true }));
-    setPost((prev) =>
-      prev ? {
-        ...prev,
-        is_liked: !currentlyLiked,
-        stats: { ...(prev.stats ?? {}), like_count: currentLikeCount + (currentlyLiked ? -1 : 1) },
-      } : prev
-    );
-
-    try {
-      const result = currentlyLiked
-        ? await postsService.unlike(post.id)
-        : await postsService.like(post.id);
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          is_liked: result?.is_liked ?? !currentlyLiked,
-          stats: { ...(prev.stats ?? {}), like_count: result?.like_count ?? currentLikeCount + (currentlyLiked ? -1 : 1) },
-        } : prev
-      );
-    } catch (e) {
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          is_liked: currentlyLiked,
-          stats: { ...(prev.stats ?? {}), like_count: currentLikeCount },
-        } : prev
-      );
-    } finally {
-      setActionLoading((prev) => ({ ...prev, like: false }));
-    }
-  }, [post]);
-
-  const handleToggleFavorite = useCallback(async () => {
-    if (!post) return;
-    const currentlyFavorited = post.is_favorited;
-    const currentFavoriteCount = post.stats?.favorite_count ?? 0;
-
-    setActionLoading((prev) => ({ ...prev, favorite: true }));
-    setPost((prev) =>
-      prev ? {
-        ...prev,
-        is_favorited: !currentlyFavorited,
-        stats: { ...(prev.stats ?? {}), favorite_count: currentFavoriteCount + (currentlyFavorited ? -1 : 1) },
-      } : prev
-    );
-
-    try {
-      const result = currentlyFavorited
-        ? await postsService.unfavorite(post.id)
-        : await postsService.favorite(post.id);
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          is_favorited: result?.is_favorited ?? !currentlyFavorited,
-          stats: { ...(prev.stats ?? {}), favorite_count: result?.favorite_count ?? currentFavoriteCount + (currentlyFavorited ? -1 : 1) },
-        } : prev
-      );
-    } catch (e) {
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          is_favorited: currentlyFavorited,
-          stats: { ...(prev.stats ?? {}), favorite_count: currentFavoriteCount },
-        } : prev
-      );
-    } finally {
-      setActionLoading((prev) => ({ ...prev, favorite: false }));
-    }
-  }, [post]);
-
-  const handleToggleFollow = useCallback(async () => {
-    if (!post?.author?.id) return;
-    if (currentUser?.id === post.author.id) {
-      showAlert('提示', '不能关注自己');
-      return;
-    }
-    setActionLoading((prev) => ({ ...prev, follow: true }));
-    try {
-      const { is_following } = isFollowed
-        ? await usersService.unfollowUser(post.author.id)
-        : await usersService.followUser(post.author.id);
-      setIsFollowed(is_following);
-    } catch (e) {
-      showAlert('操作失败', (e as Error)?.message ?? '请稍后重试');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, follow: false }));
-    }
-  }, [post?.author?.id, isFollowed, currentUser?.id]);
-
-  const patchCommentEntity = useCallback((targetId: string, patch: Partial<Comment | CommentReply>) => {
-    setComments((prev) => {
-      const next = prev.map((comment) => {
-        if (comment.id === targetId) return { ...comment, ...patch } as Comment;
-        if (!comment.replies?.length) return comment;
-        const replies = comment.replies.map((reply) =>
-          reply.id === targetId ? { ...reply, ...patch } as CommentReply : reply
-        );
-        return { ...comment, replies };
-      });
-      return next;
-    });
-    setCommentReplies((prev) => {
-      const next: Record<string, CommentReply[]> = {};
-      for (const [parentId, list] of Object.entries(prev)) {
-        next[parentId] = list.map((reply) =>
-          reply.id === targetId ? { ...reply, ...patch } as CommentReply : reply
-        );
-      }
-      return next;
-    });
-    // 同步更新回复详情面板中的根评论状态
-    setThreadRootComment((prev) => {
-      if (!prev) return prev;
-      // 如果更新的是根评论本身
-      if (prev.id === targetId) {
-        return { ...prev, ...patch } as Comment;
-      }
-      // 如果更新的是根评论的某个回复（在 replies 预览中）
-      if (prev.replies?.length) {
-        const updatedReplies = prev.replies.map((reply) =>
-          reply.id === targetId ? { ...reply, ...patch } as CommentReply : reply
-        );
-        // 检查是否真的有更新
-        if (updatedReplies.some((r, idx) => r !== prev.replies![idx])) {
-          return { ...prev, replies: updatedReplies };
-        }
-      }
-      return prev;
-    });
-  }, []);
-
-  // 从 ref 中获取最新的评论状态
-  const findLatestCommentById = useCallback((commentId: string): { is_liked?: boolean; like_count?: number } | null => {
-    // 检查是否是 threadRootComment
-    if (threadRootCommentRef.current?.id === commentId) {
-      return threadRootCommentRef.current;
-    }
-    // 检查顶级评论
-    const topComment = commentsRef.current.find((c) => c.id === commentId);
-    if (topComment) return topComment;
-    // 检查顶级评论的内嵌回复
-    for (const c of commentsRef.current) {
-      const reply = c.replies?.find((r) => r.id === commentId);
-      if (reply) return reply;
-    }
-    // 检查 commentReplies
-    for (const replies of Object.values(commentRepliesRef.current)) {
-      const reply = replies.find((r) => r.id === commentId);
-      if (reply) return reply;
-    }
-    return null;
-  }, []);
-
-  const handleToggleCommentLikeById = useCallback(async (commentId: string) => {
-    // 使用 ref 同步检查，防止快速点击时的竞态问题
-    if (commentLikeLoadingRef.current.has(commentId)) return;
-    
-    // 立即标记为处理中（同步操作）
-    commentLikeLoadingRef.current.add(commentId);
-    
-    // 从 ref 中获取最新的评论状态
-    const latestEntity = findLatestCommentById(commentId);
-    if (!latestEntity) {
-      commentLikeLoadingRef.current.delete(commentId);
-      return;
-    }
-    
-    const currentlyLiked = latestEntity.is_liked ?? false;
-    const currentLikeCount = latestEntity.like_count ?? 0;
-    
-    // 乐观更新 UI
-    patchCommentEntity(commentId, {
-      is_liked: !currentlyLiked,
-      like_count: currentLikeCount + (currentlyLiked ? -1 : 1),
-    });
-    
-    try {
-      const result = currentlyLiked
-        ? await commentsService.unlike(commentId)
-        : await commentsService.like(commentId);
-      // 使用服务器返回的数据更新
-      patchCommentEntity(commentId, {
-        is_liked: result?.is_liked ?? !currentlyLiked,
-        like_count: result?.like_count ?? currentLikeCount + (currentlyLiked ? -1 : 1),
-      });
-    } catch (e) {
-      // 出错时回滚到原始状态
-      patchCommentEntity(commentId, { is_liked: currentlyLiked, like_count: currentLikeCount });
-    } finally {
-      // 无论成功失败，都解除加载状态
-      commentLikeLoadingRef.current.delete(commentId);
-    }
-  }, [patchCommentEntity, findLatestCommentById]);
-
-  // 包装函数：从 CommentItem 组件接收 entity，然后提取 id 调用核心函数
-  const handleToggleCommentLike = useCallback((entity: Comment | CommentReply) => {
-    handleToggleCommentLikeById(entity.id);
-  }, [handleToggleCommentLikeById]);
-
-  const isCurrentUserAdmin = !!currentUser?.role && isAdmin(currentUser.role);
-
-  const handleDeleteCommentByEntity = useCallback(async (entity: CommentEntity) => {
-    if (!post?.id) return;
-    const targetId = entity.id;
-    if (commentDeleteLoadingRef.current.has(targetId)) return;
-    commentDeleteLoadingRef.current.add(targetId);
-    try {
-      if (isCurrentUserAdmin) {
-        await adminService.deleteComment(targetId);
-      } else {
-        await commentsService.remove(targetId);
-      }
-
-      // 删除后统一刷新，避免本地复杂树结构同步出错
-      await fetchComments(post.id, commentSortRef.current);
-
-      if (threadRootComment?.id === targetId) {
-        setThreadVisible(false);
-        setThreadRootComment(null);
-      } else if (threadRootComment) {
-        await fetchRepliesForCommentRef.current(threadRootComment.id).catch(() => {});
-      }
-
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          stats: {
-            ...(prev.stats ?? {}),
-            comment_count: Math.max(0, (prev.stats?.comment_count ?? 0) - 1),
-          },
-        } : prev
-      );
-    } catch (e) {
-      showAlert('删除失败', (e as Error)?.message ?? '暂时无法删除这条评论');
-    } finally {
-      commentDeleteLoadingRef.current.delete(targetId);
-    }
-  }, [post?.id, isCurrentUserAdmin, fetchComments, threadRootComment]);
-
-  const handleConfirmDeleteComment = useCallback((entity: CommentEntity) => {
-    Alert.alert(
-      '删除评论',
-      '确定要删除这条评论吗？此操作不可撤销。',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '删除', style: 'destructive', onPress: () => { handleDeleteCommentByEntity(entity).catch(() => {}); } },
-      ]
-    );
-  }, [handleDeleteCommentByEntity]);
-
-  const handleOpenCommentSheet = useCallback(() => setCommentSheetVisible(true), []);
-  const handleReplyToComment = useCallback((entity: Comment | CommentReply) => {
-    console.log('[handleReplyToComment] entity:', JSON.stringify({
-      id: entity.id,
-      parent_id: entity.parent_id,
-      content: entity.content?.substring(0, 20),
-    }));
-    setCommentReplyTarget(entity);
-    setCommentSheetVisible(true);
-  }, []);
-  const getCommentMoreActions = useCallback((entity: CommentEntity) => {
-    const canDeleteAsOwner = !!currentUser?.id && !!entity.author?.id && entity.author.id === currentUser.id;
-    const canDelete = isCurrentUserAdmin || canDeleteAsOwner;
-    const actions: { key: string; title: string; icon?: string; destructive?: boolean; onPress: () => void }[] = [
-      {
-        key: 'reply',
-        title: '回复',
-        icon: 'reply',
-        onPress: () => handleReplyToComment(entity),
-      },
-    ];
-    if (canDelete) {
-      actions.push({
-        key: 'delete',
-        title: isCurrentUserAdmin && entity.author?.id !== currentUser?.id ? '删除' : '删除',
-        icon: 'delete',
-        destructive: true,
-        onPress: () => handleConfirmDeleteComment(entity),
-      });
-    }
-    return actions;
-  }, [currentUser, isCurrentUserAdmin, handleReplyToComment, handleConfirmDeleteComment]);
-  const handleCancelReply = useCallback(() => setCommentReplyTarget(null), []);
-  const handleCloseCommentSheet = useCallback(() => {
-    setCommentSheetVisible(false);
-    setCommentReplyTarget(null);
-  }, []);
-
-  const fetchRepliesForComment = useCallback(async (commentId: string, page = 1, append = false) => {
-    console.log('[fetchRepliesForComment] called with commentId:', commentId, 'page:', page);
-    setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: true }));
-    try {
-      const res = await commentsService.listReplies(commentId, { limit: 20, page });
-      
-      // 为 replies 数组中的每个回复添加 parent_id（后端不返回此字段）
-      const repliesWithParentId = (res.replies ?? []).map((reply) => ({
-        ...reply,
-        parent_id: commentId, // 设置 parent_id 为根评论的 ID
-      }));
-      
-      const flattened = flattenReplies(repliesWithParentId);
-      setCommentReplies((prev) => {
-        const existing = append ? prev[commentId] ?? [] : [];
-        const merged = append ? [...existing, ...flattened] : flattened;
-        return { ...prev, [commentId]: merged };
-      });
-      setCommentRepliesPagination((prev) => ({ ...prev, [commentId]: res.pagination }));
-    } catch (e) {
-      console.error('[fetchRepliesForComment] error:', e, 'commentId:', commentId);
-      showAlert('加载失败', (e as Error)?.message ?? '暂时无法加载更多回复');
-    } finally {
-      setCommentRepliesLoading((prev) => ({ ...prev, [commentId]: false }));
-    }
-  }, []);
-  fetchRepliesForCommentRef.current = fetchRepliesForComment;
-
-  const handleShowRepliesPanel = useCallback((entity: CommentEntity) => {
-    console.log('[handleShowRepliesPanel] called with entity:', entity.id, 'parent_id:', entity.parent_id);
-    // 判断是否是根评论：根评论的 parent_id 为 null 或 undefined
-    const isRootComment = !entity.parent_id;
-    const rootComment = isRootComment
-      ? (entity as Comment)
-      : comments.find((c) => c.id === entity.parent_id) ?? null;
-    
-    console.log('[handleShowRepliesPanel] isRootComment:', isRootComment, 'rootComment:', rootComment?.id);
-    if (!rootComment) return;
-    setThreadRootComment(rootComment);
-    setThreadVisible(true);
-    if (!commentReplies[rootComment.id] && rootComment.replies?.length) {
-      setCommentReplies((prev) => ({
-        ...prev,
-        [rootComment.id]: flattenReplies(rootComment.replies ?? []),
-      }));
-    }
-    const hasReplies = commentReplies[rootComment.id]?.length;
-    if (!hasReplies && (rootComment.reply_count ?? 0) > 0) {
-      console.log('[handleShowRepliesPanel] calling fetchRepliesForComment with rootComment.id:', rootComment.id);
-      fetchRepliesForComment(rootComment.id).catch(() => {});
-    }
-  }, [comments, commentReplies, fetchRepliesForComment]);
-
-  const handleCloseThreadSheet = useCallback(() => {
-    setThreadVisible(false);
-  }, []);
-
-  const handleLoadMoreThreadReplies = useCallback(() => {
-    if (!threadRootComment) return;
-    console.log('[handleLoadMoreThreadReplies] threadRootComment:', threadRootComment.id, 'parent_id:', threadRootComment.parent_id);
-    const pagination = commentRepliesPagination[threadRootComment.id];
-    const nextPage = (pagination?.page ?? 1) + 1;
-    if (pagination && nextPage > (pagination.total_pages ?? Infinity)) return;
-    fetchRepliesForComment(threadRootComment.id, nextPage, true).catch(() => {});
-  }, [threadRootComment, commentRepliesPagination, fetchRepliesForComment]);
-
-  const handleReloadThreadReplies = useCallback(() => {
-    if (!threadRootComment) return;
-    console.log('[handleReloadThreadReplies] threadRootComment:', threadRootComment.id, 'parent_id:', threadRootComment.parent_id);
-    fetchRepliesForComment(threadRootComment.id).catch(() => {});
-  }, [threadRootComment, fetchRepliesForComment]);
-
-  const handleDesktopToggleReplies = useCallback((comment: Comment) => {
-    console.log('[handleDesktopToggleReplies] comment:', comment.id, 'parent_id:', comment.parent_id);
-    setCommentRepliesExpanded((prev) => {
-      const nextExpanded = !prev[comment.id];
-      if (nextExpanded && !commentReplies[comment.id]) {
-        fetchRepliesForComment(comment.id).catch(() => {});
-      }
-      return { ...prev, [comment.id]: nextExpanded };
-    });
-  }, [commentReplies, fetchRepliesForComment]);
-
   const handleOpenImageViewer = useCallback((index: number) => {
     setImageViewer({ visible: true, index });
   }, []);
 
   const handleCloseImageViewer = useCallback(() => {
     setImageViewer((prev) => ({ ...prev, visible: false }));
-  }, []);
-
-  const handleShareToPlatform = useCallback(async () => {
-    if (!post) return;
-    setShareSheetVisible(false);
-    try {
-      await Share.share({ message: `${post.title}\n来自旦食社区，快来看看！` });
-    } catch (error) {
-      console.warn('[post_detail] share failed', error);
-    }
-  }, [post]);
-
-  const handleCopyPostId = useCallback(async () => {
-    if (!post) return;
-    setShareSheetVisible(false);
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(post.id);
-        showAlert('已复制', '帖子 ID 已复制到剪贴板');
-      } else {
-        await Share.share({ message: `帖子 ID：${post.id}` });
-      }
-    } catch {
-      showAlert('复制失败', `请手动复制帖子 ID：${post.id}`);
-    }
-  }, [post]);
-
-  const handleSubmitComment = useCallback(async () => {
-    if (!post) return;
-    const content = commentInput.trim();
-    if (!content) return;
-    try {
-      // 根据 API_ALL 文档：后端会自动处理层级关系
-      // 前端只需传入被回复评论的ID作为 parent_id，后端会自动找到根评论
-      let parent_id: string | undefined;
-      let reply_to_user_id: string | undefined;
-      let rootCommentId: string | undefined; // 用于刷新回复列表的根评论ID
-      
-      console.log('[handleSubmitComment] commentReplyTarget:', JSON.stringify({
-        id: commentReplyTarget?.id,
-        parent_id: commentReplyTarget?.parent_id,
-        content: commentReplyTarget?.content?.substring(0, 20),
-      }));
-      
-      if (commentReplyTarget) {
-        // 🔑 根据 API 文档：前端只需传入被回复评论的ID作为 parent_id
-        // 后端会自动处理层级关系，找到根评论
-        parent_id = commentReplyTarget.id;
-        reply_to_user_id = commentReplyTarget.author?.id;
-        
-        // 计算 rootCommentId（用于前端刷新回复列表）
-        if (!commentReplyTarget.parent_id) {
-          // 回复一级评论：parent_id 就是根评论ID
-          rootCommentId = commentReplyTarget.id;
-        } else {
-          // 回复子评论：使用 findCommentTarget 找到根评论
-          const target = findCommentTarget(commentReplyTarget.id);
-          if (target?.parent) {
-            // parent 总是根评论（findCommentTarget 已经处理了这个逻辑）
-            rootCommentId = target.parent.id;
-          } else {
-            // 兜底：如果找不到，使用 parent_id
-            rootCommentId = commentReplyTarget.parent_id;
-          }
-        }
-      }
-      
-      console.log('[handleSubmitComment] before create - parent_id:', parent_id, 'rootCommentId:', rootCommentId);
-      
-      const createdResponse = await commentsService.create(post.id, {
-        content,
-        parent_id,
-        reply_to_user_id,
-      });
-      
-      // 🔍 后端返回的数据结构是 { comment: {...} }，需要提取 comment 字段
-      const createdEntity = (createdResponse as any)?.comment || createdResponse;
-      
-      console.log('[handleSubmitComment] after create - createdResponse:', createdResponse);
-      console.log('[handleSubmitComment] after create - createdEntity (extracted):', createdEntity);
-      
-      // 不再需要验证逻辑，rootCommentId 已经在提交前正确计算
-      
-      const isReply = !!parent_id;
-      if (isReply && createdEntity && rootCommentId) {
-        // 🔧 为新创建的回复添加 parent_id（后端不返回此字段）
-        const newReply: CommentReply = {
-          ...(createdEntity as CommentReply),
-          parent_id: rootCommentId,
-        };
-        
-        let updatedReplyLength = 0;
-        setCommentReplies((prev) => {
-          const prevList = prev[rootCommentId!] ?? [];
-          const merged = [newReply, ...prevList];
-          updatedReplyLength = merged.length;
-          return { ...prev, [rootCommentId!]: merged };
-        });
-        setCommentRepliesPagination((prev) => {
-          const prevPagination = prev[rootCommentId!];
-          const limit = prevPagination?.limit ?? 20;
-          const total = prevPagination?.total != null
-            ? prevPagination.total + 1
-            : updatedReplyLength;
-          const total_pages = Math.max(1, Math.ceil(total / limit));
-          return {
-            ...prev,
-            [rootCommentId!]: {
-              page: prevPagination?.page ?? 1,
-              limit,
-              total,
-              total_pages,
-            },
-          };
-        });
-        setComments((prev) => prev.map((comment) => {
-          if (comment.id !== rootCommentId) return comment;
-          const previewSource = flattenReplies(comment.replies ?? []);
-          const preview = [newReply, ...previewSource].slice(0, REPLY_PREVIEW_COUNT);
-          return {
-            ...comment,
-            reply_count: (comment.reply_count ?? 0) + 1,
-            replies: preview,
-          };
-        }));
-      } else if (!isReply && createdEntity) {
-        const newComment = createdEntity as Comment;
-        setComments((prev) => [newComment, ...prev]);
-        setCommentPagination((prev) => {
-          const limit = (prev as CommentsPagination).limit ?? 10;
-          const total = (prev.total ?? 0) + 1;
-          const total_pages = Math.max(1, Math.ceil(total / limit));
-          return { ...prev, limit, total, total_pages };
-        });
-      }
-      setCommentInput('');
-      setCommentReplyTarget(null);
-      setCommentSheetVisible(false);
-      await fetchComments(post.id, commentSort);
-      // 如果是回复评论，自动刷新该根评论的回复列表以显示新回复
-      // 注意：只能查询一级评论的回复，所以必须使用 rootCommentId
-      if (rootCommentId) {
-        try {
-          await fetchRepliesForComment(rootCommentId);
-        } catch (e) {
-          console.warn('auto refresh replies failed', e);
-        }
-      }
-      setPost((prev) =>
-        prev ? {
-          ...prev,
-          stats: { ...(prev.stats ?? {}), comment_count: (prev.stats?.comment_count ?? 0) + 1 },
-        } : prev
-      );
-    } catch (e) {
-      showAlert('评论失败', (e as Error)?.message ?? '暂时无法发表评论');
-    }
-  }, [commentInput, commentReplyTarget, post, fetchComments, commentSort, fetchRepliesForComment]);
-
-  const handleCycleCommentSort = useCallback(() => {
-    setCommentSort((prev) => (prev === 'latest' ? 'hot' : 'latest'));
   }, []);
 
   // ==================== 数据派生 ====================
@@ -980,14 +286,6 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
   const favoriteCount = post?.stats?.favorite_count ?? 0;
   const viewCount = post?.stats?.view_count ?? 0;
   const commentCount = post?.stats?.comment_count ?? commentPagination.total;
-  const threadRepliesList = threadRootComment ? commentReplies[threadRootComment.id] ?? [] : [];
-  const threadPaginationInfo = threadRootComment ? commentRepliesPagination[threadRootComment.id] : undefined;
-  const threadReplyTotal = Math.max(
-    threadPaginationInfo?.total ?? threadRootComment?.reply_count ?? 0,
-    threadRepliesList.length,
-  );
-  const threadLoading = threadRootComment ? !!commentRepliesLoading[threadRootComment.id] : false;
-  const threadHasMore = threadReplyTotal > threadRepliesList.length;
 
   const threadSheet = (
     <BottomSheet
@@ -1189,7 +487,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
         <View style={styles.authorTextWrap}>
           <Text style={styles.authorName} numberOfLines={1}>{post?.author?.name ?? '匿名用户'}</Text>
           <Text style={[styles.authorMeta, { color: theme.colors.onSurfaceVariant }]}>
-            {formatDate(post?.created_at)}
+            {formatRelativeOrDate(post?.created_at)}
           </Text>
         </View>
       </Pressable>
@@ -1351,7 +649,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           {viewCount} 浏览
         </Text>
         <Text style={[styles.metaText, { color: theme.colors.outline }]}>
-          发布于 {formatDate(post?.created_at)}
+          发布于 {formatRelativeOrDate(post?.created_at)}
         </Text>
       </View>
     </View>
@@ -1594,7 +892,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                     </Text>
                   </View>
                   <Text style={[styles.desktopHeroTitle, { color: theme.colors.inverseOnSurface, textShadowColor: theme.colors.shadow }]} numberOfLines={4}>{post?.title}</Text>
-                  <Text style={[styles.heroMeta, { color: `${theme.colors.inverseOnSurface}BF` }]}>{formatDate(post?.created_at)}</Text>
+                  <Text style={[styles.heroMeta, { color: `${theme.colors.inverseOnSurface}BF` }]}>{formatRelativeOrDate(post?.created_at)}</Text>
                 </View>
               </View>
             )}

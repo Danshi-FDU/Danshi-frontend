@@ -21,11 +21,11 @@ export const REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_REQUEST_TIMEOUT
 // Base URL with /api/v1 prefix comes from src/config
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/auth/login',    // POST
-    REGISTER: '/auth/register',  // POST
-    ME: '/auth/me',  // GET
-    LOGOUT: '/auth/logout',  // POST
-    REFRESH: '/auth/refresh', // POST 
+    LOGIN: '/auth/login',             // POST
+    REGISTER: '/auth/register',       // POST
+    ME: '/auth/me',                   // GET
+    LOGOUT: '/auth/logout',           // POST
+    REFRESH: '/auth/refresh',         // POST 
   },
   USERS: {
     ROOT: '/users', // GET /:userId, PUT /:userId

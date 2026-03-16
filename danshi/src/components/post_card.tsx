@@ -4,11 +4,7 @@ import { Text, useTheme as usePaperTheme, IconButton, Menu } from 'react-native-
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
 import { UserAvatar } from '@/src/components/user_avatar';
-
-const SHARE_LABEL: Record<'recommend' | 'warning', string> = {
-  recommend: '推荐',
-  warning: '避雷',
-};
+import { SHARE_LABEL } from '@/src/constants/post_labels';
 
 // 莫兰迪色系背景色组（低饱和、高明度）
 const POSTER_COLORS = [

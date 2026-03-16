@@ -10,6 +10,7 @@ import { isAdmin } from '@/src/lib/auth/roles';
 import { adminService } from '@/src/services/admin_service';
 import type { AdminPendingPostSummary } from '@/src/repositories/admin_repository';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { formatDate } from '@/src/utils/time_format';
 
 export default function AdminPostsScreen() {
   const pTheme = usePaperTheme();
@@ -169,11 +170,8 @@ export default function AdminPostsScreen() {
     }
   };
 
-  // 格式化时间
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
-  };
+  // 格式化时间（使用统一工具函数）
+  const formatShortDate = (dateStr: string) => formatDate(dateStr, 'short');
 
   return (
     <View style={{ flex: 1, backgroundColor: pTheme.colors.background }}>
@@ -329,7 +327,7 @@ export default function AdminPostsScreen() {
                     <Text style={dynamicStyles.metaText}>{post.author?.name || '未知'}</Text>
                     <Text style={dynamicStyles.metaSeparator}>·</Text>
                     <Ionicons name="time-outline" size={11} color={pTheme.colors.onSurfaceVariant} />
-                    <Text style={dynamicStyles.metaText}>{formatDate(post.created_at)}</Text>
+                    <Text style={dynamicStyles.metaText}>{formatShortDate(post.created_at)}</Text>
                   </View>
                   {/* 类型标签 */}
                   <View style={[
