@@ -41,25 +41,25 @@ danshi/
 │   ├── app/                # 路由入口（Expo Router）
 │   ├── screens/            # 页面级组件（绑定 Service/Context）
 │   ├── components/         # 通用组件与 MD3 包装
-│   ├── context/            # 全局状态与上下文
-│   ├── hooks/              # 响应式与媒体查询
+│   ├── context/            # 全局状态与上下文（Auth/Theme/Notifications/Waterfall）
+│   ├── hooks/              # 自定义 Hook（响应式/帖子操作/评论管理）
 │   ├── services/           # 用例服务（校验/编排）
-│   ├── repositories/       # 资源仓储（API/Mock/本地）
-│   ├── lib/                # Infra：HTTP/Auth/Error
-│   ├── models/             # 领域模型定义
-│   ├── constants/          # 常量与开关
-│   └── config/             # 运行时配置
+│   ├── repositories/       # 资源仓储（API/Mock 自动切换）
+│   ├── lib/                # Infra：HTTP/Auth/Error/Theme
+│   ├── models/             # 领域模型定义（User/Post/Comment/Stats）
+│   ├── constants/          # 常量、配置与主题
+│   └── utils/              # 工具函数（时间格式化/alert/转换器）
 ├── assets/                 # 静态资源
 └── app.json                # Expo 配置
 ```
 
 ### 架构说明
 
-- **Config & Constants**: `src/config/`、`src/constants/` 统一配置与开关（如 `USE_MOCK`、`API_BASE_URL`）
-- **Infra**: `src/lib/`（HTTP 客户端、鉴权、错误模型、JWT 解析）
-- **Repositories**: `src/repositories/` 提供资源级接口（Mock/Api 自动切换）
-- **Services**: `src/services/` 用例级校验与流程编排
-- **Presentation**: `src/app/` 路由入口、`src/screens/` 页面、`src/components/` 组件、`src/context/` 全局状态
+- **Constants**: `src/constants/` 统一管理配置、开关、断点、主题、标签常量（原 `config/` 已合并至此）
+- **Infra**: `src/lib/`（HTTP 客户端、鉴权与双 Token 刷新、错误模型、JWT 解析、动态主题色生成）
+- **Repositories**: `src/repositories/` 提供资源级接口（Mock/Api 自动切换，9 个资源域）
+- **Services**: `src/services/` 用例级校验与流程编排（10 个服务）
+- **Presentation**: `src/app/` 路由入口、`src/screens/` 页面（17 个）、`src/components/` 组件、`src/context/` 全局状态、`src/hooks/` 自定义 Hook
 
 ## ✨ 功能特性
 
