@@ -123,6 +123,7 @@ export default function NotificationsScreen() {
   const [activeTab, setActiveTab] = useState<TabValue>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshSeq, setRefreshSeq] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -152,6 +153,7 @@ export default function NotificationsScreen() {
       };
 
       try {
+        setError(null);
         const { notifications: data, pagination } = await notificationsService.list(params);
 
         // 前端额外筛选（互动 Tab 包含多个类型）
@@ -172,8 +174,12 @@ export default function NotificationsScreen() {
 
         setHasMore(pagination.page < pagination.total_pages);
         setPage(pageNum);
-      } catch (error) {
-        if (__DEV__) console.warn('[NotificationsScreen] Failed to load notifications:', error);
+      } catch (err) {
+        if (__DEV__) console.warn('[NotificationsScreen] Failed to load notifications:', err);
+        // 仅首页加载失败时显示错误状态，加载更多失败不覆盖已有数据
+        if (isRefresh || pageNum === 1) {
+          setError((err as Error)?.message || '加载通知失败，请稍后重试');
+        }
       }
     },
     [activeTab, getCurrentTypeFilter]
@@ -355,6 +361,27 @@ export default function NotificationsScreen() {
         <View style={styles.contentArea}>
           {loading ? (
             <SkeletonList theme={theme} />
+          ) : error ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cloud-offline-outline" size={56} color={theme.colors.outline} />
+              <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+                加载失败
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                {error}
+              </Text>
+              <Pressable
+                style={[styles.emptyButton, { borderColor: theme.colors.primary }]}
+                onPress={() => {
+                  setLoading(true);
+                  loadNotifications(1, true).finally(() => setLoading(false));
+                }}
+              >
+                <Text style={[styles.emptyButtonText, { color: theme.colors.primary }]}>
+                  重试
+                </Text>
+              </Pressable>
+            </View>
           ) : notifications.length === 0 ? (
             <EmptyState theme={theme} />
           ) : (
