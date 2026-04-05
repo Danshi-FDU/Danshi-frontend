@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, StyleProp, ViewStyle, Image, Pressable } from 'react-native';
+import { StyleSheet, View, StyleProp, ViewStyle, Image, Pressable, Alert, Platform } from 'react-native';
 import { Text, useTheme as usePaperTheme, IconButton, Menu } from 'react-native-paper';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Post } from '@/src/models/Post';
@@ -198,7 +198,17 @@ export const PostCard: React.FC<PostCardProps> = ({
               <Menu.Item
                 onPress={() => {
                   setMenuVisible(false);
-                  onDelete?.(post.id);
+                  const doDelete = () => onDelete?.(post.id);
+                  if (Platform.OS === 'web') {
+                    if (window.confirm('删除后无法恢复，确定要删除这篇帖子吗？')) {
+                      doDelete();
+                    }
+                  } else {
+                    Alert.alert('确认删除', '删除后无法恢复，确定要删除这篇帖子吗？', [
+                      { text: '取消', style: 'cancel' },
+                      { text: '删除', style: 'destructive', onPress: doDelete },
+                    ]);
+                  }
                 }}
                 title="删除"
                 leadingIcon="delete"
