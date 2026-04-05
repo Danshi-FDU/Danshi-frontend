@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
 	KeyboardAvoidingView,
 	Platform,
@@ -10,7 +10,9 @@ import {
 	TextInput as RNTextInput,
 	DimensionValue,
 	useWindowDimensions,
+	Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
 	Button,
 	Chip,
@@ -41,6 +43,9 @@ import type {
 	SharePostCreateInput,
 	ShareType,
 } from '@/src/models/Post';
+
+const POST_DRAFT_KEY = '@post_draft';
+const DRAFT_SAVE_DELAY = 3000; // 3秒防抖
 
 type PostScreenProps = {
 	editMode?: boolean;
@@ -109,15 +114,96 @@ export default function PostScreen({
 	const [contentFocused, setContentFocused] = useState(false);
 	const [focusedField, setFocusedField] = useState<string | null>(null);
 
-	// 进入页面时清除上一次的成功提示
-	React.useEffect(() => {
+	// 标记草稿是否已恢复，避免恢复过程触发自动保存
+	const draftRestoredRef = useRef(false);
+
+	// 进入页面时清除上一次的成功提示，并尝试恢复草稿
+	useEffect(() => {
 		setSuccess('');
 		setIsPendingReview(false);
 		setPublishedPostId(null);
+
+		// 编辑模式不恢复草稿
+		if (editMode) return;
+
+		AsyncStorage.getItem(POST_DRAFT_KEY).then(raw => {
+			if (!raw) {
+				draftRestoredRef.current = true;
+				return;
+			}
+			try {
+				const draft = JSON.parse(raw);
+				// 判断草稿是否有实质内容
+				const hasContent = draft.title?.trim() || draft.content?.trim() || (draft.images?.length > 0);
+				if (!hasContent) {
+					AsyncStorage.removeItem(POST_DRAFT_KEY);
+					draftRestoredRef.current = true;
+					return;
+				}
+				const doRestore = () => {
+					setTitle(draft.title || '');
+					setContent(draft.content || '');
+					setPostType(draft.post_type || 'share');
+					setShareType(draft.share_type || 'recommend');
+					setCategory(draft.category || 'food');
+					setCanteen(draft.canteen || '');
+					setCuisine(draft.cuisine || '');
+					setFlavors(draft.flavors || []);
+					setTags(draft.tags || []);
+					setPrice(draft.price || '');
+					setImages(draft.images || []);
+					setBudgetMin(draft.budgetMin || '');
+					setBudgetMax(draft.budgetMax || '');
+					setPreferFlavors(draft.preferFlavors || []);
+					setAvoidFlavors(draft.avoidFlavors || []);
+					draftRestoredRef.current = true;
+				};
+				if (Platform.OS === 'web') {
+					// Web 端 Alert.alert 不可用，直接恢复
+					doRestore();
+				} else {
+					Alert.alert('发现未完成的草稿', '是否恢复上次编辑的内容？', [
+						{ text: '丢弃', style: 'cancel', onPress: () => {
+							AsyncStorage.removeItem(POST_DRAFT_KEY);
+							draftRestoredRef.current = true;
+						}},
+						{ text: '恢复', onPress: doRestore },
+					]);
+				}
+			} catch {
+				AsyncStorage.removeItem(POST_DRAFT_KEY);
+				draftRestoredRef.current = true;
+			}
+		}).catch(() => {
+			draftRestoredRef.current = true;
+		});
 	}, []);
 
+	// 自动保存草稿（防抖 3 秒，仅新建模式）
+	useEffect(() => {
+		if (editMode || !draftRestoredRef.current) return;
+
+		const hasContent = title.trim() || content.trim() || images.length > 0;
+		if (!hasContent) return;
+
+		const timer = setTimeout(() => {
+			const draft = {
+				title, content, post_type, share_type, category, canteen,
+				cuisine, flavors, tags, price, images,
+				budgetMin, budgetMax, preferFlavors, avoidFlavors,
+			};
+			AsyncStorage.setItem(POST_DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
+		}, DRAFT_SAVE_DELAY);
+
+		return () => clearTimeout(timer);
+	}, [
+		editMode, title, content, post_type, share_type, category, canteen,
+		cuisine, flavors, tags, price, images,
+		budgetMin, budgetMax, preferFlavors, avoidFlavors,
+	]);
+
 	// 编辑模式：从 initialData 初始化表单
-	React.useEffect(() => {
+	useEffect(() => {
 		if (editMode && initialData && !initialLoading) {
 			setTitle(initialData.title || '');
 			setContent(initialData.content || '');
@@ -333,6 +419,7 @@ export default function PostScreen({
 		setCurrentPreferFlavorInput('');
 		setAvoidFlavors([]);
 		setCurrentAvoidFlavorInput('');
+		AsyncStorage.removeItem(POST_DRAFT_KEY).catch(() => {});
 	};
 
 	const validate = (): string => {
@@ -424,7 +511,8 @@ export default function PostScreen({
 				onUpdateSuccess?.();
 			} else {
 				const result = await postsService.create(payload);
-				// 发布成功后跳转到探索界面
+				// 发布成功后清除草稿并跳转到探索界面
+				await AsyncStorage.removeItem(POST_DRAFT_KEY).catch(() => {});
 				resetForm();
 				// 使用 replace 替换当前页面，避免用户返回到发布页面
 				router.replace('/(tabs)/explore');
