@@ -9,6 +9,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { searchService, type SearchPost, type SearchUser } from '@/src/services/search_service';
+import { usersService } from '@/src/services/users_service';
+import { useAuth } from '@/src/context/auth_context';
+import { showAlert } from '@/src/utils/alert';
 import { useBreakpoint } from '@/src/hooks/use_responsive';
 import { pickByBreakpoint } from '@/src/constants/breakpoints';
 import { Masonry } from '@/src/components/md3/masonry';
@@ -110,6 +113,8 @@ export default function SearchScreen() {
   const gridGap = pickByBreakpoint(bp, { base: 6, sm: 8, md: 10, lg: 14, xl: 18 });
   const gridVerticalGap = gridGap + 8;
 
+  const { user: currentUser } = useAuth();
+
   const [keyword, setKeyword] = useState('');
   const [activeTab, setActiveTab] = useState<TabValue>('posts');
   const [posts, setPosts] = useState<SearchPost[]>([]);
@@ -118,6 +123,7 @@ export default function SearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [followLoadingMap, setFollowLoadingMap] = useState<Record<string, boolean>>({});
 
   // 加载搜索历史
   useEffect(() => {
@@ -212,6 +218,25 @@ export default function SearchScreen() {
     },
     [doSearch, hasSearched, keyword]
   );
+
+  const handleToggleFollow = useCallback(async (userId: string, currentlyFollowing: boolean) => {
+    setFollowLoadingMap(prev => ({ ...prev, [userId]: true }));
+    try {
+      if (currentlyFollowing) {
+        await usersService.unfollowUser(userId);
+      } else {
+        await usersService.followUser(userId);
+      }
+      // 乐观更新本地用户列表中的关注状态
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, is_following: !currentlyFollowing } : u
+      ));
+    } catch (err: any) {
+      showAlert('操作失败', err.message || '请稍后重试');
+    } finally {
+      setFollowLoadingMap(prev => ({ ...prev, [userId]: false }));
+    }
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -449,28 +474,36 @@ export default function SearchScreen() {
                     </Text>
                   </View>
 
-                  {/* 右侧：关注按钮 */}
-                  <Pressable 
-                    style={[
-                      styles.followBtn,
-                      user.is_following 
-                        ? { backgroundColor: theme.colors.surfaceVariant }
-                        : { borderWidth: 1, borderColor: theme.colors.primary }
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      // TODO: 实现关注/取关逻辑
-                    }}
-                  >
-                    <Text 
+                  {/* 右侧：关注按钮（不对自己显示） */}
+                  {currentUser?.id !== user.id && (
+                    <Pressable
                       style={[
-                        styles.followBtnText, 
-                        { color: user.is_following ? theme.colors.onSurfaceVariant : theme.colors.primary }
+                        styles.followBtn,
+                        user.is_following
+                          ? { backgroundColor: theme.colors.surfaceVariant }
+                          : { borderWidth: 1, borderColor: theme.colors.primary },
+                        followLoadingMap[user.id] && { opacity: 0.6 },
                       ]}
+                      disabled={followLoadingMap[user.id]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleToggleFollow(user.id, !!user.is_following);
+                      }}
                     >
-                      {user.is_following ? '已关注' : '关注'}
-                    </Text>
-                  </Pressable>
+                      {followLoadingMap[user.id] ? (
+                        <ActivityIndicator size={14} color={theme.colors.primary} />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.followBtnText,
+                            { color: user.is_following ? theme.colors.onSurfaceVariant : theme.colors.primary }
+                          ]}
+                        >
+                          {user.is_following ? '已关注' : '关注'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
                 </Pressable>
               ))}
             </View>
