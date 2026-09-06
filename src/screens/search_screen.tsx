@@ -396,7 +396,7 @@ export default function SearchScreen() {
         {/* ==================== 内容区域 ==================== */}
         {activeTab === 'posts' && !loading && hasSearched && !error && posts.length > 0 ? (
           <FlashList
-            style={styles.resultsList}
+            style={{ ...styles.resultsList, backgroundColor: theme.colors.surfaceVariant }}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               paddingHorizontal: horizontalPadding,
