@@ -11,6 +11,7 @@ import {
   SegmentedButtons,
   Button,
 } from 'react-native-paper';
+import type { ExtendedMD3Theme } from '@/src/constants/md3_theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postsService } from '@/src/services/posts_service';
 import type { PostListFilters, PostsListResponse, SortBy } from '@/src/repositories/posts_repository';
@@ -93,7 +94,7 @@ export default function ExploreScreen() {
   const horizontalPadding = pickByBreakpoint(bp, { base: 4, sm: 6, md: 12, lg: 16, xl: 20 });
   const numColumns = pickByBreakpoint(bp, { base: 2, md: 2, lg: 3, xl: 4 });
   const insets = useSafeAreaInsets();
-  const pTheme = usePaperTheme();
+  const pTheme = usePaperTheme<ExtendedMD3Theme>();
   const tabBarHeight = windowWidth >= breakpoints.md ? 0 : 56 + Math.max(insets.bottom, 12);
   const bottomContentPadding = useMemo(() => tabBarHeight + 24, [tabBarHeight]);
 
@@ -376,7 +377,7 @@ export default function ExploreScreen() {
   }, [filters.sortBy]);
 
   return (
-    <View style={[styles.container, { backgroundColor: pTheme.colors.surfaceVariant }]}>
+    <View style={[styles.container, { backgroundColor: pTheme.colors.surfaceContainer }]}>
       {/* 顶部导航栏 */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: pTheme.colors.surface }]}>
         {showSearchBar ? (
