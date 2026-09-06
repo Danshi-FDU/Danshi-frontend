@@ -1,13 +1,13 @@
 import { API_ENDPOINTS } from '@/src/constants/app';
 import type { components } from '@/src/generated/openapi';
-import { AppError } from '@/src/lib/errors/app_error';
 import { httpAuth } from '@/src/lib/http/http_auth';
 import { unwrapApiResponse, type ApiResponse } from '@/src/lib/http/response';
+import type { Post } from '@/src/models/Post';
 import {
   requireNumber,
-  requireString,
   toNullableNickname,
   toPagination,
+  toPost,
 } from '@/src/repositories/api_mappers';
 
 export type SearchPostsParams = {
@@ -19,19 +19,7 @@ export type SearchPostsParams = {
   limit?: number;
 };
 export type SearchUsersParams = { q: string; page?: number; limit?: number };
-export type SearchHighlight = { title?: string; content?: string };
-export type SearchPost = {
-  id: number;
-  title: string;
-  content: string;
-  category: 'food' | 'recipe';
-  images: string[];
-  image_thumbs: string[];
-  author?: { id: number; name: string | null; avatar_url: string | null };
-  stats: { like_count: number; comment_count: number; view_count: number };
-  highlight?: SearchHighlight;
-  created_at: string;
-};
+export type SearchPost = Post;
 export type SearchPostsResponse = {
   posts: SearchPost[];
   pagination: ReturnType<typeof toPagination>;
@@ -49,31 +37,7 @@ export type SearchUsersResponse = {
   pagination: ReturnType<typeof toPagination>;
 };
 
-const toSearchPost = (post: components['schemas']['SearchPostItem']): SearchPost => {
-  if (post.category !== 'food' && post.category !== 'recipe') {
-    throw new AppError('服务端返回了无效的搜索结果分类');
-  }
-  return {
-    id: requireNumber(post.id, '帖子 ID'),
-    title: requireString(post.title, '帖子标题'),
-    content: requireString(post.content, '帖子正文'),
-    category: post.category,
-    images: post.images ?? [],
-    image_thumbs: post.image_thumbs ?? [],
-    author: post.author ? {
-      id: requireNumber(post.author.id, '作者 ID'),
-      name: toNullableNickname(post.author.name),
-      avatar_url: post.author.avatar_url ?? null,
-    } : undefined,
-    stats: {
-      like_count: post.stats?.like_count ?? 0,
-      comment_count: post.stats?.comment_count ?? 0,
-      view_count: post.stats?.view_count ?? 0,
-    },
-    highlight: post.highlight,
-    created_at: requireString(post.created_at, '帖子创建时间'),
-  };
-};
+const toSearchPost = (post: components['schemas']['SearchPostItem']): SearchPost => toPost(post);
 
 const toSearchUser = (user: components['schemas']['SearchUserItem']): SearchUser => ({
   id: requireNumber(user.id, '用户 ID'),

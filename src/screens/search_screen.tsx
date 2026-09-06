@@ -29,40 +29,7 @@ const WIDE_BREAKPOINT = 768;
 const SEARCH_HISTORY_KEY = '@search_history';
 const MAX_HISTORY_ITEMS = 10;
 const getSearchPostId = (post: SearchPost) => post.id;
-const mapChangedSearchPost = (post: Post, existing: SearchPost | undefined): SearchPost => ({
-  id: post.id,
-  title: post.title,
-  content: post.content,
-  category: post.category,
-  images: post.images ?? [],
-  image_thumbs: post.image_thumbs ?? [],
-  author: post.author ? {
-    id: post.author.id,
-    name: post.author.name,
-    avatar_url: post.author.avatar_url ?? null,
-  } : undefined,
-  stats: {
-    like_count: post.stats?.like_count ?? 0,
-    comment_count: post.stats?.comment_count ?? 0,
-    view_count: post.stats?.view_count ?? 0,
-  },
-  created_at: post.created_at ?? existing?.created_at ?? new Date().toISOString(),
-});
-
-// 搜索接口返回的是精简帖子模型，补齐 PostCard 需要的默认类型字段。
-const toPostCardModel = (post: SearchPost): Post => ({
-  id: post.id,
-  post_type: 'share',
-  share_type: 'recommend',
-  title: post.title,
-  content: post.content,
-  category: post.category,
-  images: post.images,
-  image_thumbs: post.image_thumbs,
-  author: post.author,
-  stats: post.stats,
-  created_at: post.created_at,
-});
+const mapChangedSearchPost = (post: Post): SearchPost => post;
 
 type TabValue = 'posts' | 'users';
 
@@ -237,7 +204,7 @@ export default function SearchScreen() {
     ({ item }: { item: SearchPost }) => {
       return (
         <View style={{ marginHorizontal: gridGap / 2, marginBottom: gridVerticalGap }}>
-          <PostCard post={toPostCardModel(item)} onPress={handlePostPress} />
+          <PostCard post={item} onPress={handlePostPress} />
         </View>
       );
     },
