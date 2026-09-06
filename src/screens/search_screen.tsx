@@ -340,7 +340,6 @@ export default function SearchScreen() {
           {/* 第二行：帖子/用户选择器 */}
           <View style={[
             styles.tabRow, 
-            { borderBottomWidth: 1, borderBottomColor: theme.colors.outlineVariant },
             isWideScreen && styles.wideTabRow,
           ]}>
             <Pressable
