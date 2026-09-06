@@ -2146,37 +2146,40 @@ export interface components {
             content?: string;
             title?: string;
         };
-        SearchPostAuthor: {
-            avatar_thumb_url?: string | null;
-            avatar_url?: string | null;
-            id?: number;
-            name?: string;
-        };
         SearchPostItem: {
-            author?: components["schemas"]["SearchPostAuthor"];
+            author?: components["schemas"]["PostAuthorView"];
+            canteen?: components["schemas"]["CanteenView"];
+            canteen_window?: components["schemas"]["CanteenWindowView"];
             /** @enum {string} */
             category?: "food" | "recipe";
             content?: string;
             created_at?: components["schemas"]["Time"];
+            cuisine?: string | null;
+            flavors?: string[];
             highlight?: components["schemas"]["SearchHighlight"];
             id?: number;
             image_displays?: string[];
             image_thumbs?: string[];
             images?: string[];
-            stats?: components["schemas"]["SearchPostStats"];
+            is_deleted?: boolean;
+            is_edited?: boolean;
+            is_favorited?: boolean;
+            is_liked?: boolean;
+            /** @enum {string} */
+            post_type?: "share" | "seeking";
+            price?: components["schemas"]["Amount"];
+            /** @enum {string|null} */
+            share_type?: "recommend" | "warning" | null;
+            stats?: components["schemas"]["PostStatsView"];
+            /** @enum {string} */
+            status?: "draft" | "pending" | "approved" | "rejected";
+            tags?: string[];
             title?: string;
+            updated_at?: components["schemas"]["Time"];
         };
         SearchPostList: {
             pagination?: components["schemas"]["Meta"];
             posts?: components["schemas"]["SearchPostItem"][];
-        };
-        SearchPostStats: {
-            /** Format: int32 */
-            comment_count?: number;
-            /** Format: int32 */
-            like_count?: number;
-            /** Format: int32 */
-            view_count?: number;
         };
         SearchUserItem: {
             avatar_url?: string | null;
