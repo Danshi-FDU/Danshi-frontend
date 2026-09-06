@@ -377,7 +377,14 @@ export default function ExploreScreen() {
   }, [filters.sortBy]);
 
   return (
-    <View style={[styles.container, { backgroundColor: pTheme.colors.surfaceContainer }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: pTheme.dark ? pTheme.colors.surfaceDim : pTheme.colors.surfaceContainer,
+        },
+      ]}
+    >
       {/* 顶部导航栏 */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: pTheme.colors.surface }]}>
         {showSearchBar ? (
