@@ -292,10 +292,16 @@ export default function ExploreScreen() {
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <View style={{ marginHorizontal: gap / 2, marginBottom: verticalGap }}>
-        <PostCard post={item} onPress={onPress} />
+        <PostCard
+          post={item}
+          onPress={onPress}
+          style={{
+            backgroundColor: pTheme.dark ? pTheme.colors.surfaceContainerLow : pTheme.colors.surface,
+          }}
+        />
       </View>
     ),
-    [gap, onPress, verticalGap]
+    [gap, onPress, pTheme.colors.surface, pTheme.colors.surfaceContainerLow, pTheme.dark, verticalGap]
   );
 
   const postTypeOptions = useMemo(() => {
