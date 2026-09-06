@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, View, ScrollView, Pressable, TextInput as RNTextInput, useWindowDimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import {
@@ -8,7 +8,7 @@ import {
   Chip,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useFocusEffect, type Href } from 'expo-router';
 import { searchService, type SearchPost, type SearchUser } from '@/src/services/search_service';
 import { usersService } from '@/src/services/users_service';
 import { useAuth } from '@/src/context/auth_context';
@@ -68,16 +68,42 @@ export default function SearchScreen() {
     publicOnly: true,
   });
 
-  // 加载搜索历史
-  useEffect(() => {
-    AsyncStorage.getItem(SEARCH_HISTORY_KEY)
-      .then((data) => {
-        if (data) {
-          setSearchHistory(JSON.parse(data));
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // 页面重新获得焦点时恢复初始搜索状态，并刷新历史记录。
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      requestSeqRef.current += 1;
+      setKeyword('');
+      setActiveTab('posts');
+      setPosts([]);
+      setUsers([]);
+      setLoading(false);
+      setError(null);
+      setHasSearched(false);
+      setSearchHistory([]);
+      setFollowLoadingMap({});
+
+      AsyncStorage.getItem(SEARCH_HISTORY_KEY)
+        .then((data) => {
+          if (!isActive || !data) return;
+          try {
+            const history = JSON.parse(data);
+            if (Array.isArray(history)) {
+              setSearchHistory(history.filter((item): item is string => typeof item === 'string'));
+            }
+          } catch {
+            // 忽略损坏的本地历史记录，保留空状态。
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        isActive = false;
+        requestSeqRef.current += 1;
+      };
+    }, [])
+  );
 
   // 保存搜索历史
   const saveToHistory = useCallback(async (term: string) => {
