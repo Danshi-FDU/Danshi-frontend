@@ -430,7 +430,7 @@ export default function ExploreScreen() {
         ref={listRef}
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: 4,
+          paddingTop: 0,
           paddingHorizontal: horizontalPadding,
           paddingBottom: bottomContentPadding,
         }}
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   headerTitle: {
     fontSize: 20,
