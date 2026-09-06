@@ -23,6 +23,9 @@
       "ios": {
         "distribution": "store"
       },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://danshi.fdueat.com/api/v2"
       }

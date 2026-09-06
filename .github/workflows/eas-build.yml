@@ -113,11 +113,20 @@ jobs:
           if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "android" ]; then
             URL=$(eas build:list --platform android --profile "$PROFILE" \
               --status finished --limit 1 --json --non-interactive \
-              | jq -r '.[0].artifacts.buildUrl')
-            if [ "$URL" != "null" ] && [ -n "$URL" ]; then
-              curl -L -o "DanShi-v${VERSION}-${PROFILE}.apk" "$URL"
-              echo "Downloaded Android artifact"
+              | jq -r '.[0].artifacts.buildUrl // empty')
+            if [ -z "$URL" ]; then
+              echo "找不到已完成的 Android 构建产物" >&2
+              exit 1
             fi
+            case "${URL%%\?*}" in
+              *.apk) ;;
+              *)
+                echo "Android 构建产物不是 APK：$URL" >&2
+                exit 1
+                ;;
+            esac
+            curl --fail --location --output "DanShi-v${VERSION}-${PROFILE}.apk" "$URL"
+            echo "Downloaded Android APK artifact"
           fi
 
           if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "ios" ]; then
