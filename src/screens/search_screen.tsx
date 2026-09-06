@@ -435,7 +435,7 @@ export default function SearchScreen() {
               <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>未找到相关帖子</Text>
             )
           ) : users.length ? (
-            <View style={styles.userList}>
+            <View style={[styles.userList, { paddingHorizontal: Math.max(0, 24 - horizontalPadding) }]}>
               {users.map((user) => {
                 return (
                   <Pressable
