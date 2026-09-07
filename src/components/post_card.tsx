@@ -404,8 +404,8 @@ const styles = StyleSheet.create({
   textPoster: {
     width: '100%',
     aspectRatio: 1,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 20,
     justifyContent: 'center',  // 垂直居中

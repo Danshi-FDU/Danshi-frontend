@@ -11,6 +11,7 @@ import {
   SegmentedButtons,
   Button,
 } from 'react-native-paper';
+import type { ExtendedMD3Theme } from '@/src/constants/md3_theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postsService } from '@/src/services/posts_service';
 import type { PostListFilters, PostsListResponse, SortBy } from '@/src/repositories/posts_repository';
@@ -93,7 +94,7 @@ export default function ExploreScreen() {
   const horizontalPadding = pickByBreakpoint(bp, { base: 4, sm: 6, md: 12, lg: 16, xl: 20 });
   const numColumns = pickByBreakpoint(bp, { base: 2, md: 2, lg: 3, xl: 4 });
   const insets = useSafeAreaInsets();
-  const pTheme = usePaperTheme();
+  const pTheme = usePaperTheme<ExtendedMD3Theme>();
   const tabBarHeight = windowWidth >= breakpoints.md ? 0 : 56 + Math.max(insets.bottom, 12);
   const bottomContentPadding = useMemo(() => tabBarHeight + 24, [tabBarHeight]);
 
@@ -291,10 +292,16 @@ export default function ExploreScreen() {
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <View style={{ marginHorizontal: gap / 2, marginBottom: verticalGap }}>
-        <PostCard post={item} onPress={onPress} />
+        <PostCard
+          post={item}
+          onPress={onPress}
+          style={{
+            backgroundColor: pTheme.dark ? pTheme.colors.surfaceContainerLow : pTheme.colors.surface,
+          }}
+        />
       </View>
     ),
-    [gap, onPress, verticalGap]
+    [gap, onPress, pTheme.colors.surface, pTheme.colors.surfaceContainerLow, pTheme.dark, verticalGap]
   );
 
   const postTypeOptions = useMemo(() => {
@@ -376,7 +383,14 @@ export default function ExploreScreen() {
   }, [filters.sortBy]);
 
   return (
-    <View style={[styles.container, { backgroundColor: pTheme.colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: pTheme.dark ? pTheme.colors.surfaceDim : pTheme.colors.surfaceContainer,
+        },
+      ]}
+    >
       {/* 顶部导航栏 */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8, backgroundColor: pTheme.colors.surface }]}>
         {showSearchBar ? (
@@ -416,7 +430,7 @@ export default function ExploreScreen() {
         ref={listRef}
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: 4,
+          paddingTop: 0,
           paddingHorizontal: horizontalPadding,
           paddingBottom: bottomContentPadding,
         }}
@@ -670,7 +684,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   headerTitle: {
     fontSize: 20,

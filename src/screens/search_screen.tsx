@@ -7,6 +7,7 @@ import {
   useTheme as usePaperTheme,
   Chip,
 } from 'react-native-paper';
+import type { ExtendedMD3Theme } from '@/src/constants/md3_theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { searchService, type SearchPost, type SearchUser } from '@/src/services/search_service';
@@ -36,7 +37,7 @@ type TabValue = 'posts' | 'users';
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const theme = usePaperTheme();
+  const theme = usePaperTheme<ExtendedMD3Theme>();
   const bp = useBreakpoint();
   const { width: windowWidth } = useWindowDimensions();
   
@@ -204,15 +205,28 @@ export default function SearchScreen() {
     ({ item }: { item: SearchPost }) => {
       return (
         <View style={{ marginHorizontal: gridGap / 2, marginBottom: gridVerticalGap }}>
-          <PostCard post={item} onPress={handlePostPress} />
+          <PostCard
+            post={item}
+            onPress={handlePostPress}
+            style={{
+              backgroundColor: theme.dark ? theme.colors.surfaceContainerLow : theme.colors.surface,
+            }}
+          />
         </View>
       );
     },
-    [gridGap, gridVerticalGap, handlePostPress]
+    [gridGap, gridVerticalGap, handlePostPress, theme.colors.surface, theme.colors.surfaceContainerLow, theme.dark]
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.dark ? theme.colors.surfaceDim : theme.colors.surfaceContainer,
+        },
+      ]}
+    >
       {/* 搜索内容容器 */}
       <View style={[
         styles.contentWrapper,
@@ -223,7 +237,7 @@ export default function SearchScreen() {
             styles.topBar,
             {
               paddingTop: insets.top + 8,
-              backgroundColor: theme.colors.background,
+              backgroundColor: theme.colors.surface,
             },
           ]}
         >
@@ -363,7 +377,10 @@ export default function SearchScreen() {
         {/* ==================== 内容区域 ==================== */}
         {activeTab === 'posts' && !loading && hasSearched && !error && posts.length > 0 ? (
           <FlashList
-            style={{ ...styles.resultsList, backgroundColor: theme.colors.surfaceVariant }}
+            style={{
+              ...styles.resultsList,
+              backgroundColor: theme.dark ? theme.colors.surfaceDim : theme.colors.surfaceContainer,
+            }}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               paddingHorizontal: horizontalPadding,

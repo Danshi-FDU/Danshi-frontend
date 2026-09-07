@@ -28,6 +28,7 @@ import { CachedAvatar } from '@/src/components/cached_avatar';
 import { getPostComposerHref } from '@/src/lib/navigation/post_composer';
 import { usePostChangeSync } from '@/src/hooks/use_post_change_sync';
 import { UNSET_NICKNAME } from '@/src/constants/user';
+import type { ExtendedMD3Theme } from '@/src/constants/md3_theme';
 
 
 
@@ -140,7 +141,7 @@ export default function MyselfScreen() {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
-  const theme = usePaperTheme();
+  const theme = usePaperTheme<ExtendedMD3Theme>();
   const { width: windowWidth } = useWindowDimensions();
   const tabBarHeight = windowWidth >= breakpoints.md ? 0 : 56 + Math.max(insets.bottom, 12);
   const bottomContentPadding = useMemo(() => tabBarHeight + 24, [tabBarHeight]);
@@ -374,16 +375,29 @@ export default function MyselfScreen() {
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <View style={{ marginHorizontal: gap / 2, marginBottom: verticalGap }}>
-        <PostCard post={item} onPress={handlePostPress} />
+        <PostCard
+          post={item}
+          onPress={handlePostPress}
+          style={{
+            backgroundColor: theme.dark ? theme.colors.surfaceContainerLow : theme.colors.surface,
+          }}
+        />
       </View>
     ),
-    [gap, handlePostPress, verticalGap]
+    [gap, handlePostPress, theme.colors.surface, theme.colors.surfaceContainerLow, theme.dark, verticalGap]
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.dark ? theme.colors.surfaceDim : theme.colors.surfaceContainer,
+        },
+      ]}
+    >
       <FlashList
-        style={styles.scrollView}
+        style={{ ...styles.scrollView, backgroundColor: theme.dark ? theme.colors.surfaceDim : theme.colors.surfaceContainer }}
         contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: bottomContentPadding }}
         data={currentLoading ? [] : currentPosts}
         masonry
