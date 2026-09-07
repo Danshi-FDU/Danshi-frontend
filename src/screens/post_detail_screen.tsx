@@ -1822,15 +1822,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   desktopHeroContent: {
+    width: '100%',
     paddingHorizontal: 40,
-    alignItems: 'center',
+    paddingLeft: 56,
+    paddingRight: 48,
+    alignItems: 'flex-start',
     justifyContent: 'center',
     zIndex: 1,
   },
   desktopHeroTitle: {
     fontSize: 28,
     fontWeight: '700',
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 18,
     lineHeight: 36,
   },
@@ -2022,7 +2025,7 @@ const styles = StyleSheet.create({
   },
   fallbackContent: {
     width: '100%',
-    paddingHorizontal: 28,
+    paddingHorizontal: 36,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -2033,7 +2036,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
     lineHeight: 40,
-    textAlign: 'center',
+    textAlign: 'left',
     textAlignVertical: 'center',
   },
 });
