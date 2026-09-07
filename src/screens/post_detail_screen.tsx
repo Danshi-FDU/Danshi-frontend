@@ -179,7 +179,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     threadRepliesList, threadReplyTotal, threadLoading, threadHasMore,
     fetchComments,
     handleToggleCommentLike, handleReplyToComment, getCommentMoreActions,
-    handleCancelReply, handleOpenCommentSheet, handleCloseCommentSheet,
+    handleOpenCommentSheet, handleCloseCommentSheet,
     handleSubmitComment, handleCycleCommentSort,
     handleShowRepliesPanel, handleCloseThreadSheet,
     handleLoadMoreThreadReplies, handleReloadThreadReplies,
@@ -1303,7 +1303,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
             replyTarget={commentReplyTarget
               ? commentReplyTarget.author?.name || UNSET_NICKNAME
               : undefined}
-            onCancelReply={handleCancelReply}
+            onCancelReply={handleCloseCommentSheet}
             currentUser={currentUser
               ? { id: currentUser.id, name: currentUser.name, avatar_url: currentUser.avatar_url }
               : undefined}
@@ -1417,7 +1417,7 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
           replyTarget={commentReplyTarget
             ? commentReplyTarget.author?.name || UNSET_NICKNAME
             : undefined}
-          onCancelReply={handleCancelReply}
+          onCancelReply={handleCloseCommentSheet}
           currentUser={currentUser
             ? { id: currentUser.id, name: currentUser.name, avatar_url: currentUser.avatar_url }
             : undefined}
