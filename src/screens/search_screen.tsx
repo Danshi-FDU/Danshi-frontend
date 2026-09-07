@@ -60,6 +60,7 @@ export default function SearchScreen() {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<number, boolean>>({});
   const requestSeqRef = useRef(0);
+  const preserveStateOnNextFocusRef = useRef(false);
 
   usePostChangeSync({
     setItems: setPosts,
@@ -68,21 +69,25 @@ export default function SearchScreen() {
     publicOnly: true,
   });
 
-  // 页面重新获得焦点时恢复初始搜索状态，并刷新历史记录。
+  // 真正重新进入搜索时恢复初始状态；从搜索结果详情返回时保留现场。
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
+      const shouldPreserveState = preserveStateOnNextFocusRef.current;
+      preserveStateOnNextFocusRef.current = false;
 
       requestSeqRef.current += 1;
-      setKeyword('');
-      setActiveTab('posts');
-      setPosts([]);
-      setUsers([]);
-      setLoading(false);
-      setError(null);
-      setHasSearched(false);
-      setSearchHistory([]);
-      setFollowLoadingMap({});
+      if (!shouldPreserveState) {
+        setKeyword('');
+        setActiveTab('posts');
+        setPosts([]);
+        setUsers([]);
+        setLoading(false);
+        setError(null);
+        setHasSearched(false);
+        setSearchHistory([]);
+        setFollowLoadingMap({});
+      }
 
       AsyncStorage.getItem(SEARCH_HISTORY_KEY)
         .then((data) => {
@@ -123,6 +128,7 @@ export default function SearchScreen() {
   const handlePostPress = useCallback(
     (postId: number) => {
       const href: Href = { pathname: '/post/[postId]', params: { postId: String(postId) } };
+      preserveStateOnNextFocusRef.current = true;
       router.push(href);
     },
     [router]
@@ -130,6 +136,7 @@ export default function SearchScreen() {
 
   const handleUserPress = useCallback(
     (userId: number) => {
+      preserveStateOnNextFocusRef.current = true;
       router.push({ pathname: '/user/[userId]', params: { userId: String(userId) } });
     },
     [router]
