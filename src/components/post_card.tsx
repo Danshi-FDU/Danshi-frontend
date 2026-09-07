@@ -12,16 +12,7 @@ import { showAlert } from '@/src/utils/alert';
 import type { PostLikePatch } from '@/src/utils/post_like';
 import { UNSET_NICKNAME } from '@/src/constants/user';
 import { usePostCardActions } from '@/src/context/post_card_actions_context';
-
-// 莫兰迪色系背景色组（低饱和、高明度）
-const POSTER_COLORS = [
-  { bg: '#FFF2E8', text: '#8B5A2B' },  // 温暖米黄
-  { bg: '#E8F3FF', text: '#2E5A8B' },  // 清爽淡蓝
-  { bg: '#F7E8FF', text: '#6B4D8A' },  // 淡雅香芋紫
-  { bg: '#E8FFEA', text: '#3D7A4A' },  // 清新薄荷绿
-  { bg: '#FFFBE8', text: '#8B7A2B' },  // 淡柠檬黄
-  { bg: '#F2F4F7', text: '#5A5F6B' },  // 高级灰
-];
+import { getPostDisplayTitle, getPostPosterColor } from '@/src/constants/post_fallback';
 
 
 type PostCardProps = {
@@ -60,10 +51,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       ?? post.images?.map((item) => getSafeRemoteUrl(item)).find((item): item is string => !!item),
     [post.image_thumbs, post.images]
   );
-  const displayTitle = useMemo(
-    () => post.title?.trim() || post.content?.trim().slice(0, 60) || '分享美食',
-    [post.content, post.title]
-  );
+  const displayTitle = getPostDisplayTitle(post);
   const canShowActionsMenu = showActions && (!!onEdit || !!onDelete);
   const appearanceStyle = useMemo(() => {
     switch (appearance) {
@@ -141,9 +129,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   }, [seed]);
 
   // 文字海报随机颜色
-  const posterColor = useMemo(() => {
-    return POSTER_COLORS[seed % POSTER_COLORS.length];
-  }, [seed]);
+  const posterColor = getPostPosterColor(post.id);
 
   // 价格显示逻辑
   const priceLabel = useMemo(() => {

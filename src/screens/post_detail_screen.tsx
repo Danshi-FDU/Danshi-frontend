@@ -48,6 +48,7 @@ import { showAlert } from '@/src/utils/alert';
 import { BanUserSheet } from '@/src/components/admin/ban_user_sheet';
 import { usePostChanges } from '@/src/context/post_changes_context';
 import { UNSET_NICKNAME } from '@/src/constants/user';
+import { getPostDisplayTitle, getPostPosterColor } from '@/src/constants/post_fallback';
 
 // 图片展示配置
 const IMAGE_CONFIG = {
@@ -645,33 +646,8 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
     </BottomSheet>
   );
 
-
-  // 根据帖子类型生成渐变色（使用主题语义颜色）
-  const gradientColors = useMemo(() => {
-    const colors = theme.colors;
-    if (post?.post_type === 'seeking') {
-      // 求助类型：紫色系
-      return { 
-        primary: colors.seeking, 
-        secondary: colors.seekingContainer, 
-        accent: colors.onSeekingContainer 
-      };
-    } else if (sharePostData?.share_type === 'warning') {
-      // 避雷类型：红色系
-      return { 
-        primary: colors.warning, 
-        secondary: colors.warningContainer, 
-        accent: colors.onWarningContainer 
-      };
-    } else {
-      // 推荐/分享类型：使用品牌主色（橙色系）
-      return { 
-        primary: theme.colors.primary, 
-        secondary: theme.colors.primaryContainer, 
-        accent: theme.colors.onPrimaryContainer 
-      };
-    }
-  }, [post?.post_type, sharePostData?.share_type, theme.colors]);
+  const fallbackTitle = getPostDisplayTitle(post);
+  const fallbackColor = getPostPosterColor(post?.id ?? 0);
 
   // ==================== 统一顶部媒体区（Fallback Cover）====================
   const renderUnifiedHeroSection = () => {
@@ -711,37 +687,19 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       );
     }
 
-    // 无图模式：渲染 Mesh Gradient Fallback Cover
-    const typeLabel = sharePostData?.share_type 
-      ? SHARE_LABEL[sharePostData.share_type] 
-      : TYPE_LABEL[post?.post_type ?? 'share'];
-
-    const typeIcon: React.ComponentProps<typeof Ionicons>['name'] = post?.post_type === 'seeking' ? 'help-circle' : 
-      sharePostData?.share_type === 'warning' ? 'alert-circle' : 'heart';
-
+    // 无图模式：使用与 PostCard 相同的文字海报语言
     return (
-      <View style={[styles.fallbackCover, { paddingTop: insets.top + 56 }]}>
-        {/* Mesh Gradient 背景 */}
-        <View style={[styles.fallbackGradientBase, { backgroundColor: gradientColors.primary }]} />
-        <View style={[styles.fallbackMeshLayer1, { backgroundColor: gradientColors.secondary }]} />
-        <View style={[styles.fallbackMeshLayer2, { backgroundColor: gradientColors.accent }]} />
-        <View style={[styles.fallbackMeshLayer3, { backgroundColor: gradientColors.primary }]} />
-        
-        {/* 装饰性 Blur 圆圈 */}
+      <View style={[styles.fallbackCover, { backgroundColor: fallbackColor.bg }]}>
         <View style={styles.fallbackDecorations}>
-          <View style={[styles.fallbackCircle1, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
-          <View style={[styles.fallbackCircle2, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-          <View style={[styles.fallbackCircle3, { backgroundColor: gradientColors.accent, opacity: 0.2 }]} />
+          <Text style={[styles.fallbackQuoteWatermark, { color: fallbackColor.text }]}>{'"'}</Text>
         </View>
-
-        {/* 中央内容 - 大类型图标 */}
         <View style={styles.fallbackContent}>
-          <View style={styles.fallbackIconContainer}>
-            <Ionicons name={typeIcon} size={64} color="rgba(255,255,255,0.85)" />
-          </View>
-          <View style={styles.fallbackTypeBadge}>
-            <Text style={styles.fallbackTypeBadgeText}>{typeLabel}</Text>
-          </View>
+          <Text
+            style={[styles.fallbackTitle, { color: fallbackColor.text }]}
+            numberOfLines={4}
+          >
+            {fallbackTitle}
+          </Text>
         </View>
       </View>
     );
@@ -1211,20 +1169,21 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
                 )}
               </>
             ) : (
-              // 桌面端无图模式 - 渐变背景
-              <View style={[styles.desktopNoImageHero, { backgroundColor: gradientColors.primary }]}>
+              // 桌面端无图模式 - 与 PostCard 一致的文字海报
+              <View style={[styles.desktopNoImageHero, { backgroundColor: fallbackColor.bg }]}>
                 <View style={styles.heroPattern}>
-                  <View style={[styles.heroCircle, styles.desktopHeroCircle1, { backgroundColor: gradientColors.secondary }]} />
-                  <View style={[styles.heroCircle, styles.desktopHeroCircle2, { backgroundColor: gradientColors.secondary }]} />
+                  <Text style={[styles.desktopQuoteWatermark, { color: fallbackColor.text }]}>{'"'}</Text>
                 </View>
                 <View style={styles.desktopHeroContent}>
-                  <View style={[styles.heroTypeBadge, { backgroundColor: `${theme.colors.inverseOnSurface}33` }]}>
-                    <Text style={[styles.heroTypeBadgeText, { color: theme.colors.inverseOnSurface }]}>
-                      {sharePostData?.share_type ? SHARE_LABEL[sharePostData.share_type] : TYPE_LABEL[post?.post_type ?? 'share']}
-                    </Text>
-                  </View>
-                  <Text style={[styles.desktopHeroTitle, { color: theme.colors.inverseOnSurface, textShadowColor: theme.colors.shadow }]} numberOfLines={4}>{post?.title}</Text>
-                  <Text style={[styles.heroMeta, { color: `${theme.colors.inverseOnSurface}BF` }]}>{formatRelativeOrDate(post?.created_at)}</Text>
+                  <Text
+                    style={[styles.desktopHeroTitle, { color: fallbackColor.text }]}
+                    numberOfLines={4}
+                  >
+                    {fallbackTitle}
+                  </Text>
+                  <Text style={[styles.heroMeta, { color: fallbackColor.text, opacity: 0.72 }]}>
+                    {formatRelativeOrDate(post?.created_at)}
+                  </Text>
                 </View>
               </View>
             )}
@@ -1853,7 +1812,7 @@ const styles = StyleSheet.create({
   noImagePlaceholder: {
     alignItems: 'center',
   },
-  // 桌面端无图渐变样式
+  // Desktop no-image poster
   desktopNoImageHero: {
     width: '100%',
     height: '100%',
@@ -1861,24 +1820,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-  },
-  desktopHeroCircle1: {
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    position: 'absolute',
-    right: -100,
-    top: -50,
-    opacity: 0.3,
-  },
-  desktopHeroCircle2: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    position: 'absolute',
-    left: -50,
-    bottom: 50,
-    opacity: 0.2,
   },
   desktopHeroContent: {
     paddingHorizontal: 40,
@@ -1889,13 +1830,9 @@ const styles = StyleSheet.create({
   desktopHeroTitle: {
     fontSize: 28,
     fontWeight: '700',
-    // color 在使用时通过 theme.colors.inverseOnSurface 设置（白色文字在彩色渐变背景上）
     textAlign: 'center',
-    marginVertical: 16,
+    marginBottom: 18,
     lineHeight: 36,
-    // textShadow 颜色使用 theme.colors.shadow
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   desktopRight: {
     flex: 1,
@@ -1951,40 +1888,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
-  heroCircle: {
+  desktopQuoteWatermark: {
     position: 'absolute',
-    borderRadius: 999,
-    opacity: 0.15,
-  },
-  heroCircle1: {
-    width: 200,
-    height: 200,
-    top: -60,
-    right: -40,
-  },
-  heroCircle2: {
-    width: 150,
-    height: 150,
-    bottom: -30,
-    left: -30,
+    top: -34,
+    left: 28,
+    fontSize: 190,
+    fontWeight: '700',
+    lineHeight: 190,
+    opacity: 0.18,
   },
   heroContent: {
     paddingHorizontal: 20,
     paddingBottom: 16,
     gap: 12,
-  },
-  heroTypeBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  // Hero 区域样式 - 白色文字/元素用于彩色渐变背景上（通过 inverseOnSurface 动态设置）
-  heroTypeBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    // color: theme.colors.inverseOnSurface (在组件中动态设置)
   },
   heroTitle: {
     fontSize: 26,
@@ -1995,7 +1911,6 @@ const styles = StyleSheet.create({
   },
   heroMeta: {
     fontSize: 13,
-    // color: 使用 inverseOnSurface 配合 opacity (在组件中动态设置)
   },
   heroAuthorCard: {
     flexDirection: 'row',
@@ -2084,7 +1999,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ==================== Fallback Cover (无图帖子占位封面) ====================
+  // ==================== Fallback Cover (无图帖子文字海报) ====================
   fallbackCover: {
     position: 'relative',
     minHeight: 300,
@@ -2092,93 +2007,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fallbackGradientBase: {
-    ...StyleSheet.absoluteFill,
-  },
-  fallbackMeshLayer1: {
-    position: 'absolute',
-    width: '70%',
-    height: '70%',
-    top: -20,
-    right: -30,
-    borderRadius: 200,
-    opacity: 0.6,
-    transform: [{ rotate: '15deg' }],
-  },
-  fallbackMeshLayer2: {
-    position: 'absolute',
-    width: '80%',
-    height: '60%',
-    bottom: -40,
-    left: -40,
-    borderRadius: 150,
-    opacity: 0.4,
-    transform: [{ rotate: '-20deg' }],
-  },
-  fallbackMeshLayer3: {
-    position: 'absolute',
-    width: '50%',
-    height: '50%',
-    top: '30%',
-    left: '25%',
-    borderRadius: 100,
-    opacity: 0.3,
-  },
   fallbackDecorations: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
-  fallbackCircle1: {
+  fallbackQuoteWatermark: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    top: -40,
-    right: -40,
-  },
-  fallbackCircle2: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    bottom: 20,
-    left: -30,
-  },
-  fallbackCircle3: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    top: '50%',
-    right: '20%',
+    top: -18,
+    left: 20,
+    fontSize: 132,
+    fontWeight: '700',
+    lineHeight: 132,
+    opacity: 0.2,
   },
   fallbackContent: {
+    width: '100%',
+    paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
     gap: 16,
   },
-  fallbackIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  fallbackTypeBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  fallbackTypeBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
+  fallbackTitle: {
+    width: '100%',
+    fontSize: 30,
+    fontWeight: '800',
+    lineHeight: 40,
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
 });
