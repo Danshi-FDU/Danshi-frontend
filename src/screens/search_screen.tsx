@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, View, ScrollView, Pressable, TextInput as RNTextInput, useWindowDimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import {
@@ -9,7 +9,7 @@ import {
 } from 'react-native-paper';
 import type { ExtendedMD3Theme } from '@/src/constants/md3_theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useFocusEffect, type Href } from 'expo-router';
 import { searchService, type SearchPost, type SearchUser } from '@/src/services/search_service';
 import { usersService } from '@/src/services/users_service';
 import { useAuth } from '@/src/context/auth_context';
@@ -61,6 +61,7 @@ export default function SearchScreen() {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [followLoadingMap, setFollowLoadingMap] = useState<Record<number, boolean>>({});
   const requestSeqRef = useRef(0);
+  const preserveStateOnNextFocusRef = useRef(false);
 
   usePostChangeSync({
     setItems: setPosts,
@@ -69,16 +70,46 @@ export default function SearchScreen() {
     publicOnly: true,
   });
 
-  // 加载搜索历史
-  useEffect(() => {
-    AsyncStorage.getItem(SEARCH_HISTORY_KEY)
-      .then((data) => {
-        if (data) {
-          setSearchHistory(JSON.parse(data));
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // 真正重新进入搜索时恢复初始状态；从搜索结果详情返回时保留现场。
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const shouldPreserveState = preserveStateOnNextFocusRef.current;
+      preserveStateOnNextFocusRef.current = false;
+
+      requestSeqRef.current += 1;
+      if (!shouldPreserveState) {
+        setKeyword('');
+        setActiveTab('posts');
+        setPosts([]);
+        setUsers([]);
+        setLoading(false);
+        setError(null);
+        setHasSearched(false);
+        setSearchHistory([]);
+        setFollowLoadingMap({});
+      }
+
+      AsyncStorage.getItem(SEARCH_HISTORY_KEY)
+        .then((data) => {
+          if (!isActive || !data) return;
+          try {
+            const history = JSON.parse(data);
+            if (Array.isArray(history)) {
+              setSearchHistory(history.filter((item): item is string => typeof item === 'string'));
+            }
+          } catch {
+            // 忽略损坏的本地历史记录，保留空状态。
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        isActive = false;
+        requestSeqRef.current += 1;
+      };
+    }, [])
+  );
 
   // 保存搜索历史
   const saveToHistory = useCallback(async (term: string) => {
@@ -98,6 +129,7 @@ export default function SearchScreen() {
   const handlePostPress = useCallback(
     (postId: number) => {
       const href: Href = { pathname: '/post/[postId]', params: { postId: String(postId) } };
+      preserveStateOnNextFocusRef.current = true;
       router.push(href);
     },
     [router]
@@ -105,6 +137,7 @@ export default function SearchScreen() {
 
   const handleUserPress = useCallback(
     (userId: number) => {
+      preserveStateOnNextFocusRef.current = true;
       router.push({ pathname: '/user/[userId]', params: { userId: String(userId) } });
     },
     [router]
