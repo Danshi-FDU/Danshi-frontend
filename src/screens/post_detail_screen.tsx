@@ -689,7 +689,15 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
 
     // 无图模式：使用与 PostCard 相同的文字海报语言
     return (
-      <View style={[styles.fallbackCover, { backgroundColor: fallbackColor.bg }]}>
+      <View
+        style={[
+          styles.fallbackCover,
+          {
+            backgroundColor: fallbackColor.bg,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
         <View style={styles.fallbackDecorations}>
           <Text style={[styles.fallbackQuoteWatermark, { color: fallbackColor.text }]}>{'"'}</Text>
         </View>
@@ -2026,6 +2034,7 @@ const styles = StyleSheet.create({
     opacity: 0.2,
   },
   fallbackContent: {
+    flex: 1,
     width: '100%',
     paddingHorizontal: 36,
     alignItems: 'center',
