@@ -1289,18 +1289,18 @@ const PostDetailScreen: React.FC<Props> = ({ postId }) => {
       {/* 顶部导航 - 悬浮在图片/Hero上 */}
       <View style={[styles.mobileHeader, { paddingTop: insets.top }]}>
         <Pressable style={[styles.headerBtn, !hasImages && styles.headerBtnLight]} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={22} color={theme.colors.onPrimary} />
+          <Ionicons name="arrow-back" size={22} color={hasImages ? theme.colors.onPrimary : fallbackColor.text} />
         </Pressable>
         <View style={styles.mobileHeaderActions}>
           <Pressable style={[styles.headerBtn, !hasImages && styles.headerBtnLight]} onPress={() => setShareSheetVisible(true)}>
-            <Ionicons name="share-outline" size={22} color={theme.colors.onPrimary} />
+            <Ionicons name="share-outline" size={22} color={hasImages ? theme.colors.onPrimary : fallbackColor.text} />
           </Pressable>
           <Pressable
             style={[styles.headerBtn, !hasImages && styles.headerBtnLight]}
             onPress={() => setPostActionsVisible(true)}
             disabled={!post}
           >
-            <Ionicons name="ellipsis-horizontal" size={22} color={theme.colors.onPrimary} />
+            <Ionicons name="ellipsis-horizontal" size={22} color={hasImages ? theme.colors.onPrimary : fallbackColor.text} />
           </Pressable>
         </View>
       </View>
@@ -1432,7 +1432,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerBtnLight: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.12)',
   },
 
   // ==================== Image Carousel ====================
