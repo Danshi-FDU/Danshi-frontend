@@ -50,7 +50,9 @@ export function usePostActions({ post, setPost, currentUserId }: UsePostActionsP
 
   useEffect(() => {
     const author = post?.author as ({ is_following?: boolean } & NonNullable<Post['author']>) | undefined;
-    setIsFollowed(author?.is_following ?? false);
+    if (typeof author?.is_following === 'boolean') {
+      setIsFollowed(author.is_following);
+    }
   }, [post]);
 
   /** 同步关注状态（通常在 fetchPost 后调用） */
@@ -157,12 +159,17 @@ export function usePostActions({ post, setPost, currentUserId }: UsePostActionsP
         ? await usersService.unfollowUser(currentPost.author.id)
         : await usersService.followUser(currentPost.author.id);
       setIsFollowed(is_following);
+      setPost((prev) => (
+        prev?.author
+          ? { ...prev, author: { ...prev.author, is_following } }
+          : prev
+      ));
     } catch (e) {
       showAlert('操作失败', (e as Error)?.message ?? '请稍后重试');
     } finally {
       endAction('follow');
     }
-  }, [isFollowed, currentUserId, requireAuth, beginAction, endAction]);
+  }, [isFollowed, currentUserId, requireAuth, beginAction, endAction, setPost]);
 
   // ==================== 分享 ====================
   const handleShareToPlatform = useCallback(async () => {
